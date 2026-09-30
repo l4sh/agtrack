@@ -42,6 +42,12 @@ type watchLoop struct {
 	onEvent func(e *row.Row) (terminal string, code int, extra *row.Row)
 	// onTick runs after each poll; it may also end the watch.
 	onTick func() (terminal string, code int, extra *row.Row)
+	// emit, if set, replaces the default one-line printing of each event
+	// (spec watch holds unreleased comments and expands releases).
+	emit func(e *row.Row)
+	// finish, if set, replaces the TERMINAL line (spec await prints its
+	// result object instead) and returns the command's error.
+	finish func(state string, code int, extra *row.Row) error
 }
 
 func (w *watchLoop) run() error {
@@ -64,7 +70,11 @@ func (w *watchLoop) run() error {
 		}
 		for _, e := range events {
 			w.after = e.Int("id")
-			w.emitEvent(e)
+			if w.emit != nil {
+				w.emit(e)
+			} else {
+				w.emitEvent(e)
+			}
 			if w.onEvent != nil {
 				if t, code, extra := w.onEvent(e); t != "" {
 					return w.terminal(t, code, extra)
@@ -111,6 +121,9 @@ func (w *watchLoop) emitEvent(e *row.Row) {
 }
 
 func (w *watchLoop) terminal(state string, code int, extra *row.Row) error {
+	if w.finish != nil {
+		return w.finish(state, code, extra)
+	}
 	c := w.c
 	if c.structured() {
 		obj := row.Of("terminal", state, "code", int64(code), "cursor", w.after)
