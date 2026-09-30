@@ -14,3 +14,10 @@ func (s *Store) SpecReviewState(projectID int64) (out []*row.Row, err error) {
 	defer guard(&err)
 	return []*row.Row{}, nil
 }
+
+// SpecNoteInput is a comment created from the viewer or `spec note`.
+type SpecNoteInput struct {
+	Section, Quote, Prefix, Suffix, Kind, Body string
+	ParentID                                   int64
+	RepoRoot                                   string
+}

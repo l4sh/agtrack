@@ -38,12 +38,27 @@ import (
 )
 
 // CSP forbids external script, style and connect; everything ships from embed.
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
+// Inline *styles* are allowed because Mermaid's SVG output carries a <style>
+// block; inline and external scripts stay forbidden.
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
 	"connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+// Backend is the slice of the store the viewer uses. *store.Store implements
+// it; tests use a fake.
+type Backend interface {
+	SpecModel(specID int64) (*row.Row, error)
+	SpecTasks(specID int64) (*row.Row, error)
+	SpecAddNote(specID int64, in store.SpecNoteInput) (note *row.Row, pinned string, fileModified bool, err error)
+	SpecRelease(specID int64) (released int, cursor int64, err error)
+	SpecApprove(specID int64, note string, buildNotes []string) (approval *row.Row, buildNoteRows []*row.Row, err error)
+	SpecEventsAfter(specID, after int64, limit int) ([]*row.Row, error)
+	SpecNoteBelongs(specID, noteID int64) (bool, error)
+	ResolveNote(id int64, rationale string, reopen bool) (*row.Row, bool, error)
+}
 
 // Options configure one serving session.
 type Options struct {
-	Store    *store.Store
+	Store    Backend
 	SpecID   int64
 	SpecRef  string
 	Addr     string        // default 127.0.0.1:0
