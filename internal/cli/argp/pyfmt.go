@@ -21,7 +21,8 @@ func pyRepr(s string) string {
 		r, size := utf8.DecodeRuneInString(s[i:])
 		switch {
 		case r == utf8.RuneError && size == 1:
-			b.WriteString(`\x` + strconv.FormatUint(uint64(s[i])|0x100, 16)[1:])
+			// Python decodes such argv bytes with surrogateescape.
+			b.WriteString(`\udc` + strconv.FormatUint(uint64(s[i])|0x100, 16)[1:])
 		case r == '\\' || r == rune(quote):
 			b.WriteByte('\\')
 			b.WriteRune(r)
@@ -71,7 +72,10 @@ func pyInt(s string) (int, bool) {
 		}
 	}
 	n, err := strconv.Atoi(strings.ReplaceAll(s, "_", ""))
-	return n, err == nil
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }
 
 // negNumber is argparse's _negative_number_matcher: '-', optional '.', digit.

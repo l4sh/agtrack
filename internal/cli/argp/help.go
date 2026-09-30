@@ -22,7 +22,7 @@ func (p *Parser) progFor(path []string) string {
 func (p *Parser) UsageLine(path []string) string {
 	path = p.canonical(path)
 	c := p.Find(path)
-	if c == nil {
+	if path == nil || c == nil {
 		return ""
 	}
 	s, err := p.spec(path, c)
@@ -85,7 +85,7 @@ func (p *Parser) UsageLine(path []string) string {
 func (p *Parser) Help(path []string) string {
 	path = p.canonical(path)
 	c := p.Find(path)
-	if c == nil {
+	if path == nil || c == nil {
 		return ""
 	}
 	s, err := p.spec(path, c)

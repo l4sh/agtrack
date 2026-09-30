@@ -51,7 +51,7 @@ type SubSchema struct {
 func (p *Parser) Describe(path []string) *Schema {
 	path = p.canonical(path)
 	c := p.Find(path)
-	if c == nil {
+	if path == nil || c == nil {
 		return nil
 	}
 	s, err := p.spec(path, c)

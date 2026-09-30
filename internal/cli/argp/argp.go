@@ -13,6 +13,7 @@ package argp
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // Kind is how a flag consumes and stores its value.
@@ -102,7 +103,8 @@ type Parser struct {
 	// Width is the help text width; default 80 (argparse wraps at width-2).
 	Width int
 
-	built map[*Command]*spec
+	mu    sync.Mutex
+	built map[*Command]*spec // compiled lazily; do not edit the table after first use
 }
 
 // Result is a successful parse.
@@ -184,7 +186,8 @@ func (p *Parser) Find(path []string) *Command {
 	return c
 }
 
-// canonical returns the canonical names for a path of names or aliases.
+// canonical returns the canonical names for a path of names or aliases,
+// nil if the path is unknown.
 func (p *Parser) canonical(path []string) []string {
 	out := make([]string, 0, len(path))
 	c := p.Root

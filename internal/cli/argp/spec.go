@@ -81,6 +81,8 @@ func (p *Parser) Validate() error {
 }
 
 func (p *Parser) spec(path []string, c *Command) (*spec, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if s, ok := p.built[c]; ok {
 		return s, nil
 	}
