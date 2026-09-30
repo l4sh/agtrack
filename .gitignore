@@ -1,0 +1,8 @@
+/dist/
+/agtrack
+*.db
+*.db-wal
+*.db-shm
+/.marshal/
+/.work/
+AGTASK-*
