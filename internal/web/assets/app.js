@@ -48,6 +48,21 @@ function apiPath(p) {
  * @param {string} path
  * @param {{method?: string, body?: unknown}} [opts]
  */
+// busy runs fn with the form's submit buttons disabled, and ignores a
+// second submit while the first request is in flight (double-click safe).
+async function busy(form, fn) {
+  if (form.dataset.busy === "1") return;
+  form.dataset.busy = "1";
+  const buttons = Array.from(form.querySelectorAll('button[type="submit"]'));
+  for (const b of buttons) b.disabled = true;
+  try {
+    await fn();
+  } finally {
+    delete form.dataset.busy;
+    for (const b of buttons) b.disabled = false;
+  }
+}
+
 async function api(path, opts = {}) {
   const headers = { "X-Agtrack-Token": session.token };
   let body;
@@ -525,19 +540,21 @@ function renderReplyForm(rootNote) {
     ev.preventDefault();
     const body = textarea.value.trim();
     if (!body) return;
-    try {
-      await postNote({
-        section: rootNote.section,
-        kind: "note",
-        body,
-        parent_id: rootNote.id,
-      });
-      state.openReplyFor.delete(rootNote.id);
-      await refreshDoc();
-      showToast("Reply posted.");
-    } catch (err) {
-      showToast(err.message, true);
-    }
+    await busy(form, async () => {
+      try {
+        await postNote({
+          section: rootNote.section,
+          kind: "note",
+          body,
+          parent_id: rootNote.id,
+        });
+        state.openReplyFor.delete(rootNote.id);
+        await refreshDoc();
+        showToast("Reply posted.");
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
   });
 
   return form;
@@ -794,24 +811,27 @@ el.commentForm.addEventListener("submit", async (ev) => {
     el.commentError.hidden = false;
     return;
   }
-  try {
-    await postNote({
-      section: activeComment.section,
-      quote: activeComment.quote,
-      prefix: activeComment.prefix,
-      suffix: activeComment.suffix,
-      kind: el.commentKind.value,
-      body,
-      parent_id: null,
-    });
-    closeCommentDialog();
-    window.getSelection().removeAllRanges();
-    await refreshDoc();
-    showToast("Comment posted.");
-  } catch (err) {
-    el.commentError.textContent = err.message;
-    el.commentError.hidden = false;
-  }
+  const comment = activeComment;
+  await busy(el.commentForm, async () => {
+    try {
+      await postNote({
+        section: comment.section,
+        quote: comment.quote,
+        prefix: comment.prefix,
+        suffix: comment.suffix,
+        kind: el.commentKind.value,
+        body,
+        parent_id: null,
+      });
+      closeCommentDialog();
+      window.getSelection().removeAllRanges();
+      await refreshDoc();
+      showToast("Comment posted.");
+    } catch (err) {
+      el.commentError.textContent = err.message;
+      el.commentError.hidden = false;
+    }
+  });
 });
 
 for (const btn of el.commentForm.querySelectorAll("[data-close]")) {
@@ -877,15 +897,17 @@ el.approveForm.addEventListener("submit", async (ev) => {
   const buildNotes = Array.from(el.approveBuildNotes.querySelectorAll("input"))
     .map((i) => i.value.trim())
     .filter(Boolean);
-  try {
-    await postApprove({ note: el.approveNote.value.trim(), build_notes: buildNotes });
-    el.approveDialog.hidden = true;
-    await refreshDoc();
-    showToast("Approved.");
-  } catch (err) {
-    el.approveError.textContent = err.message;
-    el.approveError.hidden = false;
-  }
+  await busy(el.approveForm, async () => {
+    try {
+      await postApprove({ note: el.approveNote.value.trim(), build_notes: buildNotes });
+      el.approveDialog.hidden = true;
+      await refreshDoc();
+      showToast("Approved.");
+    } catch (err) {
+      el.approveError.textContent = err.message;
+      el.approveError.hidden = false;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

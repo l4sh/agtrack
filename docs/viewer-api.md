@@ -167,5 +167,7 @@ structured errors (`not_found`, `invalid_argument`, `conflict`, …), plus `forb
   `subtle.ConstantTimeCompare`; Host header validated; no CORS headers; CSP above; goldmark
   without unsafe HTML + sanitised output; Mermaid pinned and `securityLevel: 'strict'`;
   idle-timeout exit; every mutation through the same store, transactions, idempotency and
-  attribution (actor = `--actor`/`AGTRACK_ACTOR` of the `serve` process, or `web:<name>` when
-  `--as` is given).
+  attribution: browser actions are recorded as `spec serve --as NAME` (default `human`),
+  through a second store on the same connection — never as the `--actor`/`AGTRACK_ACTOR` of
+  the agent running `serve`, which would hide them from its `--actor-not self` watch.
+  `serve` refuses to start when `--as` equals the serving actor.
