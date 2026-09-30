@@ -75,11 +75,11 @@ type Section struct {
 	SubtreeEnd       int // ByteEnd of the last descendant, or ByteEnd
 	HasMermaid       bool
 	Images           []string // relative image references, in order, deduplicated
+	PinFromSuffix    bool     // PinKey came from a {#key} suffix, not a comment
 
-	pinFromSuffix bool
-	headStart     int // normalised offsets used while building
-	contentStart  int
-	contentEnd    int
+	headStart    int // normalised offsets used while building
+	contentStart int
+	contentEnd   int
 }
 
 // Doc is a parsed document.
@@ -506,7 +506,7 @@ func (d *Doc) build(evs []event, bodyStart int) error {
 					d.warnf("line %d: heading has both pin %q and {#%s}; the pin comment wins", d.line(e.lineStart), s.PinKey, suffixKey)
 				}
 			case suffixKey != "":
-				s.PinKey, s.pinFromSuffix = suffixKey, true
+				s.PinKey, s.PinFromSuffix = suffixKey, true
 			}
 			pending = nil
 			if s.PinKey != "" {
@@ -521,7 +521,7 @@ func (d *Doc) build(evs []event, bodyStart int) error {
 			if i == elide {
 				r := &secs[0]
 				r.Level, r.Heading = 1, s.Heading
-				r.PinKey, r.PinLine, r.pinFromSuffix = s.PinKey, s.PinLine, s.pinFromSuffix
+				r.PinKey, r.PinLine, r.PinFromSuffix = s.PinKey, s.PinLine, s.PinFromSuffix
 				r.headStart, r.contentStart, r.contentEnd = s.headStart, s.contentStart, -1
 				current = 0
 				continue
