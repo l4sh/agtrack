@@ -28,7 +28,7 @@ func specTree() *argp.Command {
 			{Long: "--interval", Metavar: "DURATION", Default: "1s", Help: "poll interval"},
 		}, extra...)
 	}
-	return &argp.Command{Name: "spec", Aliases: []string{"specs"}, Help: "specs: markdown documents addressable by section", SubRequired: true,
+	return &argp.Command{Name: "spec", Aliases: []string{"specs"}, Help: "specs: markdown documents addressable by section", SubRequired: true, Hidden: true,
 		Subs: []*argp.Command{
 			{Name: "add", Help: "import a markdown file as a spec (the file is not modified)", Run: Handler(specAdd),
 				Args:  []argp.Arg{{Name: "file"}},
