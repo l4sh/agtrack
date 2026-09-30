@@ -1,0 +1,176 @@
+# Positional chunking (brief)
+task add fix the bug -p x
+task status done 12 13
+sub add 12 "step one" "step two" --tag a
+project repo add orbiter git@github.com:x/y.git url2
+project repo add orbiter
+project repo ls orbiter --db x
+project repo bad x
+project repo add
+log
+log --since 2d -n 5
+log ls --since 2d
+log list --by me --by-day
+log add x y -t 3
+log add x y -t 3 z
+log --by me
+log -n0
+log -n 5 ls
+log bogus
+worklog -p x
+task add -p x -- -leading-dash-title
+task add x -- -y -p z
+task add x --
+task add -- --x
+task add -- 
+task show -- --
+task ls --
+-- task ls
+task add a -p x b
+task add a --tag x b --tag y c
+task show 1 2
+task done 1 --at 3d 2
+task done 1 2 3 --note n --tag a --tag b
+task status done
+task status
+pr add 5 --title t url
+pr add
+pr add 5
+pr state 3 merged
+# Prefix matching
+task ls --proj x --gre foo
+task ls --proj=x
+task ls --s x
+task ls --no
+task ls --no-h
+task ls --tag a --tags-all
+task ls --tags x
+task add x --st done
+task add x --s done
+task add x --sta done
+task ls --al
+task ls --all
+--for json task ls
+--form=json task ls
+task ls --he
+task ls --h
+--ver
+--vers
+# Choices / types
+task ls -f x
+-f x task ls
+task ls --order bogus
+task ls --order status
+task ls -n 3x
+task ls -n 0
+task ls -n -1
+task ls -n " 7"
+task ls -n 1_0
+task ls -n +4
+task ls -n3
+task ls -n
+task ls --limit=
+pr ls --number x
+pr ls --number -3
+pr ls --number 3.5
+sub ls 4 -n 2
+next -n 0
+# Short flags and clusters
+task ls -qx
+task ls -xq
+task ls -qf json
+task ls -fjson
+task ls -fq
+task ls -f=json
+task ls -c=a
+task ls -cwork
+task ls -qZ
+task ls -q=x
+task ls -qx=y
+task ls -Z
+task ls -
+# Negative numbers and odd tokens
+task add -5 -p x
+task add -1.5
+task add -.5
+task add -1abc
+task add "-a b"
+task add ""
+task show -x5
+# Globals at every level; last wins
+-f json task ls -f yaml
+-f json task ls
+-c a task -c b ls -c c
+-q task ls
+task -q ls
+task -f json
+-x
+--proj
+--db /tmp/x.db info
+info --db /tmp/y.db --actor me
+# Aliases
+t ls
+tasks list
+t delete 3
+p ls
+p ls -p foo
+proj add a --repo r1 --repo r2 --tag t --use
+context ls --archived
+contexts add work --title W --use
+s done 12.3 --no-cascade
+subtask status wip 12.1 12.2
+tags show foo
+prs ls -t 3
+# Missing / unknown verbs
+task
+ctx
+task bogus
+task bogus -h
+bogus
+task add
+sub add 12
+ctx add x --title
+task add --tag
+task set 3 --title a b c --move m
+task set 3 --title
+task set 3 --title=a b
+task set 3 --title a --title b c
+task set 3 --move
+# Bool with value, unknown options
+task ls --count=3
+task ls --count --ids --all-contexts
+task ls extra
+task ls --bogus
+task ls --bogus=3 x
+task add x --bogus y
+-Z task ls
+-n 3 task ls
+# Note verbs and tags
+task note 12 some body text --at 1d
+task notes 12
+ctx note work hello
+task tag 12 a b c
+task untag 12 a
+project tag orbiter x
+tag ls --count
+tag note foo bar
+# Leaves
+next --todo -n 3 --all-contexts
+summary --all-contexts
+here
+dump --all-contexts -f yaml
+info
+next extra
+# Help and version
+-h
+--help
+task -h
+task add -h
+task add --help extra
+task add x --tag -h
+-V
+--version
+task -V
+-h task
+t ls --help
+log -h

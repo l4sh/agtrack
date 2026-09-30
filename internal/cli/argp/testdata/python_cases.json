@@ -1,0 +1,2861 @@
+[
+ {
+  "argv": [
+   "task",
+   "add",
+   "fix",
+   "the",
+   "bug",
+   "-p",
+   "x"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "fix",
+    "the",
+    "bug"
+   ],
+   "project": "x",
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "status",
+   "done",
+   "12",
+   "13"
+  ],
+  "typed": [
+   "task",
+   "status"
+  ],
+  "values": {
+   "status": "done",
+   "ref": [
+    "12",
+    "13"
+   ],
+   "note": null,
+   "tag": null,
+   "at": null
+  }
+ },
+ {
+  "argv": [
+   "sub",
+   "add",
+   "12",
+   "step one",
+   "step two",
+   "--tag",
+   "a"
+  ],
+  "typed": [
+   "sub",
+   "add"
+  ],
+  "values": {
+   "task": "12",
+   "title": [
+    "step one",
+    "step two"
+   ],
+   "tag": [
+    "a"
+   ],
+   "note": null,
+   "at": null
+  }
+ },
+ {
+  "argv": [
+   "project",
+   "repo",
+   "add",
+   "orbiter",
+   "git@github.com:x/y.git",
+   "url2"
+  ],
+  "typed": [
+   "project",
+   "repo"
+  ],
+  "values": {
+   "repo_action": "add",
+   "ref": "orbiter",
+   "url": [
+    "git@github.com:x/y.git",
+    "url2"
+   ]
+  }
+ },
+ {
+  "argv": [
+   "project",
+   "repo",
+   "add",
+   "orbiter"
+  ],
+  "typed": [
+   "project",
+   "repo"
+  ],
+  "values": {
+   "repo_action": "add",
+   "ref": "orbiter",
+   "url": []
+  }
+ },
+ {
+  "argv": [
+   "project",
+   "repo",
+   "ls",
+   "orbiter",
+   "--db",
+   "x"
+  ],
+  "typed": [
+   "project",
+   "repo"
+  ],
+  "values": {
+   "repo_action": "ls",
+   "ref": "orbiter",
+   "url": [],
+   "db": "x"
+  }
+ },
+ {
+  "argv": [
+   "project",
+   "repo",
+   "bad",
+   "x"
+  ],
+  "error": {
+   "prog": "agtrack project repo",
+   "message": "argument repo_action: invalid choice: 'bad' (choose from 'add', 'rm', 'ls')"
+  }
+ },
+ {
+  "argv": [
+   "project",
+   "repo",
+   "add"
+  ],
+  "error": {
+   "prog": "agtrack project repo",
+   "message": "the following arguments are required: ref"
+  }
+ },
+ {
+  "argv": [
+   "log"
+  ],
+  "typed": [
+   "log"
+  ],
+  "values": {
+   "since": null,
+   "until": null,
+   "task": null,
+   "project": null,
+   "direct": false,
+   "actor_filter": null,
+   "action": null,
+   "limit": 50,
+   "all_contexts": false,
+   "by_day": false,
+   "backdated": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "--since",
+   "2d",
+   "-n",
+   "5"
+  ],
+  "typed": [
+   "log"
+  ],
+  "values": {
+   "since": "2d",
+   "until": null,
+   "task": null,
+   "project": null,
+   "direct": false,
+   "actor_filter": null,
+   "action": null,
+   "limit": 5,
+   "all_contexts": false,
+   "by_day": false,
+   "backdated": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "ls",
+   "--since",
+   "2d"
+  ],
+  "typed": [
+   "log",
+   "ls"
+  ],
+  "values": {
+   "since": "2d",
+   "until": null,
+   "task": null,
+   "project": null,
+   "direct": false,
+   "actor_filter": null,
+   "action": null,
+   "limit": 50,
+   "all_contexts": false,
+   "by_day": false,
+   "backdated": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "list",
+   "--by",
+   "me",
+   "--by-day"
+  ],
+  "typed": [
+   "log",
+   "list"
+  ],
+  "values": {
+   "since": null,
+   "until": null,
+   "task": null,
+   "project": null,
+   "direct": false,
+   "actor_filter": "me",
+   "action": null,
+   "limit": 50,
+   "all_contexts": false,
+   "by_day": true,
+   "backdated": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "add",
+   "x",
+   "y",
+   "-t",
+   "3"
+  ],
+  "typed": [
+   "log",
+   "add"
+  ],
+  "values": {
+   "since": null,
+   "until": null,
+   "task": "3",
+   "project": null,
+   "direct": false,
+   "actor_filter": null,
+   "action": null,
+   "limit": 50,
+   "all_contexts": false,
+   "by_day": false,
+   "backdated": false,
+   "count": false,
+   "ids": false,
+   "body": [
+    "x",
+    "y"
+   ],
+   "at": null
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "add",
+   "x",
+   "y",
+   "-t",
+   "3",
+   "z"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: z"
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "--by",
+   "me"
+  ],
+  "typed": [
+   "log"
+  ],
+  "values": {
+   "since": null,
+   "until": null,
+   "task": null,
+   "project": null,
+   "direct": false,
+   "actor_filter": "me",
+   "action": null,
+   "limit": 50,
+   "all_contexts": false,
+   "by_day": false,
+   "backdated": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "-n0"
+  ],
+  "error": {
+   "prog": "agtrack log",
+   "message": "argument -n/--limit: 0 must be 1 or more"
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "-n",
+   "5",
+   "ls"
+  ],
+  "typed": [
+   "log",
+   "ls"
+  ],
+  "values": {
+   "since": null,
+   "until": null,
+   "task": null,
+   "project": null,
+   "direct": false,
+   "actor_filter": null,
+   "action": null,
+   "limit": 50,
+   "all_contexts": false,
+   "by_day": false,
+   "backdated": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "log",
+   "bogus"
+  ],
+  "error": {
+   "prog": "agtrack log",
+   "message": "argument [<verb>]: invalid choice: 'bogus' (choose from 'add', 'ls', 'list')"
+  }
+ },
+ {
+  "argv": [
+   "worklog",
+   "-p",
+   "x"
+  ],
+  "typed": [
+   "worklog"
+  ],
+  "values": {
+   "since": null,
+   "until": null,
+   "task": null,
+   "project": "x",
+   "direct": false,
+   "actor_filter": null,
+   "action": null,
+   "limit": 50,
+   "all_contexts": false,
+   "by_day": false,
+   "backdated": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "-p",
+   "x",
+   "--",
+   "-leading-dash-title"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "-leading-dash-title"
+   ],
+   "project": "x",
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "x",
+   "--",
+   "-y",
+   "-p",
+   "z"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "x",
+    "-y",
+    "-p",
+    "z"
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "x",
+   "--"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "x"
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "--",
+   "--x"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "--x"
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "--"
+  ],
+  "error": {
+   "prog": "agtrack task add",
+   "message": "the following arguments are required: title"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "show",
+   "--",
+   "--"
+  ],
+  "typed": [
+   "task",
+   "show"
+  ],
+  "values": {
+   "ref": "--"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: --"
+  }
+ },
+ {
+  "argv": [
+   "--",
+   "task",
+   "ls"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "a",
+   "-p",
+   "x",
+   "b"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: b"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "a",
+   "--tag",
+   "x",
+   "b",
+   "--tag",
+   "y",
+   "c"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: b c"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "show",
+   "1",
+   "2"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: 2"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "done",
+   "1",
+   "--at",
+   "3d",
+   "2"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: 2"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "done",
+   "1",
+   "2",
+   "3",
+   "--note",
+   "n",
+   "--tag",
+   "a",
+   "--tag",
+   "b"
+  ],
+  "typed": [
+   "task",
+   "done"
+  ],
+  "values": {
+   "ref": [
+    "1",
+    "2",
+    "3"
+   ],
+   "note": "n",
+   "tag": [
+    "a",
+    "b"
+   ],
+   "at": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "status",
+   "done"
+  ],
+  "error": {
+   "prog": "agtrack task status",
+   "message": "the following arguments are required: ref"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "status"
+  ],
+  "error": {
+   "prog": "agtrack task status",
+   "message": "the following arguments are required: status, ref"
+  }
+ },
+ {
+  "argv": [
+   "pr",
+   "add",
+   "5",
+   "--title",
+   "t",
+   "url"
+  ],
+  "typed": [
+   "pr",
+   "add"
+  ],
+  "values": {
+   "task": "5",
+   "url": "url",
+   "title": "t",
+   "state": null
+  }
+ },
+ {
+  "argv": [
+   "pr",
+   "add"
+  ],
+  "error": {
+   "prog": "agtrack pr add",
+   "message": "the following arguments are required: task, url"
+  }
+ },
+ {
+  "argv": [
+   "pr",
+   "add",
+   "5"
+  ],
+  "error": {
+   "prog": "agtrack pr add",
+   "message": "the following arguments are required: url"
+  }
+ },
+ {
+  "argv": [
+   "pr",
+   "state",
+   "3",
+   "merged"
+  ],
+  "typed": [
+   "pr",
+   "state"
+  ],
+  "values": {
+   "id": "3",
+   "new_state": "merged"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--proj",
+   "x",
+   "--gre",
+   "foo"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": "x",
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": "foo",
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--proj=x"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": "x",
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--s",
+   "x"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "ambiguous option: --s could match --status, --since"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--no"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "ambiguous option: --no could match --no-header, --no-color"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--no-h"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "no_header": true
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--tag",
+   "a",
+   "--tags-all"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": [
+    "a"
+   ],
+   "tags_all": true,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--tags",
+   "x"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: x"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "x",
+   "--st",
+   "done"
+  ],
+  "error": {
+   "prog": "agtrack task add",
+   "message": "ambiguous option: --st could match --status, --step, --started"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "x",
+   "--s",
+   "done"
+  ],
+  "error": {
+   "prog": "agtrack task add",
+   "message": "ambiguous option: --s could match --status, --step, --started"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "x",
+   "--sta",
+   "done"
+  ],
+  "error": {
+   "prog": "agtrack task add",
+   "message": "ambiguous option: --sta could match --status, --started"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--al"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": true,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--all"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": true,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "--for",
+   "json",
+   "task",
+   "ls"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "format": "json",
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "--form=json",
+   "task",
+   "ls"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "format": "json",
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--he"
+  ],
+  "help": "agtrack task ls"
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--h"
+  ],
+  "help": "agtrack task ls"
+ },
+ {
+  "argv": [
+   "--ver"
+  ],
+  "exit": 0,
+  "stdout": "agtrack 1.0.0\n"
+ },
+ {
+  "argv": [
+   "--vers"
+  ],
+  "exit": 0,
+  "stdout": "agtrack 1.0.0\n"
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-f",
+   "x"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -f/--format: invalid choice: 'x' (choose from 'table', 'plain', 'tsv', 'json', 'yaml')"
+  }
+ },
+ {
+  "argv": [
+   "-f",
+   "x",
+   "task",
+   "ls"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "argument -f/--format: invalid choice: 'x' (choose from 'table', 'plain', 'tsv', 'json', 'yaml')"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--order",
+   "bogus"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument --order: invalid choice: 'bogus' (choose from 'created', 'id', 'status', 'updated')"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--order",
+   "status"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "status",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n",
+   "3x"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -n/--limit: 3x is not a whole number"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n",
+   "0"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -n/--limit: 0 must be 1 or more"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n",
+   "-1"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -n/--limit: -1 must be 1 or more"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n",
+   " 7"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": 7,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n",
+   "1_0"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": 10,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n",
+   "+4"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": 4,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n3"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": 3,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-n"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -n/--limit: expected one argument"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--limit="
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -n/--limit:  is not a whole number"
+  }
+ },
+ {
+  "argv": [
+   "pr",
+   "ls",
+   "--number",
+   "x"
+  ],
+  "error": {
+   "prog": "agtrack pr ls",
+   "message": "argument --number: invalid int value: 'x'"
+  }
+ },
+ {
+  "argv": [
+   "pr",
+   "ls",
+   "--number",
+   "-3"
+  ],
+  "typed": [
+   "pr",
+   "ls"
+  ],
+  "values": {
+   "task": null,
+   "repo": null,
+   "number": -3,
+   "url": null,
+   "state": null,
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "pr",
+   "ls",
+   "--number",
+   "3.5"
+  ],
+  "error": {
+   "prog": "agtrack pr ls",
+   "message": "argument --number: invalid int value: '3.5'"
+  }
+ },
+ {
+  "argv": [
+   "sub",
+   "ls",
+   "4",
+   "-n",
+   "2"
+  ],
+  "typed": [
+   "sub",
+   "ls"
+  ],
+  "values": {
+   "task": "4",
+   "status": null,
+   "limit": 2,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "next",
+   "-n",
+   "0"
+  ],
+  "error": {
+   "prog": "agtrack next",
+   "message": "argument -n/--limit: 0 must be 1 or more"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-qx"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "quiet": true,
+   "extended": true
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-xq"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "extended": true,
+   "quiet": true
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-qf",
+   "json"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "quiet": true,
+   "format": "json"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-fjson"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "format": "json"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-fq"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -f/--format: invalid choice: 'q' (choose from 'table', 'plain', 'tsv', 'json', 'yaml')"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-f=json"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "format": "json"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-c=a"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "context": "a"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-cwork"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false,
+   "context": "work"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-qZ"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: -Z"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-q=x"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -q/--quiet: ignored explicit argument 'x'"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-qx=y"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument -x/--extended: ignored explicit argument 'y'"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-Z"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: -Z"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "-"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: -"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "-5",
+   "-p",
+   "x"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "-5"
+   ],
+   "project": "x",
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "-1.5"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "-1.5"
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "-.5"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "-.5"
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "-1abc"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "-1abc"
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "-a b"
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    "-a b"
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   ""
+  ],
+  "typed": [
+   "task",
+   "add"
+  ],
+  "values": {
+   "title": [
+    ""
+   ],
+   "project": null,
+   "status": null,
+   "tag": null,
+   "note": null,
+   "pr": null,
+   "step": null,
+   "created": null,
+   "started": null,
+   "closed": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "show",
+   "-x5"
+  ],
+  "error": {
+   "prog": "agtrack task show",
+   "message": "the following arguments are required: ref"
+  }
+ },
+ {
+  "argv": [
+   "-f",
+   "json",
+   "task",
+   "ls",
+   "-f",
+   "yaml"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "format": "yaml",
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "-f",
+   "json",
+   "task",
+   "ls"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "format": "json",
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "-c",
+   "a",
+   "task",
+   "-c",
+   "b",
+   "ls",
+   "-c",
+   "c"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "context": "c",
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "-q",
+   "task",
+   "ls"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "quiet": true,
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "-q",
+   "ls"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "quiet": true,
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "-f",
+   "json"
+  ],
+  "error": {
+   "prog": "agtrack task",
+   "message": "the following arguments are required: <verb>"
+  }
+ },
+ {
+  "argv": [
+   "-x"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "the following arguments are required: <command>"
+  }
+ },
+ {
+  "argv": [
+   "--proj"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "the following arguments are required: <command>"
+  }
+ },
+ {
+  "argv": [
+   "--db",
+   "/tmp/x.db",
+   "info"
+  ],
+  "typed": [
+   "info"
+  ],
+  "values": {
+   "db": "/tmp/x.db"
+  }
+ },
+ {
+  "argv": [
+   "info",
+   "--db",
+   "/tmp/y.db",
+   "--actor",
+   "me"
+  ],
+  "typed": [
+   "info"
+  ],
+  "values": {
+   "db": "/tmp/y.db",
+   "actor": "me"
+  }
+ },
+ {
+  "argv": [
+   "t",
+   "ls"
+  ],
+  "typed": [
+   "t",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "tasks",
+   "list"
+  ],
+  "typed": [
+   "tasks",
+   "list"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "t",
+   "delete",
+   "3"
+  ],
+  "typed": [
+   "t",
+   "delete"
+  ],
+  "values": {
+   "ref": [
+    "3"
+   ],
+   "force": false
+  }
+ },
+ {
+  "argv": [
+   "p",
+   "ls"
+  ],
+  "typed": [
+   "p",
+   "ls"
+  ],
+  "values": {
+   "parent": null,
+   "top": false,
+   "archived": false,
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "p",
+   "ls",
+   "-p",
+   "foo"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: -p foo"
+  }
+ },
+ {
+  "argv": [
+   "proj",
+   "add",
+   "a",
+   "--repo",
+   "r1",
+   "--repo",
+   "r2",
+   "--tag",
+   "t",
+   "--use"
+  ],
+  "typed": [
+   "proj",
+   "add"
+  ],
+  "values": {
+   "ref": "a",
+   "title": null,
+   "repo": [
+    "r1",
+    "r2"
+   ],
+   "tag": [
+    "t"
+   ],
+   "note": null,
+   "use": true
+  }
+ },
+ {
+  "argv": [
+   "context",
+   "ls",
+   "--archived"
+  ],
+  "typed": [
+   "context",
+   "ls"
+  ],
+  "values": {
+   "archived": true,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "contexts",
+   "add",
+   "work",
+   "--title",
+   "W",
+   "--use"
+  ],
+  "typed": [
+   "contexts",
+   "add"
+  ],
+  "values": {
+   "name": "work",
+   "title": "W",
+   "note": null,
+   "use": true
+  }
+ },
+ {
+  "argv": [
+   "s",
+   "done",
+   "12.3",
+   "--no-cascade"
+  ],
+  "typed": [
+   "s",
+   "done"
+  ],
+  "values": {
+   "ref": [
+    "12.3"
+   ],
+   "note": null,
+   "tag": null,
+   "at": null,
+   "no_cascade": true
+  }
+ },
+ {
+  "argv": [
+   "subtask",
+   "status",
+   "wip",
+   "12.1",
+   "12.2"
+  ],
+  "typed": [
+   "subtask",
+   "status"
+  ],
+  "values": {
+   "status": "wip",
+   "ref": [
+    "12.1",
+    "12.2"
+   ],
+   "note": null,
+   "tag": null,
+   "at": null,
+   "no_cascade": false
+  }
+ },
+ {
+  "argv": [
+   "tags",
+   "show",
+   "foo"
+  ],
+  "typed": [
+   "tags",
+   "show"
+  ],
+  "values": {
+   "ref": "foo"
+  }
+ },
+ {
+  "argv": [
+   "prs",
+   "ls",
+   "-t",
+   "3"
+  ],
+  "typed": [
+   "prs",
+   "ls"
+  ],
+  "values": {
+   "task": "3",
+   "repo": null,
+   "number": null,
+   "url": null,
+   "state": null,
+   "all_contexts": false,
+   "count": false,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "task"
+  ],
+  "error": {
+   "prog": "agtrack task",
+   "message": "the following arguments are required: <verb>"
+  }
+ },
+ {
+  "argv": [
+   "ctx"
+  ],
+  "error": {
+   "prog": "agtrack ctx",
+   "message": "the following arguments are required: <verb>"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "bogus"
+  ],
+  "error": {
+   "prog": "agtrack task",
+   "message": "argument <verb>: invalid choice: 'bogus' (choose from 'add', 'ls', 'list', 'show', 'start', 'done', 'cancel', 'reopen', 'status', 'set', 'rm', 'delete', 'note', 'notes', 'tag', 'untag')"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "bogus",
+   "-h"
+  ],
+  "error": {
+   "prog": "agtrack task",
+   "message": "argument <verb>: invalid choice: 'bogus' (choose from 'add', 'ls', 'list', 'show', 'start', 'done', 'cancel', 'reopen', 'status', 'set', 'rm', 'delete', 'note', 'notes', 'tag', 'untag')"
+  }
+ },
+ {
+  "argv": [
+   "bogus"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "argument <command>: invalid choice: 'bogus' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'next', 'summary', 'here', 'dump', 'info')"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add"
+  ],
+  "error": {
+   "prog": "agtrack task add",
+   "message": "the following arguments are required: title"
+  }
+ },
+ {
+  "argv": [
+   "sub",
+   "add",
+   "12"
+  ],
+  "error": {
+   "prog": "agtrack sub add",
+   "message": "the following arguments are required: title"
+  }
+ },
+ {
+  "argv": [
+   "ctx",
+   "add",
+   "x",
+   "--title"
+  ],
+  "error": {
+   "prog": "agtrack ctx add",
+   "message": "argument --title: expected one argument"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "--tag"
+  ],
+  "error": {
+   "prog": "agtrack task add",
+   "message": "argument --tag: expected one argument"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "set",
+   "3",
+   "--title",
+   "a",
+   "b",
+   "c",
+   "--move",
+   "m"
+  ],
+  "typed": [
+   "task",
+   "set"
+  ],
+  "values": {
+   "ref": "3",
+   "title": [
+    "a",
+    "b",
+    "c"
+   ],
+   "move": "m"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "set",
+   "3",
+   "--title"
+  ],
+  "error": {
+   "prog": "agtrack task set",
+   "message": "argument --title: expected at least one argument"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "set",
+   "3",
+   "--title=a",
+   "b"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: b"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "set",
+   "3",
+   "--title",
+   "a",
+   "--title",
+   "b",
+   "c"
+  ],
+  "typed": [
+   "task",
+   "set"
+  ],
+  "values": {
+   "ref": "3",
+   "title": [
+    "b",
+    "c"
+   ],
+   "move": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "set",
+   "3",
+   "--move"
+  ],
+  "error": {
+   "prog": "agtrack task set",
+   "message": "argument --move: expected one argument"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--count=3"
+  ],
+  "error": {
+   "prog": "agtrack task ls",
+   "message": "argument --count: ignored explicit argument '3'"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--count",
+   "--ids",
+   "--all-contexts"
+  ],
+  "typed": [
+   "task",
+   "ls"
+  ],
+  "values": {
+   "project": null,
+   "direct": false,
+   "status": null,
+   "tag": null,
+   "tags_all": false,
+   "grep": null,
+   "since": null,
+   "repo": null,
+   "limit": null,
+   "order": "id",
+   "all_contexts": true,
+   "count": true,
+   "ids": true
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "extra"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: extra"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--bogus"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: --bogus"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "ls",
+   "--bogus=3",
+   "x"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: --bogus=3 x"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "x",
+   "--bogus",
+   "y"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: --bogus y"
+  }
+ },
+ {
+  "argv": [
+   "-Z",
+   "task",
+   "ls"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: -Z"
+  }
+ },
+ {
+  "argv": [
+   "-n",
+   "3",
+   "task",
+   "ls"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "argument <command>: invalid choice: '3' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'next', 'summary', 'here', 'dump', 'info')"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "note",
+   "12",
+   "some",
+   "body",
+   "text",
+   "--at",
+   "1d"
+  ],
+  "typed": [
+   "task",
+   "note"
+  ],
+  "values": {
+   "ref": "12",
+   "body": [
+    "some",
+    "body",
+    "text"
+   ],
+   "at": "1d"
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "notes",
+   "12"
+  ],
+  "typed": [
+   "task",
+   "notes"
+  ],
+  "values": {
+   "ref": "12"
+  }
+ },
+ {
+  "argv": [
+   "ctx",
+   "note",
+   "work",
+   "hello"
+  ],
+  "typed": [
+   "context",
+   "note"
+  ],
+  "values": {
+   "ref": "work",
+   "body": [
+    "hello"
+   ],
+   "at": null
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "tag",
+   "12",
+   "a",
+   "b",
+   "c"
+  ],
+  "typed": [
+   "task",
+   "tag"
+  ],
+  "values": {
+   "ref": "12",
+   "tags": [
+    "a",
+    "b",
+    "c"
+   ]
+  }
+ },
+ {
+  "argv": [
+   "task",
+   "untag",
+   "12",
+   "a"
+  ],
+  "typed": [
+   "task",
+   "untag"
+  ],
+  "values": {
+   "ref": "12",
+   "tags": [
+    "a"
+   ]
+  }
+ },
+ {
+  "argv": [
+   "project",
+   "tag",
+   "orbiter",
+   "x"
+  ],
+  "typed": [
+   "project",
+   "tag"
+  ],
+  "values": {
+   "ref": "orbiter",
+   "tags": [
+    "x"
+   ]
+  }
+ },
+ {
+  "argv": [
+   "tag",
+   "ls",
+   "--count"
+  ],
+  "typed": [
+   "tag",
+   "ls"
+  ],
+  "values": {
+   "count": true,
+   "ids": false
+  }
+ },
+ {
+  "argv": [
+   "tag",
+   "note",
+   "foo",
+   "bar"
+  ],
+  "typed": [
+   "tag",
+   "note"
+  ],
+  "values": {
+   "ref": "foo",
+   "body": [
+    "bar"
+   ],
+   "at": null
+  }
+ },
+ {
+  "argv": [
+   "next",
+   "--todo",
+   "-n",
+   "3",
+   "--all-contexts"
+  ],
+  "typed": [
+   "next"
+  ],
+  "values": {
+   "project": null,
+   "todo": true,
+   "limit": 3,
+   "all_contexts": true
+  }
+ },
+ {
+  "argv": [
+   "summary",
+   "--all-contexts"
+  ],
+  "typed": [
+   "summary"
+  ],
+  "values": {
+   "all_contexts": true
+  }
+ },
+ {
+  "argv": [
+   "here"
+  ],
+  "typed": [
+   "here"
+  ],
+  "values": {}
+ },
+ {
+  "argv": [
+   "dump",
+   "--all-contexts",
+   "-f",
+   "yaml"
+  ],
+  "typed": [
+   "dump"
+  ],
+  "values": {
+   "all_contexts": true,
+   "format": "yaml"
+  }
+ },
+ {
+  "argv": [
+   "info"
+  ],
+  "typed": [
+   "info"
+  ],
+  "values": {}
+ },
+ {
+  "argv": [
+   "next",
+   "extra"
+  ],
+  "error": {
+   "prog": "agtrack",
+   "message": "unrecognized arguments: extra"
+  }
+ },
+ {
+  "argv": [
+   "-h"
+  ],
+  "help": "agtrack"
+ },
+ {
+  "argv": [
+   "--help"
+  ],
+  "help": "agtrack"
+ },
+ {
+  "argv": [
+   "task",
+   "-h"
+  ],
+  "help": "agtrack task"
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "-h"
+  ],
+  "help": "agtrack task add"
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "--help",
+   "extra"
+  ],
+  "help": "agtrack task add"
+ },
+ {
+  "argv": [
+   "task",
+   "add",
+   "x",
+   "--tag",
+   "-h"
+  ],
+  "error": {
+   "prog": "agtrack task add",
+   "message": "argument --tag: expected one argument"
+  }
+ },
+ {
+  "argv": [
+   "-V"
+  ],
+  "exit": 0,
+  "stdout": "agtrack 1.0.0\n"
+ },
+ {
+  "argv": [
+   "--version"
+  ],
+  "exit": 0,
+  "stdout": "agtrack 1.0.0\n"
+ },
+ {
+  "argv": [
+   "task",
+   "-V"
+  ],
+  "error": {
+   "prog": "agtrack task",
+   "message": "the following arguments are required: <verb>"
+  }
+ },
+ {
+  "argv": [
+   "-h",
+   "task"
+  ],
+  "help": "agtrack"
+ },
+ {
+  "argv": [
+   "t",
+   "ls",
+   "--help"
+  ],
+  "help": "agtrack task ls"
+ },
+ {
+  "argv": [
+   "log",
+   "-h"
+  ],
+  "help": "agtrack log"
+ }
+]
