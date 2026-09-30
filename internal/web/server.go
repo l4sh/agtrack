@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -187,7 +188,9 @@ func (s *Server) touch() {
 func (s *Server) idle() bool {
 	s.lastMu.Lock()
 	defer s.lastMu.Unlock()
-	return s.clients == 0 && time.Since(s.last) > s.o.Idle
+	// An open tab's event stream does not count as activity: a forgotten
+	// browser tab must not keep a mutating server alive forever.
+	return time.Since(s.last) > s.o.Idle
 }
 
 func openBrowser(link string) {
@@ -264,9 +267,9 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 		writeErr(w, http.StatusNotFound, "not_found", "no such asset")
 		return
 	}
-	ct := mime.TypeByExtension(name[strings.LastIndexByte(name, '.'):])
+	ct := mime.TypeByExtension(path.Ext(name))
 	if ct == "" {
-		ct = "application/octet-stream"
+		ct = "text/plain; charset=utf-8"
 	}
 	w.Header().Set("Content-Type", ct)
 	w.Write(data)
@@ -351,10 +354,14 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
 		if in.ParentID != nil {
 			parent = *in.ParentID
 		}
-		s.mu.Lock()
-		note, pinned, modified, err := s.o.Store.SpecAddNote(id, store.SpecNoteInput{Section: in.Section, Quote: in.Quote,
-			Prefix: in.Prefix, Suffix: in.Suffix, Kind: kind, Body: in.Body, ParentID: parent, RepoRoot: s.o.RepoRoot})
-		s.mu.Unlock()
+		var note *row.Row
+		var pinned string
+		var modified bool
+		var err error
+		s.withLock(func() {
+			note, pinned, modified, err = s.o.Store.SpecAddNote(id, store.SpecNoteInput{Section: in.Section, Quote: in.Quote,
+				Prefix: in.Prefix, Suffix: in.Suffix, Kind: kind, Body: in.Body, ParentID: parent, RepoRoot: s.o.RepoRoot})
+		})
 		if err != nil {
 			storeErr(w, err)
 			return
@@ -436,10 +443,17 @@ func asRows(v any) []*row.Row {
 	return rows
 }
 
-func (s *Server) locked(w http.ResponseWriter, fn func() (any, error)) {
+// withLock runs fn holding the store mutex, releasing it even on panic.
+func (s *Server) withLock(fn func()) {
 	s.mu.Lock()
-	obj, err := fn()
-	s.mu.Unlock()
+	defer s.mu.Unlock()
+	fn()
+}
+
+func (s *Server) locked(w http.ResponseWriter, fn func() (any, error)) {
+	var obj any
+	var err error
+	s.withLock(func() { obj, err = fn() })
 	if err != nil {
 		storeErr(w, err)
 		return
@@ -502,9 +516,9 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "event: ping\ndata: {}\n\n")
 			fl.Flush()
 		case <-poll.C:
-			s.mu.Lock()
-			evs, err := s.o.Store.SpecEventsAfter(s.o.SpecID, after, 200)
-			s.mu.Unlock()
+			var evs []*row.Row
+			var err error
+			s.withLock(func() { evs, err = s.o.Store.SpecEventsAfter(s.o.SpecID, after, 200) })
 			if err != nil {
 				fmt.Fprintf(w, "event: error\ndata: %s\n\n", render.JSONCompact(row.Of("message", err.Error())))
 				fl.Flush()

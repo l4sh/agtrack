@@ -204,3 +204,21 @@ func TestRefusesNonLoopback(t *testing.T) {
 		t.Fatal("bound a non-loopback address")
 	}
 }
+
+func TestExtensionlessAssetAndIdleWithOpenStream(t *testing.T) {
+	base, _, cancel, done := start(t, 300*time.Millisecond)
+	defer cancel()
+	if code, _ := do(t, "GET", base+"/assets/vendor/MERMAID_VERSION", "", "", "", ""); code != 200 {
+		t.Fatalf("extensionless asset: %d", code)
+	}
+	resp, err := http.Get(base + "/api/events?after=0&t=tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("an open event stream kept the server alive past its idle timeout")
+	}
+}
