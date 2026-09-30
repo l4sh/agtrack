@@ -15,6 +15,8 @@ http://127.0.0.1:<port>/s/<spec>?t=<token>
 - Page and SSE requests carry the token as `?t=<token>`.
 - API requests carry it in the `X-Agtrack-Token` header (the page reads it from its own URL
   once, then strips it with `history.replaceState`).
+- `style-src` allows inline styles only because Mermaid's SVG output embeds a `<style>`
+  block; scripts stay `'self'` only.
 - Every request: `Host` must be `127.0.0.1:<port>` or `localhost:<port>`, else 403.
 - Every mutating request: `Content-Type: application/json`, else 415.
 - The server exits after an idle timeout (default 30m without requests or SSE clients).
@@ -28,7 +30,7 @@ The single-page app (`index.html`), plus static assets under `/assets/…` (no t
 static assets; they contain no data). CSP header:
 
 ```
-default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;
+default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;
 connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 ```
 

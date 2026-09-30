@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agtrack — spec review</title>
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<div id="app" class="app" aria-busy="true">
+
+  <header class="header" id="header">
+    <div class="header-title">
+      <h1 id="spec-title">Loading…</h1>
+      <div class="header-meta">
+        <span id="spec-ref" class="chip chip-ref"></span>
+        <span id="spec-revision" class="chip"></span>
+        <span id="spec-mode" class="chip"></span>
+        <span id="spec-approval" class="chip chip-approval"></span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="btn-send" type="button" class="btn" hidden>Send to agent</button>
+      <button id="btn-approve" type="button" class="btn btn-primary">Approve / Ready to build</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <main class="doc" id="doc" tabindex="-1">
+      <p class="doc-loading" id="doc-loading">Loading spec…</p>
+    </main>
+
+    <aside class="rail" id="rail">
+      <div class="rail-tabs" role="tablist">
+        <button id="tab-notes" class="rail-tab is-active" role="tab" aria-selected="true" type="button">Notes</button>
+        <button id="tab-tasks" class="rail-tab" role="tab" aria-selected="false" type="button">Tasks</button>
+      </div>
+
+      <div id="panel-notes" class="rail-panel is-active" role="tabpanel">
+        <div id="notes-list" class="notes-list"></div>
+        <div id="orphaned-group" class="orphaned-group" hidden>
+          <h2 class="rail-subheading">Orphaned</h2>
+          <div id="orphaned-list" class="notes-list"></div>
+        </div>
+        <div id="build-notes-group" class="build-notes-group">
+          <h2 class="rail-subheading">Build notes</h2>
+          <div id="build-notes-list" class="build-notes-list"></div>
+        </div>
+      </div>
+
+      <div id="panel-tasks" class="rail-panel" role="tabpanel" hidden>
+        <div id="tasks-links" class="tasks-links"></div>
+        <div class="rail-subheading">Coverage gaps</div>
+        <div id="tasks-gaps" class="tasks-gaps"></div>
+        <div class="rail-subheading">Drift</div>
+        <div id="tasks-drift" class="tasks-drift"></div>
+      </div>
+    </aside>
+  </div>
+
+  <button id="comment-fab" type="button" class="comment-fab" hidden>Comment</button>
+
+  <div id="comment-dialog" class="dialog-backdrop" hidden>
+    <form id="comment-form" class="dialog" novalidate>
+      <h2>New comment</h2>
+      <p class="dialog-quote" id="comment-quote"></p>
+      <label class="field">
+        <span>Kind</span>
+        <select id="comment-kind" name="kind">
+          <option value="note">note</option>
+          <option value="question" selected>question</option>
+          <option value="decision">decision</option>
+          <option value="blocker">blocker</option>
+          <option value="build-note">build-note</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Comment</span>
+        <textarea id="comment-body" name="body" rows="4" required></textarea>
+      </label>
+      <p class="dialog-error" id="comment-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Post</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="approve-dialog" class="dialog-backdrop" hidden>
+    <form id="approve-form" class="dialog" novalidate>
+      <h2>Approve / ready to build</h2>
+      <label class="field">
+        <span>Approval note</span>
+        <textarea id="approve-note" name="note" rows="3"></textarea>
+      </label>
+      <div class="field">
+        <span>Build notes</span>
+        <div id="approve-build-notes" class="approve-build-notes"></div>
+        <button type="button" id="approve-build-note-add" class="btn btn-sm">+ Add build note</button>
+      </div>
+      <p class="dialog-error" id="approve-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Approve</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+</div>
+
+<script src="/assets/vendor/mermaid.min.js"></script>
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>

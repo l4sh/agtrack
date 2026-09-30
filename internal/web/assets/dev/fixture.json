@@ -1,0 +1,100 @@
+{
+  "spec": {
+    "slug": "auth",
+    "ref": "orbiter:api/auth",
+    "title": "Authentication v2",
+    "source_path": "specs/auth.md",
+    "status": "active",
+    "revision": 6,
+    "sha": "7f0d1e2a9c3b",
+    "release_mode": "manual",
+    "approval": {
+      "id": 50,
+      "by": "alex",
+      "at": "2026-09-29T14:08:11Z",
+      "revision": 6,
+      "note": "ship it, keep the grace window configurable"
+    },
+    "approval_stale": false,
+    "pending_comments": 2
+  },
+  "front_matter": {"title": "Authentication v2", "owner": "alex"},
+  "sections": [
+    {
+      "ordinal": 0, "slug": "root", "pin": null, "number": "", "heading": "",
+      "level": 0, "kind": "root", "path": "",
+      "html": "<p>This spec covers token issuance, rotation, and session idle handling for the orbiter API.</p>",
+      "has_mermaid": false, "line_start": 1, "line_end": 5,
+      "open_notes": 0, "tasks": []
+    },
+    {
+      "ordinal": 1, "slug": "overview", "pin": null, "number": "1", "heading": "Overview",
+      "level": 1, "kind": "heading", "path": "Overview",
+      "html": "<p>Clients authenticate with short-lived access tokens backed by longer-lived refresh tokens.</p>",
+      "has_mermaid": false, "line_start": 7, "line_end": 11,
+      "open_notes": 0, "tasks": []
+    },
+    {
+      "ordinal": 2, "slug": "tokens", "pin": null, "number": "2", "heading": "Tokens",
+      "level": 1, "kind": "heading", "path": "Tokens",
+      "html": "<p>Two token kinds: access (15m) and refresh (30d).</p>",
+      "has_mermaid": false, "line_start": 13, "line_end": 17,
+      "open_notes": 0, "tasks": []
+    },
+    {
+      "ordinal": 3, "slug": "tokens__rotation", "pin": "grace-policy", "number": "2.1",
+      "heading": "Rotation", "level": 3, "kind": "heading", "path": "Tokens / Rotation",
+      "html": "<p>On refresh, the old refresh token stays valid for a grace window of 60s to absorb in-flight requests, then is revoked.</p>",
+      "has_mermaid": false, "line_start": 19, "line_end": 27,
+      "open_notes": 1, "tasks": [12, 13]
+    },
+    {
+      "ordinal": 4, "slug": "sessions", "pin": null, "number": "3", "heading": "Sessions",
+      "level": 1, "kind": "heading", "path": "Sessions",
+      "html": "<p>A session tracks the device and the currently active refresh token.</p>",
+      "has_mermaid": false, "line_start": 29, "line_end": 33,
+      "open_notes": 0, "tasks": []
+    },
+    {
+      "ordinal": 5, "slug": "sessions__idle_timeout", "pin": null, "number": "3.2",
+      "heading": "Idle timeout", "level": 3, "kind": "heading", "path": "Sessions / Idle timeout",
+      "html": "<p>Sessions idle out after 14 days of inactivity.</p>\n<pre class=\"mermaid-src\" data-mermaid=\"1\"><code>sequenceDiagram\n  participant C as Client\n  participant S as Server\n  C-&gt;&gt;S: request (idle 14d)\n  S--&gt;&gt;C: 401 session_expired\n</code></pre>",
+      "has_mermaid": true, "line_start": 35, "line_end": 48,
+      "open_notes": 1, "tasks": []
+    }
+  ],
+  "notes": [
+    {
+      "id": 41, "section": "tokens__rotation", "anchor": "grace-policy",
+      "kind": "question", "body": "is 60s per-client, or a fixed global window?",
+      "actor": "alex", "created_at": "2026-09-29T14:01:00Z",
+      "quote": "grace window of 60s", "quote_ok": true, "parent_id": null,
+      "resolved_at": null, "resolved_by": null, "released": true
+    },
+    {
+      "id": 42, "section": "tokens__rotation", "anchor": "grace-policy",
+      "kind": "note", "body": "fixed global window for now; per-client is a v2 stretch goal.",
+      "actor": "codex", "created_at": "2026-09-29T14:05:30Z",
+      "quote": null, "quote_ok": true, "parent_id": 41,
+      "resolved_at": null, "resolved_by": null, "released": true
+    },
+    {
+      "id": 43, "section": "sessions__idle_timeout", "anchor": "idle-window",
+      "kind": "blocker", "body": "14d feels too aggressive for mobile clients that sleep overnight repeatedly.",
+      "actor": "alex", "created_at": "2026-09-29T15:22:40Z",
+      "quote": "idle out after 14 days", "quote_ok": true, "parent_id": null,
+      "resolved_at": null, "resolved_by": null, "released": false
+    },
+    {
+      "id": 39, "section": null, "anchor": "legacy-cookie-flag",
+      "kind": "decision", "body": "dropped the legacy cookie fallback; browser clients use the same bearer flow as native.",
+      "actor": "alex", "created_at": "2026-09-27T10:12:00Z",
+      "quote": "Set-Cookie: agtrack_legacy=1", "quote_ok": false, "parent_id": null,
+      "resolved_at": "2026-09-27T11:00:00Z", "resolved_by": "alex", "released": true
+    }
+  ],
+  "build_notes": [
+    {"id": 44, "body": "don't touch the billing migration in this pass", "actor": "alex", "created_at": "2026-09-29T14:08:11Z"}
+  ],
+  "cursor": 2074
+}
