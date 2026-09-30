@@ -22,7 +22,27 @@ const (
 // When quote occurs more than once, prefix (text just before) and suffix
 // (text just after) narrow it down, compared the same way. It returns the
 // byte offset of the match in body, or -1 unless the state is QuoteOK.
+//
+// The markdown source is tried first, then its plain-text rendering
+// (PlainText), because a selection made in the viewer is rendered text:
+// `**bold**`, link targets, code backticks and list markers are not in it.
 func LocateQuote(body, quote, prefix, suffix string) (QuoteState, int) {
+	st, off := locateIn(body, quote, prefix, suffix)
+	if st == QuoteOK {
+		return st, off
+	}
+	text, offs := PlainText(body)
+	pst, poff := locateIn(text, quote, prefix, suffix)
+	switch {
+	case pst == QuoteOK:
+		return QuoteOK, offs[poff]
+	case st == QuoteAmbiguous || pst == QuoteAmbiguous:
+		return QuoteAmbiguous, -1
+	}
+	return QuoteMissing, -1
+}
+
+func locateIn(body, quote, prefix, suffix string) (QuoteState, int) {
 	nb, pos := squash(body)
 	nq, _ := squash(strings.TrimSpace(quote))
 	if nq == "" {

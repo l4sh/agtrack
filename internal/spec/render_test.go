@@ -95,3 +95,30 @@ func TestRenderHTML(t *testing.T) {
 		}
 	}
 }
+
+func TestLocateQuoteRenderedSelection(t *testing.T) {
+	body := "Refresh a **grace window** of 60s. See [RFC 6749](https://x) for `refresh_token` &amp; more.\n\n- item one\n- item two\n\nEarlier the cap *is* 5. Later the cap *is* 9."
+	cases := []struct {
+		quote, prefix, suffix string
+		state                 QuoteState
+		at                    string // source text the offset must point at
+	}{
+		{"a grace window of", "", "", QuoteOK, "a **grace"},
+		{"See RFC 6749 for", "", "", QuoteOK, "See [RFC"},
+		{"for refresh_token & more", "", "", QuoteOK, "for `refresh_token`"},
+		{"item one item two", "", "", QuoteOK, "item one"},
+		{"the cap is", "Later ", "", QuoteOK, "the cap *is* 9"},
+		{"the cap is", "", "", QuoteAmbiguous, ""},
+		{"not there", "", "", QuoteMissing, ""},
+	}
+	for _, c := range cases {
+		st, off := LocateQuote(body, c.quote, c.prefix, c.suffix)
+		if st != c.state || (c.at != "" && (off < 0 || !strings.HasPrefix(body[off:], c.at))) {
+			t.Errorf("LocateQuote(%q) = %s %d, want %s at %q", c.quote, st, off, c.state, c.at)
+		}
+	}
+	pt, offs := PlainText(body)
+	if len(offs) != len(pt)+1 || strings.Contains(pt, "**") || strings.Contains(pt, "https://x") || !strings.Contains(pt, "refresh_token & more") {
+		t.Errorf("PlainText %q", pt)
+	}
+}

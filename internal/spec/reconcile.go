@@ -114,6 +114,13 @@ func Reconcile(prior []Prior, next *Doc) *Report {
 			}
 		}
 	}
+	// The heading-less preamble is pinned structurally (no comment is ever
+	// written for it): an anchored root prior is the new root, at tier 1.
+	if len(next.Sections) > 0 && matchOf[0] < 0 && next.Sections[0].Kind == KindRoot && next.Sections[0].Level == 0 {
+		if p, ok := byKey[RootSlug]; ok && !taken[p] && kindOf(&prior[p]) == KindRoot {
+			take(0, p, TierPinned, 1)
+		}
+	}
 
 	// Tiers 2 and 3: an exact key, unique on both sides among the unmatched.
 	uniqueTier := func(tier string, key func(s *Section) string, pkey func(p *Prior) string) {

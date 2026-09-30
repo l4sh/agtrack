@@ -201,3 +201,17 @@ func TestReconcileBlocksAndDuplicatePins(t *testing.T) {
 		t.Error("duplicate block key accepted")
 	}
 }
+
+func TestReconcilePinnedPreambleIsStructural(t *testing.T) {
+	before := mustParse(t, "Intro text.\n\n## A\n\nbody\n")
+	pr := PriorsOf(before)
+	pr[0].Key, pr[0].Pinned = RootSlug, true // pinned by a note: no comment in the file
+	next := mustParse(t, "Intro text, edited.\n\n## A\n\nbody\n")
+	r := Reconcile(pr, next)
+	if m := r.Matches[0]; m.Tier != TierPinned || m.PriorKey != RootSlug {
+		t.Errorf("root %+v", m)
+	}
+	if len(r.PinDropped) != 0 {
+		t.Errorf("root reported as unpinned: %+v", r.PinDropped)
+	}
+}

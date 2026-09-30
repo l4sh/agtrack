@@ -38,6 +38,15 @@ func FuzzParse(f *testing.F) {
 			if !strings.Contains(norm, s.Body) || s.LineEnd < s.LineStart {
 				t.Fatalf("%s body/lines", s.PathSlug)
 			}
+			pt, offs := PlainText(s.Body)
+			if len(offs) != len(pt)+1 || offs[len(pt)] != len(s.Body) {
+				t.Fatalf("%s: plain text map %d for %d bytes", s.PathSlug, len(offs), len(pt))
+			}
+			for _, o := range offs {
+				if o < 0 || o > len(s.Body) {
+					t.Fatalf("%s: plain text offset %d out of range", s.PathSlug, o)
+				}
+			}
 			if s.Kind == KindHeading && s.PinKey == "" {
 				out, err := InsertPin([]byte(src), s, "zz-fuzz-pin")
 				if err != nil {
