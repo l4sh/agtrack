@@ -2,7 +2,10 @@ module github.com/l4sh/agtrack
 
 go 1.24
 
-require modernc.org/sqlite v1.37.0
+require (
+	github.com/yuin/goldmark v1.8.6
+	modernc.org/sqlite v1.37.0
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
