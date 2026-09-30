@@ -1,0 +1,82 @@
+{
+ "ratios": [
+  {
+   "a": "",
+   "b": "",
+   "ratio": 1.0
+  },
+  {
+   "a": "abc",
+   "b": "",
+   "ratio": 0.0
+  },
+  {
+   "a": "abcd",
+   "b": "bcde",
+   "ratio": 0.75
+  },
+  {
+   "a": "Refresh tokens rotate on every use.",
+   "b": "Refresh tokens rotate on each use.",
+   "ratio": 0.8985507246376812
+  },
+  {
+   "a": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+   "b": "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "ratio": 0.00398406374501992
+  },
+  {
+   "a": "The previous token stays valid for a grace window of 60s to absorb in-flight requests. The previous token stays valid for a grace window of 60s to absorb in-flight requests. The previous token stays valid for a grace window of 60s to absorb in-flight requests. ",
+   "b": "The previous token remains valid for a grace window, configurable per client, to absorb requests in flight. The previous token remains valid for a grace window, configurable per client, to absorb requests in flight. The previous token remains valid for a grace window, configurable per client, to absorb requests in flight. ",
+   "ratio": 0.3076923076923077
+  },
+  {
+   "a": "ünïcödé text — dash",
+   "b": "unicode text - dash",
+   "ratio": 0.7368421052631579
+  },
+  {
+   "a": "x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z x y z ",
+   "b": "x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q x y q ",
+   "ratio": 0.011111111111111112
+  }
+ ],
+ "diffs": [
+  {
+   "a": "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n",
+   "b": "one\ntwo\nTHREE\nfour\nfive\nsix\nseven\neight\nnine\nten\neleven\n",
+   "n": 3,
+   "out": "--- a\n+++ b\n@@ -1,6 +1,6 @@\n one\n two\n-three\n+THREE\n four\n five\n six\n@@ -8,3 +8,4 @@\n eight\n nine\n ten\n+eleven\n"
+  },
+  {
+   "a": "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n",
+   "b": "one\ntwo\nTHREE\nfour\nfive\nsix\nseven\neight\nnine\nten\neleven\n",
+   "n": 1,
+   "out": "--- a\n+++ b\n@@ -2,3 +2,3 @@\n two\n-three\n+THREE\n four\n@@ -10 +10,2 @@\n ten\n+eleven\n"
+  },
+  {
+   "a": "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n",
+   "b": "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n",
+   "n": 3,
+   "out": ""
+  },
+  {
+   "a": "",
+   "b": "x\n",
+   "n": 3,
+   "out": "--- a\n+++ b\n@@ -0,0 +1 @@\n+x\n"
+  },
+  {
+   "a": "a\nb\n",
+   "b": "",
+   "n": 3,
+   "out": "--- a\n+++ b\n@@ -1,2 +0,0 @@\n-a\n-b\n"
+  },
+  {
+   "a": "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n",
+   "b": "one\ntwo\nTHREE\nfour\nfive\nsix\nseven\neight\nnine\nten\neleven\n",
+   "n": 0,
+   "out": "--- a\n+++ b\n@@ -3 +3 @@\n-three\n+THREE\n@@ -10,0 +11 @@\n+eleven\n"
+  }
+ ]
+}
