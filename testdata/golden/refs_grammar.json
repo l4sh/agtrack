@@ -1,0 +1,410 @@
+{
+ "actor": null,
+ "scenario": "refs_grammar",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter:frontend"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter:frontend\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "ref task 1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "ref task 2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "add",
+    "1",
+    "s1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask 1.1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [ ] ref task 1\nstatus: todo\nproject: acme/orbiter\ncreated: 2026-09-01 12:03\nsubtasks:\n  1.1      [ ] s1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "#1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [ ] ref task 1\nstatus: todo\nproject: acme/orbiter\ncreated: 2026-09-01 12:03\nsubtasks:\n  1.1      [ ] s1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "show",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask: 1.1 [ ] s1\nstatus: todo\ntask: #1\ncreated: 2026-09-01 12:05\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "show",
+    "1.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask: 1.1 [ ] s1\nstatus: todo\ntask: #1\ncreated: 2026-09-01 12:05\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "show",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project: acme/orbiter\ntasks: todo=2 in-progress=0 done=0 cancelled=0\nsubprojects:\n  orbiter:frontend\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "show",
+    "acme/orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project: acme/orbiter\ntasks: todo=2 in-progress=0 done=0 cancelled=0\nsubprojects:\n  orbiter:frontend\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "show",
+    "orbiter:frontend"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project: acme/orbiter:frontend\ntasks: todo=0 in-progress=0 done=0 cancelled=0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "show",
+    "acme/orbiter:frontend"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project: acme/orbiter:frontend\ntasks: todo=0 in-progress=0 done=0 cancelled=0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "repo",
+    "add",
+    "orbiter",
+    "git@github.com:acme/widgets.git"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "linked acme/widgets -> orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "cwd task",
+    "-p",
+    "."
+   ],
+   "cwd": "repo",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 3\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "here"
+   ],
+   "cwd": "repo",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "acme/widgets\n  acme/orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "find"
+   ],
+   "cwd": "repo",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:17:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "REF      TASKS  OPEN  REPOS         TAGS\norbiter  3      3     acme/widgets\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "status",
+    "wip",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:18:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [~] ref task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "status",
+    "complete",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:19:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [x] ref task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "status",
+    "pending",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:20:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [ ] ref task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "status",
+    "x",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:21:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [-] ref task 1\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

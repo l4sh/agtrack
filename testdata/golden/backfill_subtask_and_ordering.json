@@ -1,0 +1,207 @@
+{
+ "actor": null,
+ "scenario": "backfill_subtask_and_ordering",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "parent",
+    "--created",
+    "2026-08-01T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "add",
+    "1",
+    "s1",
+    "--at",
+    "2026-08-02T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask 1.1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "add",
+    "1",
+    "s2",
+    "--at",
+    "2026-08-03T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask 1.2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "ls",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "REF  MARK  STATUS  TITLE  TAGS\n1.1  [ ]   todo    s1\n1.2  [ ]   todo    s2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "status",
+    "done",
+    "1.1",
+    "--at",
+    "2026-08-04T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.1 [x] s1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "status",
+    "done",
+    "1.2",
+    "--at",
+    "2026-08-01T12:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "agtrack: --at (2026-08-01 12:00) is before the step's creation (2026-08-03 00:00); backfill the step's creation first if the record is wrong\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "status",
+    "done",
+    "1.2",
+    "--at",
+    "2026-08-05T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.2 [x] s2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "1",
+    "-x"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [~] parent\nstatus: in-progress\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nstarted: 2026-08-04 00:00\nsubtasks:\n  1.1      [x] s1\n  1.2      [x] s2\nhistory:\n  2026-08-01 00:00  #1     created parent  (recorded 2026-09-01)\n  2026-08-02 00:00  1.1    created s1  (recorded 2026-09-01)\n  2026-08-03 00:00  1.2    created s2  (recorded 2026-09-01)\n  2026-08-04 00:00  1.1    status todo -> done  (recorded 2026-09-01)\n  2026-08-04 00:00  #1     status todo -> in-progress  (recorded 2026-09-01)\n  2026-08-05 00:00  1.2    status todo -> done  (recorded 2026-09-01)\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

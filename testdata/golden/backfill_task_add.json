@@ -1,0 +1,247 @@
+{
+ "actor": null,
+ "scenario": "backfill_task_add",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "bf1",
+    "--created",
+    "2026-08-01T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [ ] bf1\nstatus: todo\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "bf2",
+    "--created",
+    "2026-08-01T00:00:00Z",
+    "--started",
+    "2026-08-02T00:00:00Z",
+    "--status",
+    "in-progress"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #2 [~] bf2\nstatus: in-progress\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nstarted: 2026-08-02 00:00\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "bf3",
+    "--created",
+    "2026-08-01T00:00:00Z",
+    "--status",
+    "done",
+    "--closed",
+    "2026-08-05T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 3\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "3"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #3 [x] bf3\nstatus: done\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nclosed: 2026-08-05 00:00\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "bf4",
+    "--created",
+    "2026-08-01T00:00:00Z",
+    "--started",
+    "2026-08-02T00:00:00Z",
+    "--status",
+    "cancelled",
+    "--closed",
+    "2026-08-03T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "4"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #4 [-] bf4\nstatus: cancelled\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nstarted: 2026-08-02 00:00\nclosed: 2026-08-03 00:00\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "--backdated",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "[\n  {\n    \"id\": 5,\n    \"at\": \"2026-08-01T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:02:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"created\",\n    \"detail\": \"bf1\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"when\": \"2026-08-01 00:00\",\n    \"date\": \"2026-08-01\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#1\",\n    \"task\": \"bf1\"\n  },\n  {\n    \"id\": 6,\n    \"at\": \"2026-08-01T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:04:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 2,\n    \"action\": \"created\",\n    \"detail\": \"bf2\",\n    \"task_id\": 2,\n    \"project_id\": 1,\n    \"when\": \"2026-08-01 00:00\",\n    \"date\": \"2026-08-01\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#2\",\n    \"task\": \"bf2\"\n  },\n  {\n    \"id\": 8,\n    \"at\": \"2026-08-01T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:06:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 3,\n    \"action\": \"created\",\n    \"detail\": \"bf3\",\n    \"task_id\": 3,\n    \"project_id\": 1,\n    \"when\": \"2026-08-01 00:00\",\n    \"date\": \"2026-08-01\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#3\",\n    \"task\": \"bf3\"\n  },\n  {\n    \"id\": 10,\n    \"at\": \"2026-08-01T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:08:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 4,\n    \"action\": \"created\",\n    \"detail\": \"bf4\",\n    \"task_id\": 4,\n    \"project_id\": 1,\n    \"when\": \"2026-08-01 00:00\",\n    \"date\": \"2026-08-01\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#4\",\n    \"task\": \"bf4\"\n  },\n  {\n    \"id\": 7,\n    \"at\": \"2026-08-02T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:04:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 2,\n    \"action\": \"status\",\n    \"detail\": \"todo -> in-progress\",\n    \"task_id\": 2,\n    \"project_id\": 1,\n    \"when\": \"2026-08-02 00:00\",\n    \"date\": \"2026-08-02\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#2\",\n    \"task\": \"bf2\"\n  },\n  {\n    \"id\": 11,\n    \"at\": \"2026-08-02T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:08:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 4,\n    \"action\": \"status\",\n    \"detail\": \"todo -> in-progress\",\n    \"task_id\": 4,\n    \"project_id\": 1,\n    \"when\": \"2026-08-02 00:00\",\n    \"date\": \"2026-08-02\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#4\",\n    \"task\": \"bf4\"\n  },\n  {\n    \"id\": 12,\n    \"at\": \"2026-08-03T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:08:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 4,\n    \"action\": \"status\",\n    \"detail\": \"in-progress -> cancelled\",\n    \"task_id\": 4,\n    \"project_id\": 1,\n    \"when\": \"2026-08-03 00:00\",\n    \"date\": \"2026-08-03\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#4\",\n    \"task\": \"bf4\"\n  },\n  {\n    \"id\": 9,\n    \"at\": \"2026-08-05T00:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:06:00Z\",\n    \"actor\": null,\n    \"target_type\": \"task\",\n    \"target_id\": 3,\n    \"action\": \"status\",\n    \"detail\": \"todo -> done\",\n    \"task_id\": 3,\n    \"project_id\": 1,\n    \"when\": \"2026-08-05 00:00\",\n    \"date\": \"2026-08-05\",\n    \"backdated\": true,\n    \"recorded\": \"2026-09-01\",\n    \"target\": \"#3\",\n    \"task\": \"bf3\"\n  }\n]\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "--by-day"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "2026-08-01\n  00:00 #1 created bf1  (recorded 2026-09-01)\n  00:00 #2 created bf2  (recorded 2026-09-01)\n  00:00 #3 created bf3  (recorded 2026-09-01)\n  00:00 #4 created bf4  (recorded 2026-09-01)\n\n2026-08-02\n  00:00 #2 status todo -> in-progress  (recorded 2026-09-01)\n  00:00 #4 status todo -> in-progress  (recorded 2026-09-01)\n\n2026-08-03\n  00:00 #4 status in-progress -> cancelled  (recorded 2026-09-01)\n\n2026-08-05\n  00:00 #3 status todo -> done  (recorded 2026-09-01)\n\n2026-09-01\n  12:00 context created acme\n  12:00 context use\n  12:01 project created orbiter\n  12:01 project use\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}
