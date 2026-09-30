@@ -68,7 +68,7 @@ func Bound(rows []*row.Row, maxBytes int, format string, fields []string, restri
 		"returned", int64(kept),
 		"total", int64(total),
 		"bytes_limit", int64(maxBytes),
-		"retrieve", fmt.Sprintf("use --offset %d to fetch the remaining %d row(s)", kept, total-kept),
+		"retrieve", fmt.Sprintf("re-run without --max-bytes, or narrow it (-n, --fields, filters), to see the remaining %d row(s)", total-kept),
 	)
 	return rows[:kept], manifest
 }

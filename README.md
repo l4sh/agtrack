@@ -62,8 +62,9 @@ workspace cannot use the default location. The error names the path it tried and
 
 **Upgrading from agtrack 1.x (Python).** The Go build opens an existing schema-v2 database
 in place and migrates it to v3 on first open: existing ids, including worklog event ids,
-are kept. The migration is one-way — the Python build refuses a v3 database — so copy the
-file first if you need to keep running both.
+are kept. The migration is one-way — the Python build refuses a v3 database — so before
+migrating agtrack writes a consistent copy of the old file to `<db>.v2.bak` (restore it with
+`mv agtrack.db.v2.bak agtrack.db` to go back to 1.x, losing anything written since).
 
 | Variable | Effect |
 |---|---|
@@ -242,7 +243,10 @@ python3 scripts/golden/capture.py               # recapture the corpus from the 
 go test -tags devui -run TestDevServer -timeout 0 ./internal/web   # the viewer against fixtures
 ```
 
-Tests always use temporary databases. Layout: `cmd/agtrack` (entry), `internal/cli` (command
+Tests always use temporary databases. `AGTRACK_NOW=2026-09-01T12:00:00Z` freezes agtrack's
+clock; it exists for the golden corpus and tests. It changes every timestamp agtrack
+writes and moves the "refuse future `--at`" guard with it, so never set it in normal use —
+to record past work, use `--at`/`--created`/`--started`/`--closed`. Layout: `cmd/agtrack` (entry), `internal/cli` (command
 tree, handlers), `internal/cli/argp` (argparse-compatible parser), `internal/store` (every
 read and write), `internal/db` (connection, schema, migrations), `internal/refs` (reference
 grammar, time), `internal/render` (output formats), `internal/spec` (markdown sections,

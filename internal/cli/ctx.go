@@ -148,11 +148,46 @@ func (c *Ctx) lean(obj any, kind string) any {
 	if len(c.Fields) > 0 {
 		return obj
 	}
-	drop := []string{"created", "updated", "started", "closed", "mark", "path", "context"}
-	if d, ok := derived[kind]; ok && kind != "" {
-		drop = d
+	return leanKind(obj, kind)
+}
+
+// nestedKind names the entity kind of a nested collection, so each level
+// drops its own derived duplicates (D12), not its parent's.
+var nestedKind = map[string]string{
+	"projects": "project", "subprojects": "project", "note_list": "note", "notes": "note",
+	"replies": "note", "subtask_list": "subtask", "subtasks": "subtask", "open_subtasks": "subtask",
+	"pr_list": "pr", "events": "event", "tasks": "task", "in_progress": "task", "contexts": "context",
+}
+
+func leanKind(obj any, kind string) any {
+	switch v := obj.(type) {
+	case []*row.Row:
+		out := make([]*row.Row, len(v))
+		for i, r := range v {
+			out[i] = leanKind(r, kind).(*row.Row)
+		}
+		return out
+	case *row.Row:
+		drop := map[string]bool{}
+		for _, k := range derived[kind] {
+			drop[k] = true
+		}
+		out := row.New()
+		for _, k := range v.Keys() {
+			if drop[k] {
+				continue
+			}
+			val := v.Get(k)
+			if nk, ok := nestedKind[k]; ok {
+				if rows, isRows := val.([]*row.Row); isRows {
+					val = leanKind(rows, nk)
+				}
+			}
+			out.Set(k, val)
+		}
+		return out
 	}
-	return render.Lean(obj, drop...)
+	return obj
 }
 
 // emitObject prints one structured object in the selected structured format.
@@ -166,16 +201,16 @@ func (c *Ctx) emitObject(obj any) error {
 
 // fieldsFor are the default column sets; -x appends the second list.
 var fieldsFor = map[string][2][]string{
-	"context": {{"name", "current", "projects", "open_tasks"}, {"title", "archived", "created_at"}},
-	"project": {{"ref", "tasks", "open", "repos", "tags"}, {"title", "path", "archived", "created_at"}},
-	"task":    {{"id", "status", "project", "title", "subtasks", "tags"}, {"prs", "notes", "started", "closed", "updated", "context"}},
-	"subtask": {{"ref", "mark", "status", "title", "tags"}, {"notes", "created", "updated"}},
-	"tag":     {{"name", "projects", "tasks", "subtasks", "notes"}, {"created_at"}},
-	"pr":      {{"id", "state", "repo", "number", "task_id", "task_title"}, {"url", "created"}},
-	"event":   {{"when", "actor", "target", "action", "detail"}, {"task", "target_type", "recorded"}},
-	"note":    {{"id", "created", "actor", "body"}, {"kind", "resolved_at"}},
-	"spec":    {{"slug", "revision", "status", "source_path", "title"}, {"project", "sha", "updated_at"}},
-	"dep":     {{"task_id", "depends_on_id", "kind", "status", "title"}, {"reason", "created_at"}},
+	"context":  {{"name", "current", "projects", "open_tasks"}, {"title", "archived", "created_at"}},
+	"project":  {{"ref", "tasks", "open", "repos", "tags"}, {"title", "path", "archived", "created_at"}},
+	"task":     {{"id", "status", "project", "title", "subtasks", "tags"}, {"prs", "notes", "started", "closed", "updated", "context"}},
+	"subtask":  {{"ref", "mark", "status", "title", "tags"}, {"notes", "created", "updated"}},
+	"tag":      {{"name", "projects", "tasks", "subtasks", "notes"}, {"created_at"}},
+	"pr":       {{"id", "state", "repo", "number", "task_id", "task_title"}, {"url", "created"}},
+	"event":    {{"when", "actor", "target", "action", "detail"}, {"task", "target_type", "recorded"}},
+	"note":     {{"id", "created", "actor", "body"}, {"kind", "resolved_at"}},
+	"spec":     {{"slug", "revision", "status", "source_path", "title"}, {"project", "sha", "updated_at"}},
+	"dep":      {{"task_id", "depends_on_id", "kind", "status", "title"}, {"reason", "created_at"}},
 	"artifact": {{"id", "kind", "value", "label"}, {"actor", "created_at"}},
 }
 
@@ -225,7 +260,7 @@ func (c *Ctx) emit(rows []*row.Row, kind string, total int) error {
 		rows = leaned
 	}
 	return render.Emit(c.Out, rows, fields, render.Options{
-		Format: c.Format, Header: c.Header, Color: c.Color, Restrict: restrict, MaxBytes: c.MaxBytes,
+		Format: c.Format, Header: c.Header, Color: c.Color, Restrict: restrict, MaxBytes: c.MaxBytes, Err: c.Err,
 	})
 }
 

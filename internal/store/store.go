@@ -24,6 +24,8 @@ import (
 type Store struct {
 	DB    *db.DB
 	Actor string // "" = unattributed
+	// Context is the invocation's explicit -c, if any; it bounds the pins.
+	Context string
 	// CwdRepo returns the origin remote of the cwd repository, or "". The CLI
 	// injects it; tests stub it.
 	CwdRepo func() string

@@ -8,6 +8,8 @@
 package render
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -41,9 +43,10 @@ var statusColors = map[string]string{
 type Options struct {
 	Format   string
 	Header   bool
-	Color    *bool // nil = auto-detect on w
-	Restrict bool  // json/yaml/jsonl carry only `fields` (the caller passed --fields)
-	MaxBytes int   // 0 = unbounded
+	Color    *bool     // nil = auto-detect on w
+	Restrict bool      // json/yaml/jsonl carry only `fields` (the caller passed --fields)
+	MaxBytes int       // 0 = unbounded
+	Err      io.Writer // where a tabular --max-bytes omission notice goes
 }
 
 // Section is one label/value line for EmitDetail. Value is a string, or a
@@ -167,23 +170,56 @@ func ProjectRows(rows []*row.Row, fields []string) []*row.Row {
 func Emit(w io.Writer, rows []*row.Row, fields []string, o Options) error {
 	switch o.Format {
 	case "json", "yaml", "jsonl":
-		workRows := rows
-		var manifest *row.Row
-		if o.MaxBytes > 0 {
-			workRows, manifest = Bound(rows, o.MaxBytes, o.Format, fields, o.Restrict)
-		}
 		var projFields []string
 		if o.Restrict {
 			projFields = fields
 		}
-		data := ProjectRows(workRows, projFields)
-		return emitProjected(w, data, manifest, o.Format)
-	case "table", "plain", "tsv":
-		workRows := rows
-		if o.MaxBytes > 0 {
-			workRows, _ = Bound(rows, o.MaxBytes, o.Format, fields, o.Restrict)
+		if o.MaxBytes <= 0 {
+			return emitProjected(w, ProjectRows(rows, projFields), nil, o.Format)
 		}
-		return emitTabular(w, workRows, fields, o)
+		// Bound estimates; the rendered bytes decide. Drop rows until the
+		// actual output, manifest included, fits.
+		kept, manifest := Bound(rows, o.MaxBytes, o.Format, fields, o.Restrict)
+		for {
+			var buf bytes.Buffer
+			if manifest == nil && len(kept) < len(rows) {
+				manifest = omission(len(rows), len(kept), o.MaxBytes)
+			}
+			if err := emitProjected(&buf, ProjectRows(kept, projFields), manifest, o.Format); err != nil {
+				return err
+			}
+			if buf.Len() <= o.MaxBytes || len(kept) == 0 {
+				_, err := w.Write(buf.Bytes())
+				return err
+			}
+			kept = kept[:len(kept)-1]
+			manifest = omission(len(rows), len(kept), o.MaxBytes)
+		}
+	case "table", "plain", "tsv":
+		if o.MaxBytes <= 0 {
+			return emitTabular(w, rows, fields, o)
+		}
+		kept, _ := Bound(rows, o.MaxBytes, o.Format, fields, o.Restrict)
+		for {
+			var buf bytes.Buffer
+			if err := emitTabular(&buf, kept, fields, o); err != nil {
+				return err
+			}
+			if buf.Len() <= o.MaxBytes || len(kept) == 0 {
+				if _, err := w.Write(buf.Bytes()); err != nil {
+					return err
+				}
+				break
+			}
+			kept = kept[:len(kept)-1]
+		}
+		// Tabular output has no room for a manifest; it goes to stderr so an
+		// omission is never silent.
+		if len(kept) < len(rows) && o.Err != nil {
+			m := omission(len(rows), len(kept), o.MaxBytes)
+			fmt.Fprintf(o.Err, "agtrack: --max-bytes %d: showing %d of %d rows; %s\n", o.MaxBytes, len(kept), len(rows), m.Str("retrieve"))
+		}
+		return nil
 	default:
 		return errs.Usage("unknown format: %s", o.Format)
 	}
@@ -386,4 +422,13 @@ func ljust(s string, width int) string {
 
 func rstrip(s string) string {
 	return strings.TrimRightFunc(s, unicode.IsSpace)
+}
+
+func omission(total, kept, limit int) *row.Row {
+	retrieve := fmt.Sprintf("re-run without --max-bytes, or narrow it (-n, --fields, filters), to see the remaining %d row(s)", total-kept)
+	if kept == 0 {
+		retrieve = "not even one row fits; raise --max-bytes or narrow --fields"
+	}
+	return row.Of("omitted", int64(total-kept), "returned", int64(kept), "total", int64(total),
+		"bytes_limit", int64(limit), "retrieve", retrieve)
 }

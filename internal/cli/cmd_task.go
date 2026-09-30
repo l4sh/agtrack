@@ -222,16 +222,24 @@ func taskStatus(c *Ctx, status string) error {
 	if err != nil {
 		return err
 	}
-	var results []*row.Row
+	// Resolve every ref before writing anything, then apply them in one
+	// transaction: a bad ref fails the whole command with nothing written.
+	var tasks []*row.Row
 	for _, ref := range c.Strs("ref") {
 		task, err := c.S.GetTask(ref, true)
 		if err != nil {
 			return err
 		}
-		var changed bool
-		err = c.S.Tx(func() error {
-			var err error
-			task, changed, err = c.S.SetTaskStatus(task.Int("id"), status, at)
+		tasks = append(tasks, task)
+	}
+	type outcome struct {
+		task    *row.Row
+		changed bool
+	}
+	var done []outcome
+	err = c.S.Tx(func() error {
+		for _, task := range tasks {
+			task, changed, err := c.S.SetTaskStatus(task.Int("id"), status, at)
 			if err != nil {
 				return err
 			}
@@ -246,17 +254,21 @@ func taskStatus(c *Ctx, status string) error {
 					return err
 				}
 			}
-			return nil
-		})
-		if err != nil {
-			return err
+			done = append(done, outcome{task, changed})
 		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	var results []*row.Row
+	for _, o := range done {
 		if c.structured() {
-			obj, _ := c.S.TaskDict(task)
-			obj.Set("changed", changed)
+			obj, _ := c.S.TaskDict(o.task)
+			obj.Set("changed", o.changed)
 			results = append(results, c.lean(obj, "task").(*row.Row))
 		} else if !c.Quiet {
-			c.printf("#%d %s %s\n", task.Int("id"), refs.StatusMark[status], task.Str("title"))
+			c.printf("#%d %s %s\n", o.task.Int("id"), refs.StatusMark[status], o.task.Str("title"))
 		}
 	}
 	if c.structured() && !c.Quiet {
@@ -289,7 +301,7 @@ func taskSet(c *Ctx) error {
 }
 
 func taskRm(c *Ctx) error {
-	var deleted []int64
+	var tasks []*row.Row
 	for _, ref := range c.Strs("ref") {
 		task, err := c.S.GetTask(ref, true)
 		if err != nil {
@@ -302,9 +314,21 @@ func taskRm(c *Ctx) error {
 		if err := guardChildren(c.Bool("force"), counts, fmt.Sprintf("task #%d", task.Int("id"))); err != nil {
 			return err
 		}
-		if err := c.S.DeleteTask(task); err != nil {
-			return err
+		tasks = append(tasks, task)
+	}
+	err := c.S.Tx(func() error {
+		for _, task := range tasks {
+			if err := c.S.DeleteTask(task); err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	var deleted []int64
+	for _, task := range tasks {
 		deleted = append(deleted, task.Int("id"))
 		if !c.structured() && !c.Quiet {
 			c.printf("deleted task #%d\n", task.Int("id"))
@@ -402,16 +426,19 @@ func subtaskStatus(c *Ctx, status string) error {
 	if err != nil {
 		return err
 	}
-	var results []*row.Row
+	var subs []*row.Row
 	for _, ref := range c.Strs("ref") {
 		sub, err := c.S.GetSubtask(ref, true)
 		if err != nil {
 			return err
 		}
-		var res store.SubtaskStatusResult
-		err = c.S.Tx(func() error {
-			var err error
-			if res, err = c.S.SetSubtaskStatus(sub.Int("id"), status, !c.Bool("no_cascade"), at); err != nil {
+		subs = append(subs, sub)
+	}
+	var done []store.SubtaskStatusResult
+	err = c.S.Tx(func() error {
+		for _, sub := range subs {
+			res, err := c.S.SetSubtaskStatus(sub.Int("id"), status, !c.Bool("no_cascade"), at)
+			if err != nil {
 				return err
 			}
 			task, err := c.S.GetTaskID(res.Subtask.Int("task_id"))
@@ -429,11 +456,15 @@ func subtaskStatus(c *Ctx, status string) error {
 					return err
 				}
 			}
-			return nil
-		})
-		if err != nil {
-			return err
+			done = append(done, res)
 		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	var results []*row.Row
+	for _, res := range done {
 		s := res.Subtask
 		if c.structured() {
 			d, _ := c.S.SubtaskDetail(s)
@@ -486,7 +517,8 @@ func subtaskSet(c *Ctx) error {
 }
 
 func subtaskRm(c *Ctx) error {
-	var deleted []string
+	var subs []*row.Row
+	var labels []string
 	for _, ref := range c.Strs("ref") {
 		sub, err := c.S.GetSubtask(ref, true)
 		if err != nil {
@@ -500,16 +532,27 @@ func subtaskRm(c *Ctx) error {
 		if err := guardChildren(c.Bool("force"), counts, "subtask "+label); err != nil {
 			return err
 		}
-		if err := c.S.DeleteSubtask(sub); err != nil {
-			return err
+		subs = append(subs, sub)
+		labels = append(labels, label)
+	}
+	err := c.S.Tx(func() error {
+		for _, sub := range subs {
+			if err := c.S.DeleteSubtask(sub); err != nil {
+				return err
+			}
 		}
-		deleted = append(deleted, label)
-		if !c.structured() && !c.Quiet {
-			c.println("deleted subtask " + label)
-		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	if c.structured() && !c.Quiet {
-		return c.emitObject(row.Of("deleted", "subtask", "refs", deleted))
+		return c.emitObject(row.Of("deleted", "subtask", "refs", labels))
+	}
+	if !c.Quiet {
+		for _, l := range labels {
+			c.println("deleted subtask " + l)
+		}
 	}
 	return nil
 }
@@ -583,6 +626,16 @@ func tagRm(c *Ctx) error {
 // --- pull requests ---------------------------------------------------------------------
 
 func prAdd(c *Ctx) error {
+	show := func(ids []int64) error {
+		pr, err := c.S.GetPR(ids[0])
+		if err != nil {
+			return err
+		}
+		return c.created("pr", ids[0], pr, "pr")
+	}
+	if done, err := c.replay(show); done {
+		return err
+	}
 	task, err := c.S.GetTask(c.Str("task"), true)
 	if err != nil {
 		return err
@@ -593,11 +646,17 @@ func prAdd(c *Ctx) error {
 			return err
 		}
 	}
-	pr, err := c.S.AddPR(task, c.Str("url"), c.Str("title"), state)
+	ids, err := c.record("pr", func() ([]int64, error) {
+		pr, err := c.S.AddPR(task, c.Str("url"), c.Str("title"), state)
+		if err != nil {
+			return nil, err
+		}
+		return []int64{pr.Int("id")}, nil
+	})
 	if err != nil {
 		return err
 	}
-	return c.created("pr", pr.Int("id"), pr, "pr")
+	return show(ids)
 }
 
 func prLs(c *Ctx) error {

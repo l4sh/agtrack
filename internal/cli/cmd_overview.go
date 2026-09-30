@@ -32,7 +32,7 @@ func logAdd(c *Ctx) error {
 		}
 	}
 	if c.Has("project") {
-		if project, err = c.resolveProject(c.Str("project"), false); err != nil {
+		if project, err = c.resolveProject(c.Str("project"), true); err != nil {
 			return err
 		}
 	}
@@ -128,7 +128,7 @@ func cmdNext(c *Ctx) error {
 	var project *row.Row
 	var err error
 	if c.Has("project") {
-		if project, err = c.resolveProject(c.Str("project"), false); err != nil {
+		if project, err = c.resolveProject(c.Str("project"), true); err != nil {
 			return err
 		}
 	}
@@ -236,7 +236,7 @@ func cmdHere(c *Ctx) error {
 			r.Set("ref", short)
 			projects = append(projects, r)
 		}
-		return c.emitObject(row.Of("repo", id, "projects", projects))
+		return c.emitObject(c.lean(row.Of("repo", id, "projects", projects), ""))
 	}
 	c.println(id)
 	for _, p := range matches {

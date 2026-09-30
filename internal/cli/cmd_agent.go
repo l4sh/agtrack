@@ -108,7 +108,7 @@ func nextClaim(c *Ctx, f store.TaskFilter) error {
 		return err
 	}
 	for _, t := range append(mine, candidates...) {
-		res, err := c.S.ClaimTask(t.Int("id"), ttl, false)
+		res, err := c.S.ClaimDoable(t.Int("id"), ttl)
 		if err != nil {
 			if e, ok := errs.As(err); ok && e.Code == errs.ExitConflict {
 				continue
@@ -263,7 +263,7 @@ func taskArtifact(c *Ctx) error {
 		if err != nil {
 			return err
 		}
-		if err := c.S.RemoveArtifact(id); err != nil {
+		if err := c.S.RemoveArtifact(task.Int("id"), id); err != nil {
 			return err
 		}
 		return c.mutated(fmt.Sprintf("removed artifact %d", id), row.Of("deleted", "artifact", "id", id))
@@ -271,11 +271,27 @@ func taskArtifact(c *Ctx) error {
 	if !c.Has("value") {
 		return errs.Usage("the following arguments are required: value")
 	}
-	a, err := c.S.AddArtifact(task, kind, c.Str("value"), c.Str("label"))
+	show := func(ids []int64) error {
+		a, err := c.S.GetArtifact(ids[0])
+		if err != nil {
+			return err
+		}
+		return c.created("artifact", ids[0], a, "artifact")
+	}
+	if done, err := c.replay(show); done {
+		return err
+	}
+	ids, err := c.record("artifact", func() ([]int64, error) {
+		a, err := c.S.AddArtifact(task, kind, c.Str("value"), c.Str("label"))
+		if err != nil {
+			return nil, err
+		}
+		return []int64{a.Int("id")}, nil
+	})
 	if err != nil {
 		return err
 	}
-	return c.created("artifact", a.Int("id"), a, "artifact")
+	return show(ids)
 }
 
 // --- notes by id ------------------------------------------------------------------------

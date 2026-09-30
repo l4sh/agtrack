@@ -62,7 +62,16 @@ func (c *Ctx) record(kind string, create func() ([]int64, error)) ([]int64, erro
 	}
 	var ids []int64
 	err := c.S.Tx(func() error {
-		var err error
+		// Re-check under the write lock: a concurrent identical retry that
+		// committed first is replayed, not reported as a conflict.
+		rc, hit, err := c.S.CheckReceipt(c.idemKey, c.idemSHA)
+		if err != nil {
+			return err
+		}
+		if hit {
+			ids = rc.TargetIDs
+			return nil
+		}
 		if ids, err = create(); err != nil {
 			return err
 		}
@@ -76,4 +85,12 @@ type idem struct {
 	idemKey string
 	idemSHA string
 	receipt *store.Receipt
+}
+
+// idemVerbs are the create verbs that honour --idem; anywhere else the flag
+// is a usage error rather than silently ignored.
+var idemVerbs = map[string]bool{
+	"ctx add": true, "project add": true, "task add": true, "sub add": true, "log add": true,
+	"pr add": true, "note reply": true, "task artifact": true,
+	"ctx note": true, "project note": true, "task note": true, "sub note": true, "tag note": true,
 }

@@ -99,6 +99,16 @@ type ClaimResult struct {
 // ClaimTask takes an advisory, expiring claim. A live claim held by someone
 // else is a conflict unless steal is set. ttl <= 0 means no expiry.
 func (s *Store) ClaimTask(taskID int64, ttl time.Duration, steal bool) (res ClaimResult, err error) {
+	return s.claimTask(taskID, ttl, steal, false)
+}
+
+// ClaimDoable claims only a task that is still open and unblocked at the
+// moment of the claim (for `next --claim`: the list it chose from may be stale).
+func (s *Store) ClaimDoable(taskID int64, ttl time.Duration) (res ClaimResult, err error) {
+	return s.claimTask(taskID, ttl, false, true)
+}
+
+func (s *Store) claimTask(taskID int64, ttl time.Duration, steal, doable bool) (res ClaimResult, err error) {
 	defer guard(&err)
 	if s.Actor == "" {
 		fail(errs.New("a claim needs an actor: set AGTRACK_ACTOR or pass --actor"))
@@ -107,6 +117,11 @@ func (s *Store) ClaimTask(taskID int64, ttl time.Duration, steal bool) (res Clai
 		t := s.one("SELECT * FROM tasks WHERE id = ?", taskID)
 		if t == nil {
 			fail(errs.NotFound("task", fmt.Sprint(taskID), "no such task: %d", taskID))
+		}
+		if doable {
+			if Closed(t.Str("status")) || s.count("SELECT COUNT(*) FROM task_deps d JOIN tasks b ON b.id = d.depends_on_id WHERE d.task_id = ? AND d.kind = 'blocks' AND b.status <> 'done'", taskID) > 0 {
+				fail(errs.Conflict("task #%d was closed or blocked meanwhile", taskID))
+			}
 		}
 		now := refs.Now()
 		nowISO := refs.ToUTCISO(now)
@@ -270,12 +285,12 @@ func (s *Store) AddArtifact(task *row.Row, kind, value, label string) (r *row.Ro
 }
 
 // RemoveArtifact deletes an artifact by id.
-func (s *Store) RemoveArtifact(id int64) (err error) {
+func (s *Store) RemoveArtifact(taskID, id int64) (err error) {
 	defer guard(&err)
 	s.tx(func() {
-		a := s.one("SELECT a.*, t.project_id FROM artifacts a JOIN tasks t ON t.id = a.task_id WHERE a.id = ?", id)
+		a := s.one("SELECT a.*, t.project_id FROM artifacts a JOIN tasks t ON t.id = a.task_id WHERE a.id = ? AND a.task_id = ?", id, taskID)
 		if a == nil {
-			fail(errs.NotFound("artifact", fmt.Sprint(id), "no such artifact: %d", id))
+			fail(errs.NotFound("artifact", fmt.Sprint(id), "no such artifact on task #%d: %d", taskID, id))
 		}
 		s.exec("DELETE FROM artifacts WHERE id = ?", id)
 		s.event("task", a.Int("task_id"), "artifact-removed", a.Str("kind")+" "+a.Str("value"), a.Int("task_id"), a.Int("project_id"), "")
@@ -336,4 +351,14 @@ func joinAnd(parts []string) string {
 		out += p
 	}
 	return out
+}
+
+// GetArtifact fetches an artifact by id.
+func (s *Store) GetArtifact(id int64) (r *row.Row, err error) {
+	defer guard(&err)
+	r = s.one("SELECT id, task_id, kind, value, label, actor, created_at FROM artifacts WHERE id = ?", id)
+	if r == nil {
+		fail(errs.NotFound("artifact", fmt.Sprint(id), "no such artifact: %d", id))
+	}
+	return r, nil
 }

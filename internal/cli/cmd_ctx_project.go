@@ -15,21 +15,42 @@ import (
 // --- contexts ---------------------------------------------------------------------
 
 func contextAdd(c *Ctx) error {
-	ctx, err := c.S.CreateContext(c.Str("name"), c.Str("title"))
+	show := func(ids []int64) error {
+		ctx, err := c.S.GetContextID(ids[0])
+		if err != nil {
+			return err
+		}
+		return c.created("context", ctx.Str("name"), ctx, "context")
+	}
+	if done, err := c.replay(show); done {
+		return err
+	}
+	ids, err := c.record("context", func() ([]int64, error) {
+		var id int64
+		err := c.S.Tx(func() error {
+			ctx, err := c.S.CreateContext(c.Str("name"), c.Str("title"))
+			if err != nil {
+				return err
+			}
+			id = ctx.Int("id")
+			if c.Has("note") {
+				if _, err := c.S.AddNote(store.NewNote{TargetType: "context", TargetID: id, Body: c.Str("note")}); err != nil {
+					return err
+				}
+			}
+			if c.Bool("use") {
+				if _, err := c.S.UseContext(ctx.Str("name")); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return []int64{id}, err
+	})
 	if err != nil {
 		return err
 	}
-	if c.Has("note") {
-		if _, err := c.S.AddNote(store.NewNote{TargetType: "context", TargetID: ctx.Int("id"), Body: c.Str("note")}); err != nil {
-			return err
-		}
-	}
-	if c.Bool("use") {
-		if _, err := c.S.UseContext(ctx.Str("name")); err != nil {
-			return err
-		}
-	}
-	return c.created("context", ctx.Str("name"), ctx, "context")
+	return show(ids)
 }
 
 func contextLs(c *Ctx) error {
@@ -186,35 +207,51 @@ func contextRm(c *Ctx) error {
 // --- projects ------------------------------------------------------------------------
 
 func projectAdd(c *Ctx) error {
+	show := func(ids []int64) error {
+		project, err := c.S.GetProject(ids[0])
+		if err != nil || project == nil {
+			return errs.NotFound("project", fmt.Sprint(ids[0]), "no such project: %d", ids[0])
+		}
+		short, _ := c.S.ShortPath(project)
+		return c.created("project", short, project, "project")
+	}
+	if done, err := c.replay(show); done {
+		return err
+	}
 	var project *row.Row
-	err := c.S.Tx(func() error {
-		var err error
-		project, err = c.S.CreateProject(c.Str("ref"), c.Context, c.Str("title"), c.Strs("repo"))
+	ids, err := c.record("project", func() ([]int64, error) {
+		err := c.S.Tx(func() error {
+			var err error
+			project, err = c.S.CreateProject(c.Str("ref"), c.Context, c.Str("title"), c.Strs("repo"))
+			if err != nil {
+				return err
+			}
+			if tags := c.Tags("tag"); len(tags) > 0 {
+				if _, err := c.S.AttachTags("project", project.Int("id"), tags, 0, project.Int("id"), false); err != nil {
+					return err
+				}
+			}
+			if c.Has("note") {
+				if _, err := c.S.AddNote(store.NewNote{TargetType: "project", TargetID: project.Int("id"), Body: c.Str("note"), ProjectID: project.Int("id")}); err != nil {
+					return err
+				}
+			}
+			if c.Bool("use") {
+				if _, err := c.S.UseProject(project); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if tags := c.Tags("tag"); len(tags) > 0 {
-			if _, err := c.S.AttachTags("project", project.Int("id"), tags, 0, project.Int("id"), false); err != nil {
-				return err
-			}
-		}
-		if c.Has("note") {
-			if _, err := c.S.AddNote(store.NewNote{TargetType: "project", TargetID: project.Int("id"), Body: c.Str("note"), ProjectID: project.Int("id")}); err != nil {
-				return err
-			}
-		}
-		if c.Bool("use") {
-			if _, err := c.S.UseProject(project); err != nil {
-				return err
-			}
-		}
-		return nil
+		return []int64{project.Int("id")}, nil
 	})
 	if err != nil {
 		return err
 	}
-	short, _ := c.S.ShortPath(project)
-	return c.created("project", short, project, "project")
+	return show(ids)
 }
 
 func projectLs(c *Ctx) error {
@@ -480,6 +517,16 @@ func (c *Ctx) target() (target, error) {
 }
 
 func noteAdd(c *Ctx) error {
+	show := func(ids []int64) error {
+		n, err := c.S.GetNote(ids[0])
+		if err != nil {
+			return err
+		}
+		return c.created("note", ids[0], c.S.NoteRow(n), "note")
+	}
+	if done, err := c.replay(show); done {
+		return err
+	}
 	t, err := c.target()
 	if err != nil {
 		return err
@@ -494,13 +541,19 @@ func noteAdd(c *Ctx) error {
 			return err
 		}
 	}
-	note, err := c.S.AddNote(store.NewNote{
-		TargetType: t.typ, TargetID: t.id, Body: c.Str("body"), TaskID: t.task, ProjectID: t.project, At: at, Kind: kind,
+	ids, err := c.record("note", func() ([]int64, error) {
+		note, err := c.S.AddNote(store.NewNote{
+			TargetType: t.typ, TargetID: t.id, Body: c.Str("body"), TaskID: t.task, ProjectID: t.project, At: at, Kind: kind,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return []int64{note.Int("id")}, nil
 	})
 	if err != nil {
 		return err
 	}
-	return c.created("note", note.Int("id"), note, "note")
+	return show(ids)
 }
 
 func noteLs(c *Ctx) error {

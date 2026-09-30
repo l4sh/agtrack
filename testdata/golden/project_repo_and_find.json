@@ -369,7 +369,7 @@
    "now": "2026-09-01T12:18:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "{\n  \"repo\": \"github.com/acme/widgets\",\n  \"projects\": [\n    {\n      \"id\": 1,\n      \"context_id\": 1,\n      \"parent_id\": null,\n      \"name\": \"orbiter\",\n      \"title\": null,\n      \"archived\": 0,\n      \"created_at\": \"2026-09-01T12:01:00Z\",\n      \"updated_at\": \"2026-09-01T12:01:00Z\",\n      \"path\": \"acme/orbiter\",\n      \"ref\": \"orbiter\"\n    }\n  ]\n}\n",
+   "stdout": "{\n  \"repo\": \"github.com/acme/widgets\",\n  \"projects\": [\n    {\n      \"id\": 1,\n      \"context_id\": 1,\n      \"parent_id\": null,\n      \"name\": \"orbiter\",\n      \"title\": null,\n      \"archived\": 0,\n      \"created_at\": \"2026-09-01T12:01:00Z\",\n      \"updated_at\": \"2026-09-01T12:01:00Z\",\n      \"ref\": \"orbiter\"\n    }\n  ]\n}\n",
    "tags": [
     "parity"
    ]

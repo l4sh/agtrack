@@ -98,7 +98,7 @@
    "now": "2026-09-01T12:04:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "- id: 1\n  context_id: 1\n  parent_id: null\n  name: orbiter\n  title: Orbiter CLI\n  archived: 0\n  created_at: 2026-09-01T12:01:00Z\n  updated_at: 2026-09-01T12:01:00Z\n  ref: orbiter\n  repos: \"\"\n  tags: \"core,infra,tools\"\n  open: 0\n  tasks: 0\n",
+   "stdout": "- id: 1\n  context_id: 1\n  parent_id: null\n  name: orbiter\n  title: Orbiter CLI\n  archived: 0\n  created_at: \"2026-09-01T12:01:00Z\"\n  updated_at: \"2026-09-01T12:01:00Z\"\n  ref: orbiter\n  repos: \"\"\n  tags: \"core,infra,tools\"\n  open: 0\n  tasks: 0\n",
    "tags": [
     "parity"
    ]
@@ -154,7 +154,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "{\n  \"id\": 1,\n  \"context_id\": 1,\n  \"parent_id\": null,\n  \"name\": \"orbiter\",\n  \"title\": \"Orbiter CLI\",\n  \"archived\": 0,\n  \"created_at\": \"2026-09-01T12:01:00Z\",\n  \"updated_at\": \"2026-09-01T12:01:00Z\",\n  \"repos\": [],\n  \"tags\": [\n    \"core\",\n    \"infra\",\n    \"tools\"\n  ],\n  \"subprojects\": [],\n  \"counts\": {\n    \"todo\": 0,\n    \"in-progress\": 0,\n    \"done\": 0,\n    \"cancelled\": 0\n  },\n  \"note_list\": [\n    {\n      \"id\": 1,\n      \"target_type\": \"project\",\n      \"target_id\": 1,\n      \"body\": \"seed\",\n      \"actor\": null,\n      \"created_at\": \"2026-09-01T12:01:00Z\",\n      \"created\": \"2026-09-01 12:01\"\n    }\n  ]\n}\n",
+   "stdout": "{\n  \"id\": 1,\n  \"context_id\": 1,\n  \"parent_id\": null,\n  \"name\": \"orbiter\",\n  \"title\": \"Orbiter CLI\",\n  \"archived\": 0,\n  \"created_at\": \"2026-09-01T12:01:00Z\",\n  \"updated_at\": \"2026-09-01T12:01:00Z\",\n  \"repos\": [],\n  \"tags\": [\n    \"core\",\n    \"infra\",\n    \"tools\"\n  ],\n  \"subprojects\": [],\n  \"counts\": {\n    \"todo\": 0,\n    \"in-progress\": 0,\n    \"done\": 0,\n    \"cancelled\": 0\n  },\n  \"note_list\": [\n    {\n      \"id\": 1,\n      \"target_type\": \"project\",\n      \"target_id\": 1,\n      \"body\": \"seed\",\n      \"actor\": null,\n      \"created_at\": \"2026-09-01T12:01:00Z\"\n    }\n  ]\n}\n",
    "tags": [
     "parity"
    ]

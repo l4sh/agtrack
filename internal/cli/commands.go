@@ -214,10 +214,10 @@ func Tree() *argp.Command {
 			Flags: []argp.Flag{{Long: "--on", Kind: argp.Append, Metavar: "TASK"}, {Long: "--kind", Choices: []string{"blocks", "relates", "duplicates"}}}},
 		&argp.Command{Name: "deps", Help: "what a task waits on and what waits on it", Run: Handler(taskDeps), Args: []argp.Arg{{Name: "ref"}}, Flags: listFlags()},
 		&argp.Command{Name: "artifact", Help: "record a branch, commit, file, url, run or worktree on a task", Run: Handler(taskArtifact),
-			Args: []argp.Arg{{Name: "ref"}, {Name: "kind", NArgs: "?", Choices: []string{"branch", "commit", "file", "url", "run", "worktree", "ls", "rm"}}, {Name: "value", NArgs: "?"}},
+			Args:  []argp.Arg{{Name: "ref"}, {Name: "kind", NArgs: "?", Choices: []string{"branch", "commit", "file", "url", "run", "worktree", "ls", "rm"}}, {Name: "value", NArgs: "?"}},
 			Flags: []argp.Flag{{Long: "--label"}}},
 		&argp.Command{Name: "review-spec", Help: "record a review of a stale spec link", Run: Handler(taskReviewSpec),
-			Args: []argp.Arg{{Name: "ref"}, {Name: "section"}},
+			Args:  []argp.Arg{{Name: "ref"}, {Name: "section"}},
 			Flags: []argp.Flag{{Long: "--verdict", Choices: []string{"still-valid", "needs-work"}, Default: "still-valid"}, {Long: "--reason"}, {Long: "--version", Kind: argp.Int}}},
 	)
 	taskSubs = append(taskSubs, noteVerbs("task", "task id", true)...)

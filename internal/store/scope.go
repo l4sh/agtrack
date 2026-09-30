@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -89,7 +90,7 @@ func (s *Store) CurrentContext() (r *row.Row, err error) {
 // currentProject is the pinned project, provided it lies in the current
 // context (D1). A pin into another context is stale and ignored.
 func (s *Store) currentProject() *row.Row {
-	value, ok := s.pin("current_project")
+	value, ok := s.projectPin()
 	if !ok {
 		return nil
 	}
@@ -101,10 +102,36 @@ func (s *Store) currentProject() *row.Row {
 	if p == nil {
 		return nil
 	}
-	if ctx := s.currentContext(); ctx != nil && ctx.Int("id") != p.Int("context_id") {
+	if ctx := s.scopeContext(); ctx != nil && ctx.Int("id") != p.Int("context_id") {
 		return nil
 	}
-	return p
+	return projectRow(p)
+}
+
+// projectPin reads the project pin. An actor that has scoped itself (its own
+// context pin) never falls through to the human's global project pin: after
+// `ctx use` drops the actor's pin, an unqualified write must fail, not land in
+// someone else's project (design §4.5).
+func (s *Store) projectPin() (string, bool) {
+	if s.Actor != "" {
+		if v, ok := s.getMeta("current_project:" + s.Actor); ok && v != "" {
+			return v, true
+		}
+		if _, ok := s.getMeta("current_context:" + s.Actor); ok {
+			return "", false
+		}
+	}
+	v, ok := s.getMeta("current_project")
+	return v, ok && v != ""
+}
+
+// scopeContext is the context an invocation works in: an explicit -c wins
+// over the pin (D1: a named scope is never overridden by a pin elsewhere).
+func (s *Store) scopeContext() *row.Row {
+	if s.Context != "" {
+		return s.getContext(s.Context, false)
+	}
+	return s.currentContext()
 }
 
 // CurrentProject is the pinned project, or nil.
@@ -118,7 +145,7 @@ func (s *Store) useContext(name string) *row.Row {
 	s.tx(func() {
 		s.setMeta(s.scoped("current_context"), strp(ctx.Str("name")))
 		// D1: a project pin that points into another context is dropped.
-		if value, ok := s.pin("current_project"); ok {
+		if value, ok := s.projectPin(); ok {
 			id, _ := strconv.ParseInt(value, 10, 64)
 			p := s.one("SELECT context_id FROM projects WHERE id = ?", id)
 			if p == nil || p.Int("context_id") != ctx.Int("id") {
@@ -163,7 +190,9 @@ func (s *Store) defaultProject() *row.Row {
 	}
 	if remote := s.CwdRepo(); remote != "" {
 		if matches := s.findProjectsByRepo(remote); len(matches) == 1 {
-			return matches[0]
+			if ctx := s.scopeContext(); s.Context == "" || (ctx != nil && ctx.Int("id") == matches[0].Int("context_id")) {
+				return matches[0]
+			}
 		}
 	}
 	fail(errs.New("no project given and none is current: pass --project or run `agtrack project use <ref>`"))
@@ -212,6 +241,16 @@ func (s *Store) defaultContext() *row.Row {
 	}
 	fail(errs.New("several contexts exist and none is current: pass --context or run `agtrack ctx use <name>`"))
 	return nil
+}
+
+// GetContextID fetches a context by id.
+func (s *Store) GetContextID(id int64) (r *row.Row, err error) {
+	defer guard(&err)
+	r = s.one("SELECT * FROM contexts WHERE id = ?", id)
+	if r == nil {
+		fail(errs.NotFound("context", fmt.Sprint(id), "no such context: %d", id))
+	}
+	return contextRow(r), nil
 }
 
 // DefaultContext is the context to use when a command did not name one.

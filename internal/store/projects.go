@@ -171,7 +171,9 @@ func (s *Store) AddRepo(project *row.Row, repo string) (slug string, err error) 
 	return slug, nil
 }
 
-// RemoveRepo unlinks a remote (D5: row and event in one tx).
+// RemoveRepo unlinks a remote (D5: row and event in one tx). A host-less
+// `owner/name` removes the one binding of that name on any host; several
+// hosts make it ambiguous.
 func (s *Store) RemoveRepo(project *row.Row, repo string) (slug string, err error) {
 	defer guard(&err)
 	id, e := refs.RepoIdentity(repo)
@@ -180,13 +182,44 @@ func (s *Store) RemoveRepo(project *row.Row, repo string) (slug string, err erro
 	}
 	bare, _ := refs.NormalizeRepo(repo)
 	s.tx(func() {
-		res := s.exec("DELETE FROM project_repos WHERE project_id = ? AND slug IN (?, ?)", project.Int("id"), id, bare)
-		if n, _ := res.RowsAffected(); n == 0 {
-			fail(errs.NotFound("repo", repo, "%s is not linked to %s", id, s.projectPath(project)))
+		var slugs []string
+		for _, r := range s.q("SELECT slug FROM project_repos r WHERE r.project_id = ? AND "+repoMatch(id, bare), append([]any{project.Int("id")}, repoArgs(id, bare)...)...) {
+			slugs = append(slugs, r.Str("slug"))
 		}
-		s.event("project", project.Int("id"), "repo-removed", id, 0, project.Int("id"), "")
+		switch {
+		case len(slugs) == 0:
+			fail(errs.NotFound("repo", repo, "%s is not linked to %s", id, s.projectPath(project)))
+		case len(slugs) > 1:
+			e := errs.New("%s matches %s on %s; name the host", repo, strings.Join(slugs, ", "), s.projectPath(project))
+			e.Token = errs.TokAmbiguous
+			e.Extra = map[string]any{"candidates": slugs}
+			fail(e)
+		}
+		slug = slugs[0]
+		s.exec("DELETE FROM project_repos WHERE project_id = ? AND slug = ?", project.Int("id"), slug)
+		s.event("project", project.Int("id"), "repo-removed", slug, 0, project.Int("id"), "")
 	})
-	return id, nil
+	return slug, nil
+}
+
+// repoMatch is the SQL predicate (on alias r) matching a stored binding
+// against a query: the exact identity, the bare owner/name, or — for a
+// host-less query — any host (compared with substr, never LIKE: `_` and `%`
+// are ordinary characters in repo names).
+func repoMatch(id, bare string) string { return repoMatchCol("r.slug", id, bare) }
+
+func repoMatchCol(col, id, bare string) string {
+	if id == bare {
+		return "(" + col + " = ? OR (length(" + col + ") > length(?) AND substr(" + col + ", length(" + col + ") - length(?)) = ?))"
+	}
+	return "(" + col + " IN (?, ?))"
+}
+
+func repoArgs(id, bare string) []any {
+	if id == bare {
+		return []any{bare, bare, bare, "/" + bare}
+	}
+	return []any{id, bare}
 }
 
 func (s *Store) projectRepos(projectID int64) []string {
@@ -212,13 +245,9 @@ func (s *Store) findProjectsByRepo(repo string) []*row.Row {
 		fail(err)
 	}
 	bare, _ := refs.NormalizeRepo(repo)
-	query := "SELECT DISTINCT p.* FROM projects p JOIN project_repos r ON r.project_id = p.id WHERE r.slug IN (?, ?)"
-	args := []any{id, bare}
-	if id == bare {
-		query += " OR r.slug LIKE ?"
-		args = append(args, "%/"+bare)
-	}
-	query += " ORDER BY p.parent_id IS NULL DESC, p.id"
+	query := "SELECT DISTINCT p.* FROM projects p JOIN project_repos r ON r.project_id = p.id WHERE " + repoMatch(id, bare) +
+		" ORDER BY p.parent_id IS NULL DESC, p.id"
+	args := repoArgs(id, bare)
 	var out []*row.Row
 	for _, r := range s.q(query, args...) {
 		out = append(out, projectRow(r))

@@ -150,7 +150,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "- id: 1\n  project_id: 1\n  title: fmt task\n  status: todo\n  created_at: 2026-09-01T12:02:00Z\n  updated_at: 2026-09-01T12:02:00Z\n  started_at: null\n  closed_at: null\n  project: orbiter\n  tags: demo\n  subtasks: \"\"\n  prs: 0\n  notes: 0\n",
+   "stdout": "- id: 1\n  project_id: 1\n  title: fmt task\n  status: todo\n  created_at: \"2026-09-01T12:02:00Z\"\n  updated_at: \"2026-09-01T12:02:00Z\"\n  started_at: null\n  closed_at: null\n  project: orbiter\n  tags: demo\n  subtasks: \"\"\n  prs: 0\n  notes: 0\n",
    "tags": [
     "parity"
    ]
@@ -251,7 +251,7 @@
    "now": "2026-09-01T12:12:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "id: 1\nproject_id: 1\ntitle: fmt task\nstatus: todo\ncreated_at: 2026-09-01T12:02:00Z\nupdated_at: 2026-09-01T12:02:00Z\nstarted_at: null\nclosed_at: null\nproject: orbiter\ntags: demo\nsubtasks: \"\"\nprs: 0\nnotes: 0\ntag_list:\n  - demo\nsubtask_list: []\nnote_list: []\npr_list: []\n",
+   "stdout": "id: 1\nproject_id: 1\ntitle: fmt task\nstatus: todo\ncreated_at: \"2026-09-01T12:02:00Z\"\nupdated_at: \"2026-09-01T12:02:00Z\"\nstarted_at: null\nclosed_at: null\nproject: orbiter\ntags: demo\nsubtasks: \"\"\nprs: 0\nnotes: 0\ntag_list:\n  - demo\nsubtask_list: []\nnote_list: []\npr_list: []\n",
    "tags": [
     "parity"
    ]

@@ -83,6 +83,9 @@ func TestOpensRealV2Copy(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer d.Close()
+	if _, err := os.Stat(src + ".v2.bak"); err != nil {
+		t.Fatalf("no pre-migration backup: %v", err)
+	}
 	var ok string
 	d.QueryRow("PRAGMA integrity_check").Scan(&ok)
 	if ok != "ok" {

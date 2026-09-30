@@ -55,12 +55,15 @@ start here: ` + "`agtrack grammar`" + ` (one screen), then ` + "`agtrack resume`
 type Streams struct {
 	Out io.Writer
 	Err io.Writer
+	// ColorAuto is the auto-detected colour decision for Out (Main decides it
+	// from os.Stdout; the buffered wrapper hides the terminal from render).
+	ColorAuto bool
 }
 
 // Main runs agtrack with os.Args and returns the exit code.
 func Main() int {
 	out := bufio.NewWriter(os.Stdout)
-	code := Run(os.Args[1:], Streams{Out: &flushOnNewline{w: out}, Err: os.Stderr})
+	code := Run(os.Args[1:], Streams{Out: &flushOnNewline{w: out}, Err: os.Stderr, ColorAuto: render.ColorEnabled(os.Stdout)})
 	if err := out.Flush(); err != nil && isEPIPE(err) {
 		return 0
 	}
@@ -112,6 +115,9 @@ func Run(argv []string, st Streams) (code int) {
 		fmt.Fprint(st.Err, p.Help(res.Path))
 		return errs.ExitError
 	}
+	if c.idemKey != "" && !idemVerbs[strings.Join(res.Path, " ")] {
+		return reportError(st, format, errs.Usage("--idem is only accepted by create verbs (task add, sub add, log add, note, ...), not %s", strings.Join(res.Path, " ")), p, argv)
+	}
 	if needsNoDB[strings.Join(res.Path, " ")] {
 		return finish(st, format, h(c), c.DBPath, p, argv)
 	}
@@ -121,6 +127,7 @@ func Run(argv []string, st Streams) (code int) {
 	}
 	defer d.Close()
 	c.S = store.New(d, c.Actor)
+	c.S.Context = c.Context
 	c.S.CwdRepo = cwdRepo
 	if c.idemKey != "" {
 		c.idemSHA = requestSHA(res.Path, res.Values, c.Actor, c.Context)
@@ -188,6 +195,9 @@ func newCtx(res *argp.Result, st Streams) (*Ctx, error) {
 	case boolOr(res.Values["color"]):
 		t := true
 		c.Color = &t
+	default:
+		auto := st.ColorAuto
+		c.Color = &auto
 	}
 	c.Actor = strOr(res.Values["actor"])
 	if c.Actor == "" {
@@ -214,20 +224,24 @@ func boolOr(v any) bool {
 // parse, so even usage errors honour -f json (D11).
 func sniffFormat(argv []string) string {
 	format := os.Getenv("AGTRACK_FORMAT")
+	isFormatFlag := func(name string) bool { // --form and longer prefixes are unambiguous
+		return len(name) >= len("--form") && strings.HasPrefix("--format", name)
+	}
 	for i := 0; i < len(argv); i++ {
 		a := argv[i]
 		if a == "--" {
 			break
 		}
+		name, value, hasValue := strings.Cut(a, "=")
 		switch {
-		case a == "-f" || a == "--format" || a == "--form" || a == "--forma" || a == "--for" || a == "--fo":
+		case a == "-f" || (isFormatFlag(name) && !hasValue):
 			if i+1 < len(argv) {
 				format = argv[i+1]
 			}
-		case strings.HasPrefix(a, "--format="):
-			format = strings.TrimPrefix(a, "--format=")
+		case isFormatFlag(name) && hasValue:
+			format = value
 		case strings.HasPrefix(a, "-f") && len(a) > 2 && !strings.HasPrefix(a, "--"):
-			format = a[2:]
+			format = strings.TrimPrefix(a[2:], "=")
 		}
 	}
 	return format
@@ -259,10 +273,18 @@ func reportError(st Streams, format string, err error, p *argp.Parser, argv []st
 		if strings.Contains(msg, "database is locked") || strings.Contains(msg, "SQLITE_BUSY") {
 			tok = errs.TokDatabaseBusy
 		}
+		hint := "set AGTRACK_DB or pass --db to use a reachable location (WAL needs write access to the directory, not just the file)"
+		if tok == errs.TokDatabaseBusy {
+			// Contention is not fixed by another database (design §4.3).
+			hint = "another agtrack process held the write lock for over 5s; retry the command"
+		}
 		if structured {
-			obj := row.Of("error", tok, "code", int64(errs.ExitDatabase), "message", "database error: "+msg, "database", resolved,
-				"hint", "set AGTRACK_DB or pass --db to use a reachable location (WAL needs write access to the directory, not just the file)")
+			obj := row.Of("error", tok, "code", int64(errs.ExitDatabase), "message", "database error: "+msg, "database", resolved, "hint", hint)
 			emitErr(st.Err, format, obj)
+			return errs.ExitDatabase
+		}
+		if tok == errs.TokDatabaseBusy {
+			fmt.Fprintf(st.Err, "agtrack: database error: %s\nagtrack: database path: %s\nagtrack: %s\n", msg, resolved, hint)
 			return errs.ExitDatabase
 		}
 		fmt.Fprintf(st.Err, "agtrack: database error: %s\nagtrack: database path: %s\n"+

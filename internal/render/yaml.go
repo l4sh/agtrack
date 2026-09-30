@@ -1,6 +1,7 @@
 package render
 
 import (
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -168,6 +169,8 @@ func yamlScalar(v any) string {
 	return yamlQuoteIfUnsafe(pyStr(v))
 }
 
+var yamlRetypes = regexp.MustCompile(`^(?:[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?(?:[eE][-+]?[0-9]+)?|0x[0-9a-fA-F_]+|0o?[0-7_]+|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)|[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}(?:[Tt ].*)?|[0-9]+(?::[0-5]?[0-9])+(?:\.[0-9]*)?)$`)
+
 func yamlQuoteIfUnsafe(text string) string {
 	unsafe := text == ""
 	if !unsafe {
@@ -192,9 +195,14 @@ func yamlQuoteIfUnsafe(text string) string {
 	}
 	if !unsafe {
 		switch strings.ToLower(text) {
-		case "true", "false", "null", "yes", "no", "on", "off", "~":
+		case "true", "false", "null", "yes", "no", "on", "off", "~", "y", "n":
 			unsafe = true
 		}
+	}
+	// Beyond the 1.x emitter: a plain scalar must read back as the same
+	// string. " #" starts a comment; numbers, dates and timestamps re-type.
+	if !unsafe {
+		unsafe = strings.Contains(text, " #") || yamlRetypes.MatchString(text)
 	}
 	if unsafe {
 		return jsonQuoteString(text)

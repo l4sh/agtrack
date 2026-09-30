@@ -402,3 +402,108 @@ func TestGrammarAndDescribeNeedNoDatabase(t *testing.T) {
 		t.Fatalf("grammar/describe created a database: %v", matches)
 	}
 }
+
+// Review regressions (waves 0-2).
+func TestExplicitContextBoundsThePin(t *testing.T) {
+	e := newEnv(t)
+	e.ok("ctx", "add", "work")
+	e.ok("ctx", "add", "personal")
+	e.ok("project", "add", "work/api")
+	e.ok("project", "use", "work/api")
+	e.fails(1, "-c", "personal", "task", "add", "misfile?")
+	e.fails(3, "log", "add", "-p", "work/nosuch", "important")
+	e.fails(3, "next", "-p", "work/nosuch")
+}
+
+func TestActorWithOwnContextIgnoresGlobalProjectPin(t *testing.T) {
+	e := newEnv(t)
+	e.ok("ctx", "add", "w")
+	e.ok("ctx", "add", "p")
+	e.ok("project", "add", "w/a")
+	e.ok("project", "add", "p/b")
+	e.ok("project", "use", "w/a")
+	e.actor = "bot"
+	e.ok("project", "use", "p/b")
+	e.ok("ctx", "use", "w")
+	e.fails(1, "task", "add", "bot write")
+}
+
+func TestMultiPartCommandsAreAtomic(t *testing.T) {
+	e := newEnv(t)
+	e.ok("ctx", "add", "w")
+	e.fails(1, "ctx", "add", "zz", "--note", "   ")
+	if strings.Contains(e.ok("ctx", "ls"), "zz") {
+		t.Fatal("ctx add left a context behind")
+	}
+	e.ok("project", "add", "p", "--use")
+	e.ok("task", "add", "a")
+	e.fails(3, "task", "start", "1", "999")
+	if st := strings.TrimSpace(e.ok("task", "show", "1", "--fields", "status")); st != "status: todo" {
+		t.Fatalf("partial multi-ref write: %s", st)
+	}
+	e.fails(3, "task", "rm", "1", "998")
+	e.ok("task", "show", "1")
+}
+
+func TestIdemOnEveryCreate(t *testing.T) {
+	e := newEnv(t)
+	e.ok("ctx", "add", "w", "--idem", "c1")
+	e.ok("ctx", "add", "w", "--idem", "c1")
+	e.ok("project", "add", "p", "--use", "--idem", "p1")
+	e.ok("project", "add", "p", "--use", "--idem", "p1")
+	e.ok("task", "add", "t")
+	e.ok("pr", "add", "1", "https://github.com/o/x/pull/9", "--idem", "r1")
+	e.ok("pr", "add", "1", "https://github.com/o/x/pull/9", "--idem", "r1")
+	e.ok("task", "note", "1", "once", "--idem", "n1")
+	e.ok("task", "note", "1", "once", "--idem", "n1")
+	if n := strings.TrimSpace(e.ok("task", "notes", "1", "--count")); n != "1" {
+		t.Fatalf("note retry wrote %s notes", n)
+	}
+	e.fails(2, "task", "ls", "--idem", "x")
+}
+
+func TestConcurrentIdemRetriesAllReplay(t *testing.T) {
+	e := newEnv(t)
+	e.ok("ctx", "add", "w")
+	e.ok("project", "add", "p", "--use")
+	var wg sync.WaitGroup
+	codes := make([]int, 8)
+	for i := range codes {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			var out, errb bytes.Buffer
+			codes[i] = Run([]string{"--db", e.db, "task", "add", "race", "--idem", "R"}, Streams{Out: &out, Err: &errb})
+		}(i)
+	}
+	wg.Wait()
+	for _, c := range codes {
+		if c != 0 {
+			t.Fatalf("retry exit %d", c)
+		}
+	}
+	if n := strings.TrimSpace(e.ok("task", "ls", "--count")); n != "1" {
+		t.Fatalf("%s tasks", n)
+	}
+}
+
+func TestRepoMatching(t *testing.T) {
+	e := newEnv(t)
+	e.ok("ctx", "add", "w")
+	e.ok("project", "add", "web", "--repo", "https://github.com/o/web")
+	e.ok("project", "add", "other", "--repo", "https://github.com/o/myXrepo")
+	if out := e.ok("project", "find", "--repo", "o/my_repo", "-q"); strings.TrimSpace(out) != "" {
+		t.Fatalf("underscore matched as a wildcard: %q", out)
+	}
+	e.ok("project", "repo", "rm", "web", "o/web")
+}
+
+func TestArtifactRmIsScopedToItsTask(t *testing.T) {
+	e := newEnv(t)
+	e.ok("ctx", "add", "w")
+	e.ok("project", "add", "p", "--use")
+	e.ok("task", "add", "a")
+	e.ok("task", "add", "b")
+	e.ok("task", "artifact", "1", "branch", "feat/x")
+	e.fails(3, "task", "artifact", "2", "rm", "1")
+}

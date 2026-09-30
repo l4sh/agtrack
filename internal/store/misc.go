@@ -144,16 +144,16 @@ func (s *Store) insertNote(targetType string, targetID int64, body, at, kind str
 
 // NewNote are the inputs of AddNote.
 type NewNote struct {
-	TargetType string
-	TargetID   int64
-	Body       string
-	TaskID     int64
-	ProjectID  int64
-	At         string
-	Kind       string // "" = note
-	ParentID   int64
+	TargetType            string
+	TargetID              int64
+	Body                  string
+	TaskID                int64
+	ProjectID             int64
+	At                    string
+	Kind                  string // "" = note
+	ParentID              int64
 	Quote, Prefix, Suffix string
-	VersionID  int64
+	VersionID             int64
 }
 
 // AddNote attaches a note and records a `note` event.
@@ -361,6 +361,10 @@ func (s *Store) addPR(task *row.Row, url, title, state string) *row.Row {
 	repo, number, ok := refs.ParsePRURL(url)
 	var repoV, numV any
 	if ok {
+		// D8: keep the host, so github.com/x/y and gitlab.com/x/y differ.
+		if host := refs.RepoHost(url); host != "" {
+			repo = host + "/" + repo
+		}
 		repoV, numV = repo, number
 	}
 	if state == "" {
@@ -450,12 +454,13 @@ func (s *Store) FindPRs(f PRFilter) (out []*row.Row, err error) {
 		args = append(args, f.URL)
 	}
 	if f.Repo != "" {
-		repo, e := refs.NormalizeRepo(f.Repo)
+		id, e := refs.RepoIdentity(f.Repo)
 		if e != nil {
 			fail(e)
 		}
-		where = append(where, "r.repo = ?")
-		args = append(args, repo)
+		bare, _ := refs.NormalizeRepo(f.Repo)
+		where = append(where, repoMatchCol("r.repo", id, bare))
+		args = append(args, repoArgs(id, bare)...)
 	}
 	if f.HasNumber {
 		where = append(where, "r.number = ?")
@@ -510,19 +515,19 @@ func (s *Store) AddLog(body string, task, project *row.Row, at string) (id int64
 
 // EventFilter narrows ListEvents.
 type EventFilter struct {
-	Since, Until   string
-	Task, Project  *row.Row
-	Direct         bool
-	Context        string
-	Actor          string
-	ActorNot       string
-	Actions        []string
-	Limit          int // 0 = unlimited
-	AllContexts    bool
-	Ascending      bool
-	BackdatedOnly  bool
-	AfterID        int64 // cursor: id > AfterID, insertion order
-	ByID           bool  // order by id instead of at
+	Since, Until  string
+	Task, Project *row.Row
+	Direct        bool
+	Context       string
+	Actor         string
+	ActorNot      string
+	Actions       []string
+	Limit         int // 0 = unlimited
+	AllContexts   bool
+	Ascending     bool
+	BackdatedOnly bool
+	AfterID       int64 // cursor: id > AfterID, insertion order
+	ByID          bool  // order by id instead of at
 }
 
 // ListEvents reads the worklog. total is before Limit (D3).
@@ -694,4 +699,21 @@ func (s *Store) NoteThread(id int64) (out []*row.Row, err error) {
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+// NoteRow is the public (v2-compatible) shape of a full notes row.
+func (s *Store) NoteRow(r *row.Row) *row.Row {
+	item := s.noteRow(r)
+	item.Set("created", refs.FmtTS(r.Str("created_at"), false, false))
+	return item
+}
+
+// GetPR fetches a pull request record.
+func (s *Store) GetPR(id int64) (r *row.Row, err error) {
+	defer guard(&err)
+	r = s.one("SELECT * FROM pull_requests WHERE id = ?", id)
+	if r == nil {
+		fail(errs.NotFound("pr", fmt.Sprint(id), "no such pull request record: %d", id))
+	}
+	return pick(r, prCols...), nil
 }

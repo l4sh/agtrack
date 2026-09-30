@@ -114,7 +114,7 @@
    "now": "2026-09-01T12:05:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  STATE  REPO          NUMBER  TASK_ID  TASK_TITLE\n1   open   acme/widgets  42      1        pr task\n2   draft                        1        pr task\n",
+   "stdout": "ID  STATE  REPO                     NUMBER  TASK_ID  TASK_TITLE\n1   open   github.com/acme/widgets  42      1        pr task\n2   draft                                   1        pr task\n",
    "tags": [
     "parity"
    ]
@@ -133,7 +133,7 @@
    "now": "2026-09-01T12:06:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  STATE  REPO          NUMBER  TASK_ID  TASK_TITLE\n1   open   acme/widgets  42      1        pr task\n2   draft                        1        pr task\n",
+   "stdout": "ID  STATE  REPO                     NUMBER  TASK_ID  TASK_TITLE\n1   open   github.com/acme/widgets  42      1        pr task\n2   draft                                   1        pr task\n",
    "tags": [
     "parity"
    ]
@@ -152,7 +152,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  STATE  REPO          NUMBER  TASK_ID  TASK_TITLE\n1   open   acme/widgets  42      1        pr task\n",
+   "stdout": "ID  STATE  REPO                     NUMBER  TASK_ID  TASK_TITLE\n1   open   github.com/acme/widgets  42      1        pr task\n",
    "tags": [
     "parity"
    ]
@@ -171,7 +171,7 @@
    "now": "2026-09-01T12:08:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  STATE  REPO          NUMBER  TASK_ID  TASK_TITLE\n1   open   acme/widgets  42      1        pr task\n",
+   "stdout": "ID  STATE  REPO                     NUMBER  TASK_ID  TASK_TITLE\n1   open   github.com/acme/widgets  42      1        pr task\n",
    "tags": [
     "parity"
    ]
@@ -190,7 +190,7 @@
    "now": "2026-09-01T12:09:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "[\n  {\n    \"id\": 1,\n    \"task_id\": 1,\n    \"url\": \"https://github.com/acme/widgets/pull/42\",\n    \"repo\": \"acme/widgets\",\n    \"number\": 42,\n    \"title\": \"Fix bug\",\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:03:00Z\",\n    \"updated_at\": \"2026-09-01T12:03:00Z\",\n    \"task_title\": \"pr task\",\n    \"task_status\": \"todo\"\n  },\n  {\n    \"id\": 2,\n    \"task_id\": 1,\n    \"url\": \"https://example.com/not-a-pr-url\",\n    \"repo\": null,\n    \"number\": null,\n    \"title\": null,\n    \"state\": \"draft\",\n    \"created_at\": \"2026-09-01T12:04:00Z\",\n    \"updated_at\": \"2026-09-01T12:04:00Z\",\n    \"task_title\": \"pr task\",\n    \"task_status\": \"todo\"\n  }\n]\n",
+   "stdout": "[\n  {\n    \"id\": 1,\n    \"task_id\": 1,\n    \"url\": \"https://github.com/acme/widgets/pull/42\",\n    \"repo\": \"github.com/acme/widgets\",\n    \"number\": 42,\n    \"title\": \"Fix bug\",\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:03:00Z\",\n    \"updated_at\": \"2026-09-01T12:03:00Z\",\n    \"task_title\": \"pr task\",\n    \"task_status\": \"todo\"\n  },\n  {\n    \"id\": 2,\n    \"task_id\": 1,\n    \"url\": \"https://example.com/not-a-pr-url\",\n    \"repo\": null,\n    \"number\": null,\n    \"title\": null,\n    \"state\": \"draft\",\n    \"created_at\": \"2026-09-01T12:04:00Z\",\n    \"updated_at\": \"2026-09-01T12:04:00Z\",\n    \"task_title\": \"pr task\",\n    \"task_status\": \"todo\"\n  }\n]\n",
    "tags": [
     "parity"
    ]
@@ -283,7 +283,7 @@
    "now": "2026-09-01T12:14:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  STATE   REPO          NUMBER  TASK_ID  TASK_TITLE\n1   merged  acme/widgets  42      1        pr task\n",
+   "stdout": "ID  STATE   REPO                     NUMBER  TASK_ID  TASK_TITLE\n1   merged  github.com/acme/widgets  42      1        pr task\n",
    "tags": [
     "parity"
    ]

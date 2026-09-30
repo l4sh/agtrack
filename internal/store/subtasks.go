@@ -87,9 +87,9 @@ func (s *Store) createSubtask(task *row.Row, title, status string, tags []string
 
 // SubtaskStatusResult reports what a subtask transition did.
 type SubtaskStatusResult struct {
-	Subtask    *row.Row
-	Changed    bool
-	TaskMoved  bool // the cascade pulled the parent into in-progress
+	Subtask   *row.Row
+	Changed   bool
+	TaskMoved bool // the cascade pulled the parent into in-progress
 }
 
 // SetSubtaskStatus moves a step. Starting or finishing a step pulls a todo

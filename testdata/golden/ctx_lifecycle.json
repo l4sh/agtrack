@@ -95,7 +95,7 @@
    "now": "2026-09-01T12:04:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "- id: 1\n  name: acme\n  title: Acme Corp\n  archived: 0\n  created_at: 2026-09-01T12:00:00Z\n  updated_at: 2026-09-01T12:00:00Z\n  current: true\n  projects: 0\n  open_tasks: 0\n- id: 2\n  name: other-co\n  title: Other Co\n  archived: 0\n  created_at: 2026-09-01T12:01:00Z\n  updated_at: 2026-09-01T12:01:00Z\n  current: false\n  projects: 0\n  open_tasks: 0\n",
+   "stdout": "- id: 1\n  name: acme\n  title: Acme Corp\n  archived: 0\n  created_at: \"2026-09-01T12:00:00Z\"\n  updated_at: \"2026-09-01T12:00:00Z\"\n  current: true\n  projects: 0\n  open_tasks: 0\n- id: 2\n  name: other-co\n  title: Other Co\n  archived: 0\n  created_at: \"2026-09-01T12:01:00Z\"\n  updated_at: \"2026-09-01T12:01:00Z\"\n  current: false\n  projects: 0\n  open_tasks: 0\n",
    "tags": [
     "parity"
    ]
@@ -297,7 +297,7 @@
    "now": "2026-09-01T12:15:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "{\n  \"id\": 1,\n  \"name\": \"acme\",\n  \"title\": \"Acme Corp\",\n  \"archived\": 0,\n  \"created_at\": \"2026-09-01T12:00:00Z\",\n  \"updated_at\": \"2026-09-01T12:00:00Z\",\n  \"projects\": [],\n  \"counts\": {\n    \"todo\": 0,\n    \"in-progress\": 0,\n    \"done\": 0,\n    \"cancelled\": 0\n  },\n  \"note_list\": [\n    {\n      \"id\": 1,\n      \"target_type\": \"context\",\n      \"target_id\": 1,\n      \"body\": \"kickoff\",\n      \"actor\": null,\n      \"created_at\": \"2026-09-01T12:00:00Z\",\n      \"created\": \"2026-09-01 12:00\"\n    }\n  ]\n}\n",
+   "stdout": "{\n  \"id\": 1,\n  \"name\": \"acme\",\n  \"title\": \"Acme Corp\",\n  \"archived\": 0,\n  \"created_at\": \"2026-09-01T12:00:00Z\",\n  \"updated_at\": \"2026-09-01T12:00:00Z\",\n  \"projects\": [],\n  \"counts\": {\n    \"todo\": 0,\n    \"in-progress\": 0,\n    \"done\": 0,\n    \"cancelled\": 0\n  },\n  \"note_list\": [\n    {\n      \"id\": 1,\n      \"target_type\": \"context\",\n      \"target_id\": 1,\n      \"body\": \"kickoff\",\n      \"actor\": null,\n      \"created_at\": \"2026-09-01T12:00:00Z\"\n    }\n  ]\n}\n",
    "tags": [
     "parity"
    ]

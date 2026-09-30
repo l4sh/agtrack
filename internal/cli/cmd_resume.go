@@ -27,7 +27,7 @@ const (
 // candidates, never silently dropped).
 func cmdResume(c *Ctx) error {
 	var packet *row.Row
-	err := c.S.Tx(func() error { // one snapshot for every part of the packet
+	err := c.S.DB.ReadTx(func() error { // one snapshot for every part of the packet
 		var err error
 		packet, err = buildResume(c)
 		return err

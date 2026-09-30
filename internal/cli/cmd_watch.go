@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -50,10 +51,35 @@ type watchLoop struct {
 	finish func(state string, code int, extra *row.Row) error
 }
 
+// errWriter remembers the first write error, so a watch whose reader went
+// away (EPIPE) stops instead of polling until its timeout.
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (e *errWriter) Write(p []byte) (int, error) {
+	if e.err != nil {
+		return 0, e.err
+	}
+	n, err := e.w.Write(p)
+	if err != nil {
+		e.err = err
+	}
+	return n, err
+}
+
 func (w *watchLoop) run() error {
 	deadline := time.Now().Add(w.timeout)
 	path := w.c.S.DB.Path
+	ew := &errWriter{w: w.c.Out}
+	orig := w.c.Out
+	w.c.Out = ew
+	defer func() { w.c.Out = orig }()
 	for {
+		if ew.err != nil {
+			return ew.err
+		}
 		if _, err := os.Stat(path); err != nil {
 			return w.terminal("lost", ExitLost, row.Of("reason", "database file is gone: "+path))
 		}
@@ -69,6 +95,9 @@ func (w *watchLoop) run() error {
 			return w.terminal("lost", ExitLost, row.Of("reason", err.Error()))
 		}
 		for _, e := range events {
+			if ew.err != nil {
+				return ew.err
+			}
 			w.after = e.Int("id")
 			if w.emit != nil {
 				w.emit(e)

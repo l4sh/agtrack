@@ -167,6 +167,30 @@ func (d *DB) Tx(fn func() error) (err error) {
 	return fn()
 }
 
+// ReadTx runs fn in a deferred (read) transaction: one consistent WAL
+// snapshot that neither blocks nor is blocked by writers. Inside an open
+// transaction it just runs fn.
+func (d *DB) ReadTx(fn func() error) (err error) {
+	if d.txDepth > 0 {
+		return fn()
+	}
+	if _, err := d.Exec("BEGIN"); err != nil {
+		return err
+	}
+	d.txDepth = 1
+	defer func() {
+		d.txDepth = 0
+		if p := recover(); p != nil {
+			_, _ = d.Exec("ROLLBACK")
+			panic(p)
+		}
+		if _, cerr := d.Exec("COMMIT"); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	return fn()
+}
+
 // InTx reports whether a transaction is open.
 func (d *DB) InTx() bool { return d.txDepth > 0 }
 
@@ -187,6 +211,17 @@ func (d *DB) migrate() error {
 	}
 	if version > SchemaVersion {
 		return errs.New("database schema version %d is newer than this agtrack (%d); upgrade agtrack", version, SchemaVersion)
+	}
+	if version > 0 {
+		// The upgrade is one-way (agtrack 1.x refuses a v3 file), so keep a
+		// consistent copy of the old file first. VACUUM INTO cannot run
+		// inside the migration transaction; it snapshots a committed state.
+		backup := fmt.Sprintf("%s.v%d.bak", d.Path, version)
+		if _, err := os.Stat(backup); os.IsNotExist(err) {
+			if _, err := d.Exec("VACUUM INTO ?", backup); err != nil {
+				return fmt.Errorf("could not back up the v%d database to %s before migrating: %w", version, backup, err)
+			}
+		}
 	}
 	return d.Tx(func() error {
 		// D14: re-read under the write lock. A concurrent first open may have
