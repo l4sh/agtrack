@@ -403,7 +403,11 @@ func TestHeadingSlug(t *testing.T) {
 		"Don't panic!":         "don_t_panic",
 		"Überblick":            "überblick",
 		"🚀":                    "",
-		"2.1 Rotation":         "2_1_rotation",
+		"2.1 Rotation":         "rotation",
+		"3. Execution":         "execution",
+		"2024 roadmap":         "roadmap",
+		"2024":                 "2024",
+		"v2.1 notes":           "v2_1_notes",
 		"ΑΒΓ":                  "αβγ",
 	} {
 		if got := HeadingSlug(in); got != want {

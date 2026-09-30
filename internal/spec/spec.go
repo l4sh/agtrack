@@ -29,7 +29,7 @@ import (
 
 // ParserVersion is recorded on every imported revision. Bump it whenever a
 // change here could produce different sections for the same bytes.
-const ParserVersion = "agtrack-spec/1"
+const ParserVersion = "agtrack-spec/2"
 
 // Section kinds.
 const (

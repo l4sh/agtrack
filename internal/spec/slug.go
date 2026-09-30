@@ -2,9 +2,14 @@ package spec
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 )
+
+// sectionNumberRe is a leading human section number ("2.1 ", "3. "): it
+// is dropped so renumbering a document does not change every address.
+var sectionNumberRe = regexp.MustCompile(`^\s*\d+(?:\.\d+)*\.?\s+`)
 
 // HeadingSlug derives a heading's own slug (design §5.4 rules 1–2): lowercase,
 // letters and digits kept — Unicode ones included, so `## Überblick` is
@@ -13,6 +18,7 @@ import (
 // at both ends. The result never contains `__`, which is reserved as the
 // level separator. Combining marks stay attached to their letter.
 func HeadingSlug(heading string) string {
+	heading = sectionNumberRe.ReplaceAllString(heading, "")
 	var sb strings.Builder
 	sep := false
 	for _, r := range heading {
