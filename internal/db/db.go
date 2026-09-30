@@ -55,10 +55,10 @@ func expand(p string) string {
 // DB is an open database: the pool (capped at one connection) and the one
 // connection every query runs on.
 type DB struct {
-	Path string
-	pool *sql.DB
-	Conn *sql.Conn
-	ctx  context.Context
+	Path    string
+	pool    *sql.DB
+	Conn    *sql.Conn
+	ctx     context.Context
 	txDepth int
 }
 
