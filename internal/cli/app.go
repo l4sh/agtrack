@@ -242,6 +242,10 @@ func reportError(st Streams, format string, err error, p *argp.Parser, argv []st
 	if isEPIPE(err) {
 		return 0
 	}
+	var ec exitCode
+	if errors.As(err, &ec) {
+		return int(ec)
+	}
 	var dbe *store.DBError
 	path := ""
 	if len(dbPath) > 0 {

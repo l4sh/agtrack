@@ -11,7 +11,6 @@ package store
 import (
 	"crypto/rand"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -120,10 +119,6 @@ func (s *Store) tx(fn func()) {
 		return nil
 	})
 	if err != nil {
-		var p panicErr
-		if errors.As(err, &p) {
-			fail(p.err)
-		}
 		fail(err)
 	}
 }

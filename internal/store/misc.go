@@ -684,3 +684,14 @@ func (s *Store) TableCounts() (out *row.Row, err error) {
 	}
 	return out, nil
 }
+
+// NoteThread lists the replies under a note, oldest first.
+func (s *Store) NoteThread(id int64) (out []*row.Row, err error) {
+	defer guard(&err)
+	out = []*row.Row{}
+	for _, r := range s.q("SELECT * FROM notes WHERE parent_id = ? ORDER BY created_at, id", id) {
+		item := s.noteRow(r)
+		out = append(out, item)
+	}
+	return out, nil
+}
