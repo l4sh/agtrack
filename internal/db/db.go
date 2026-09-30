@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/l4sh/agtrack/internal/errs"
+	"github.com/l4sh/agtrack/internal/refs"
 	_ "modernc.org/sqlite"
 )
 
@@ -209,9 +210,52 @@ func (d *DB) migrate() error {
 				return fmt.Errorf("migration failed on %q: %w", firstLine(s), err)
 			}
 		}
+		if version < 3 {
+			if err := d.qualifyRepoSlugs(); err != nil {
+				return err
+			}
+		}
 		_, err = d.Exec(fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion))
 		return err
 	})
+}
+
+// qualifyRepoSlugs is the D8 data step of v2 -> v3: a bare `owner/name`
+// binding becomes `host/owner/name` only where its stored URL establishes the
+// host. Bindings without a URL stay bare and keep matching any host.
+func (d *DB) qualifyRepoSlugs() error {
+	rs, err := d.Query("SELECT id, project_id, slug, url FROM project_repos WHERE url IS NOT NULL")
+	if err != nil {
+		return err
+	}
+	type fix struct {
+		id, project int64
+		slug        string
+	}
+	var fixes []fix
+	for rs.Next() {
+		var id, project int64
+		var slug, u string
+		if err := rs.Scan(&id, &project, &slug, &u); err != nil {
+			rs.Close()
+			return err
+		}
+		identity, err := refs.RepoIdentity(u)
+		if err != nil || identity == slug || refs.RepoHost(u) == "" {
+			continue
+		}
+		if bare, _ := refs.NormalizeRepo(u); bare != slug {
+			continue // the URL does not describe this binding
+		}
+		fixes = append(fixes, fix{id, project, identity})
+	}
+	rs.Close()
+	for _, f := range fixes {
+		if _, err := d.Exec("UPDATE OR IGNORE project_repos SET slug = ? WHERE id = ?", f.slug, f.id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func firstLine(s string) string {
