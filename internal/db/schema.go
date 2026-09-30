@@ -180,7 +180,8 @@ var migration3 = func() []string {
     quote_suffix TEXT,
     quote_ok    INTEGER,
     version_id  INTEGER,
-    released_at TEXT
+    released_at TEXT,
+    release_event INTEGER
 )`,
 		`INSERT INTO notes_v3 (id, uid, target_type, target_id, body, actor, created_at)
     SELECT id, `+uidExpr+`, target_type, target_id, body, actor, created_at FROM notes`,
