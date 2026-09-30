@@ -94,7 +94,8 @@ func specTree() *argp.Command {
 				Args: []argp.Arg{{Name: "spec"}},
 				Flags: []argp.Flag{{Long: "--port", Kind: argp.Int, Default: 0, Help: "port (default: random)"},
 					{Long: "--idle", Metavar: "DURATION", Default: "30m", Help: "exit after this long without requests"},
-					{Long: "--open", Kind: argp.Bool, Help: "open the page in a browser"}}},
+					{Long: "--open", Kind: argp.Bool, Help: "open the page in a browser"},
+					{Long: "--as", Metavar: "NAME", Default: "human", Help: "actor for comments and approvals made in the browser (default human; must differ from yours)"}}},
 		}}
 }
 
@@ -214,6 +215,9 @@ func specSync(c *Ctx) error {
 	}
 	for _, w := range res.Warnings {
 		c.warnf("warning: %s", w)
+	}
+	if res.Root != "" && res.Root != sp.Str("repo_root") {
+		c.warnf("read %s (this worktree)", res.Path)
 	}
 	slug := sp.Str("slug")
 	if c.structured() {
@@ -926,27 +930,41 @@ func specCheck(c *Ctx) error {
 
 // --- links ---------------------------------------------------------------------------------------
 
-// linkSpec links a section to a task (task add --spec, spec link).
-func (c *Ctx) linkSpec(ref string, task *row.Row, kind, scope string) error {
-	link, pinned, write, err := c.S.SpecLink(ref, c.Context, task.Int("id"), kind, scope, cwdRoot())
+// pendingPin is a pin write-back owed after the caller's transaction.
+type pendingPin struct {
+	write  *store.FileWrite
+	pinned string
+}
+
+// linkSpec links a section to a task inside the caller's transaction (task
+// add --spec). The pin's file write is returned, not applied: the caller
+// applies it with applyPins only once its transaction has committed, so a
+// rollback never leaves a pin line in the file.
+func (c *Ctx) linkSpec(ref string, task *row.Row, kind, scope string) (*pendingPin, error) {
+	_, pinned, write, err := c.S.SpecLink(ref, c.Context, task.Int("id"), kind, scope, cwdRoot())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	modified := false
-	if write != nil {
-		if e := write.Apply(); e != nil {
-			c.warnf("warning: %s", (&store.PinWriteError{Rel: write.Rel, Err: e}).Error())
-		} else {
-			modified = true
+	return &pendingPin{write: write, pinned: pinned}, nil
+}
+
+// applyPins performs owed pin write-backs and reports them.
+func (c *Ctx) applyPins(pins []*pendingPin) {
+	for _, p := range pins {
+		if p == nil {
+			continue
 		}
+		modified, rel := false, ""
+		if p.write != nil {
+			rel = p.write.Rel
+			if e := p.write.Apply(); e != nil {
+				c.warnf("warning: %s", (&store.PinWriteError{Rel: p.write.Rel, Err: e}).Error())
+			} else {
+				modified = true
+			}
+		}
+		c.pinnedLine(p.pinned, rel, modified)
 	}
-	rel := ""
-	if write != nil {
-		rel = write.Rel
-	}
-	c.pinnedLine(pinned, rel, modified)
-	_ = link
-	return nil
 }
 
 func specLink(c *Ctx) error {
@@ -1304,7 +1322,8 @@ func specBuildNote(c *Ctx) error {
 type specWaiter struct {
 	c        *Ctx
 	sp       *row.Row
-	startRev int
+	startRev int    // the content baseline: advanced past the suppressed actor's own syncs
+	quiet    string // --actor-not, resolved
 	await    bool
 	until    string
 	comments []*row.Row
@@ -1363,11 +1382,17 @@ func (sw *specWaiter) emit(e *row.Row) {
 			}
 			return // held until released (manual mode)
 		case "spec-approved":
-			a, _, _ := c.S.SpecApproval(id)
-			if a != nil && a.Int("id") == n.Int("id") {
+			// Only an approval of the current content counts (§9.4): one for
+			// a revision that has since changed is shown, not honoured.
+			a, stale, _ := c.S.SpecApprovalNote(id, n.Int("id"))
+			if a == nil {
+				return
+			}
+			if stale {
+				e = e.Copy()
+				e.Set("detail", e.Str("detail")+" (stale: the spec changed since)")
+			} else if !sw.changedNow() {
 				sw.approval = a
-			} else {
-				sw.approval = row.Of("id", n.Int("id"), "by", n.Get("actor"), "at", n.Str("created_at"), "note", n.Get("body"))
 			}
 		}
 	case "spec":
@@ -1391,19 +1416,48 @@ func (sw *specWaiter) emit(e *row.Row) {
 	}
 }
 
-func (sw *specWaiter) tick() (string, int, *row.Row) {
+// changed reports whether the spec's content moved away from the baseline.
+// Revisions imported by the suppressed actor (--actor-not) become the new
+// baseline instead: an agent syncing its own edits does not end its watch.
+func (sw *specWaiter) changed() (bool, string, error) {
 	c, id := sw.c, sw.sp.Int("id")
-	if sw.approval != nil {
-		return "approved", ExitApproved, nil
+	versions, err := c.S.SpecVersions(id)
+	if err != nil {
+		return false, "", err
 	}
-	cur, err := c.S.SpecRow(id)
+	for _, v := range versions {
+		n := int(v.Int("n"))
+		if n <= sw.startRev {
+			continue
+		}
+		if sw.quiet != "" && v.Str("actor") == sw.quiet {
+			sw.startRev = n
+			continue
+		}
+		if same, err := c.S.SpecSameContent(id, sw.startRev, n); err == nil && !same {
+			return true, fmt.Sprintf("v%d -> v%d", sw.startRev, n), nil
+		}
+	}
+	return false, "", nil
+}
+
+func (sw *specWaiter) changedNow() bool {
+	ch, _, _ := sw.changed()
+	return ch
+}
+
+func (sw *specWaiter) tick() (string, int, *row.Row) {
+	// "changed" is decided before "approved": an approval never outruns an
+	// edit that landed in the same poll.
+	ch, why, err := sw.changed()
 	if err != nil {
 		return "lost", ExitLost, row.Of("reason", err.Error())
 	}
-	if rev := int(cur.Int("revision")); rev != sw.startRev {
-		if same, err := c.S.SpecSameContent(id, sw.startRev, rev); err == nil && !same {
-			return "changed", ExitSpecChanged, row.Of("reason", fmt.Sprintf("v%d -> v%d", sw.startRev, rev))
-		}
+	if ch {
+		return "changed", ExitSpecChanged, row.Of("reason", why)
+	}
+	if sw.approval != nil {
+		return "approved", ExitApproved, nil
 	}
 	if sw.await {
 		switch sw.until {
@@ -1439,7 +1493,11 @@ func (sw *specWaiter) result(state string, code int, extra *row.Row) error {
 	bn, _ := c.S.SpecBuildNotes(sw.sp.Int("id"))
 	var bns []*row.Row
 	for _, b := range bn {
-		bns = append(bns, row.Of("id", b.Int("id"), "body", b.Str("body")))
+		r := row.Of("id", b.Int("id"), "body", b.Str("body"))
+		if b.Has("section") {
+			r.Set("section", b.Get("section"))
+		}
+		bns = append(bns, r)
 	}
 	obj := row.Of("result", state, "spec", sw.sp.Str("slug"), "revision", cur.Int("revision"), "cursor", sw.w.after,
 		"approval", approval, "comments", nonNilRows(comments), "build_notes", nonNilRows(bns))
@@ -1509,13 +1567,30 @@ func specWait(c *Ctx, await bool) error {
 		c.warnf("warning: --actor-not self has no effect without AGTRACK_ACTOR or --actor")
 	}
 	after := int64(c.Int("after"))
-	if _, given := c.V["after"].(int); !given {
+	_, afterGiven := c.V["after"].(int)
+	if !afterGiven {
 		if after, err = c.S.MaxEventID(); err != nil {
 			return err
 		}
 	}
 	project := row.Of("id", sp.Int("project_id"))
-	sw := &specWaiter{c: c, sp: sp, startRev: int(sp.Int("revision")), await: await, until: c.Str("until")}
+	sw := &specWaiter{c: c, sp: sp, startRev: int(sp.Int("revision")), quiet: c.actorNot(), await: await, until: c.Str("until")}
+	if await && !afterGiven {
+		// Durable state that already answers the wait ends it at once (§9.1.6):
+		// a current approval, or released comments nobody has resolved.
+		if a, stale, err := c.S.SpecApproval(sp.Int("id")); err != nil {
+			return err
+		} else if a != nil && !stale {
+			sw.approval = a
+		}
+		if sw.until == "comments" || sw.until == "release" {
+			open, err := c.S.SpecReleasedOpen(sp.Int("id"))
+			if err != nil {
+				return err
+			}
+			sw.comments = append(sw.comments, open...)
+		}
+	}
 	sw.w = &watchLoop{c: c, after: after, timeout: timeout, interval: interval,
 		filter: store.EventFilter{Project: project, Direct: true, ActorNot: c.actorNot(),
 			Actions: []string{"spec-note", "spec-released", "spec-approved", "spec-build-note", "spec-synced"}},
@@ -1538,7 +1613,27 @@ func specServe(c *Ctx) error {
 	if err != nil {
 		return err
 	}
-	port := c.Int("port")
-	return web.Serve(context.Background(), web.Options{Store: c.S, SpecID: sp.Int("id"), SpecRef: c.Str("spec"),
-		Addr: fmt.Sprintf("127.0.0.1:%d", port), Idle: idle, Out: c.Out, Open: c.Bool("open"), RepoRoot: cwdRoot()})
+	o, err := c.serveOptions(sp, idle)
+	if err != nil {
+		return err
+	}
+	return web.Serve(context.Background(), o)
+}
+
+// serveOptions builds the viewer session. Browser actions are attributed to
+// --as (default "human"), through a second store on the same connection —
+// never to the agent that started the server, whose `--actor-not self`
+// would otherwise hide every human comment and approval.
+func (c *Ctx) serveOptions(sp *row.Row, idle time.Duration) (web.Options, error) {
+	as := strings.TrimSpace(c.Str("as"))
+	if as == "" {
+		as = "human"
+	}
+	if as == c.Actor {
+		return web.Options{}, errs.New("--as %s is also the serving actor: browser comments would be attributed to it (and hidden by its --actor-not self); pick another name", as)
+	}
+	ws := store.New(c.S.DB, as)
+	ws.CwdRepo = c.S.CwdRepo
+	return web.Options{Store: ws, SpecID: sp.Int("id"), SpecRef: c.Str("spec"),
+		Addr: fmt.Sprintf("127.0.0.1:%d", c.Int("port")), Idle: idle, Out: c.Out, Open: c.Bool("open"), RepoRoot: cwdRoot()}, nil
 }

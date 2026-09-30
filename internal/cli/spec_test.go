@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -83,7 +84,14 @@ func (e *specEnv) commit() {
 }
 
 func obj(v any) map[string]any { return v.(map[string]any) }
-func list(v any) []any         { return v.([]any) }
+
+// cursor is the current end of the worklog.
+func (e *specEnv) cursor() string {
+	e.t.Helper()
+	m := obj(e.json("spec", "render", "auth"))
+	return strconv.FormatInt(int64(m["cursor"].(float64)), 10)
+}
+func list(v any) []any { return v.([]any) }
 
 // addedLines returns the lines b has that a does not, failing if anything
 // else changed (the pin splice must be a pure one-line insertion).
@@ -486,8 +494,11 @@ func TestSpecAwaitExitCodes(t *testing.T) {
 		t.Errorf("double approve %q", out)
 	}
 
+	// Later waits pass --after: without it, the approval above answers them at once.
+	after := func() []string { return append([]string{"--after", e.cursor()}, wait...) }
+
 	// 10: manual mode holds comments until release.
-	done = e.awaitAsync(append([]string{"spec", "await", "auth", "--until", "comments"}, wait...)...)
+	done = e.awaitAsync(append([]string{"spec", "await", "auth", "--until", "comments"}, after()...)...)
 	e.ok("spec", "note", "auth#tokens__rotation", "first thought")
 	time.Sleep(300 * time.Millisecond)
 	e.ok("spec", "note", "auth#tokens__rotation", "second thought")
@@ -499,7 +510,7 @@ func TestSpecAwaitExitCodes(t *testing.T) {
 
 	// 10: auto mode releases each comment as written.
 	e.ok("config", "set", "review.release", "auto")
-	done = e.awaitAsync(append([]string{"spec", "await", "auth", "--until", "comments"}, wait...)...)
+	done = e.awaitAsync(append([]string{"spec", "await", "auth", "--until", "comments"}, after()...)...)
 	e.ok("spec", "note", "auth#sessions", "auto comment") // pins sessions: a pin is not a content change
 	out, code = done()
 	if code != ExitComments || !strings.Contains(out, "auto comment") {
@@ -514,7 +525,7 @@ func TestSpecAwaitExitCodes(t *testing.T) {
 
 	// 12: the spec changes during the wait.
 	e.commit()
-	done = e.awaitAsync(append([]string{"spec", "await", "auth"}, wait...)...)
+	done = e.awaitAsync(append([]string{"spec", "await", "auth"}, after()...)...)
 	e.edit("nightly job", "janitor")
 	e.ok("spec", "sync", "auth")
 	out, code = done()
@@ -526,7 +537,7 @@ func TestSpecAwaitExitCodes(t *testing.T) {
 	}
 
 	// 13: the database goes away.
-	done = e.awaitAsync(append([]string{"spec", "await", "auth"}, wait...)...)
+	done = e.awaitAsync(append([]string{"spec", "await", "auth"}, after()...)...)
 	for _, suf := range []string{"", "-wal", "-shm"} {
 		os.Remove(e.db + suf)
 	}
@@ -599,34 +610,52 @@ func TestSpecModelAndResume(t *testing.T) {
 	}
 }
 
+// Finding 8: a failed write-back is repaired by sync only while the pin-less
+// file is not what git has committed; a committed pin removal is imported.
 func TestSpecPinWriteFailureRecovers(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root ignores directory permissions")
 	}
 	e := newSpecEnv(t)
-	e.ok("spec", "add", e.file)
-	dir := filepath.Dir(e.file)
-	before := e.read()
+	// Outside git: nothing records a decision, so the pin is restored.
+	plain := filepath.Join(t.TempDir(), "plain.md")
+	if err := os.WriteFile(plain, []byte("# Plain\n\n## Part\n\ntext\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e.ok("spec", "add", plain)
+	dir := filepath.Dir(plain)
+	before, _ := os.ReadFile(plain)
 	if err := os.Chmod(dir, 0o555); err != nil {
 		t.Fatal(err)
 	}
-	out, errOut, code := e.run("spec", "note", "auth#sessions", "note survives")
+	out, errOut, code := e.run("spec", "note", "plain#part", "note survives")
 	os.Chmod(dir, 0o755)
-	if code != 0 || !strings.Contains(out, "note 1 on auth#sessions") || !strings.Contains(errOut, "the note is saved") {
+	if code != 0 || !strings.Contains(out, "note 1 on plain#part") || !strings.Contains(errOut, "the note is saved") {
 		t.Fatalf("note: %d %q %q", code, out, errOut)
 	}
-	if e.read() != before {
+	if now, _ := os.ReadFile(plain); string(now) != string(before) {
 		t.Fatal("file changed despite the failure")
 	}
-	// The DB write survived; sync puts the pin back rather than importing.
-	if out := e.ok("spec", "sync", "auth"); !strings.Contains(out, "restored 1 pin comment to specs/auth.md (v2)") {
+	if out := e.ok("spec", "sync", "plain"); !strings.Contains(out, "restored 1 pin comment to plain.md (v2)") {
 		t.Errorf("recovery %q", out)
 	}
-	if added := addedLines(t, before, e.read()); len(added) != 1 || added[0] != "<!-- agtrack:id sessions -->\n" {
+	now, _ := os.ReadFile(plain)
+	if added := addedLines(t, string(before), string(now)); len(added) != 1 || added[0] != "<!-- agtrack:id part -->\n" {
 		t.Errorf("restored %q", added)
 	}
-	if out := e.ok("spec", "status"); !strings.Contains(out, "clean") {
-		t.Errorf("status %q", out)
+
+	// In git, with the pin-less file committed, the removal is the human's:
+	// sync imports it and reports the dropped pin instead of rewriting the file.
+	e.ok("spec", "add", e.file)
+	e.ok("spec", "note", "auth#sessions", "pinned")
+	e.commit()
+	e.edit("<!-- agtrack:id sessions -->\n", "")
+	out = e.ok("spec", "sync", "auth")
+	if strings.Contains(out, "restored") || !strings.Contains(out, "! unpinned   sessions") {
+		t.Errorf("committed removal %q", out)
+	}
+	if st := git(t, e.repo, "status", "--porcelain"); st != "" {
+		t.Errorf("sync rewrote the file: %s", st)
 	}
 }
 

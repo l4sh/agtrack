@@ -98,10 +98,23 @@ func buildNoteRow(n *row.Row) *row.Row {
 	return row.Of("id", n.Int("id"), "body", n.Str("body"), "actor", n.Get("actor"), "created_at", n.Str("created_at"))
 }
 
+// buildNotes lists the open build notes of a spec: spec-level ones and those
+// posted on a section (which also carry "section").
 func (s *Store) buildNotes(specID int64) []*row.Row {
+	sp := s.specByID(specID)
 	out := []*row.Row{}
-	for _, n := range s.q("SELECT * FROM notes WHERE target_type = 'spec' AND target_id = ? AND kind = 'build-note' AND resolved_at IS NULL ORDER BY id", specID) {
-		out = append(out, buildNoteRow(n))
+	for _, n := range s.q(`SELECT * FROM notes WHERE kind = 'build-note' AND resolved_at IS NULL AND
+ ((target_type = 'spec' AND target_id = ?) OR (target_type = 'spec_anchor' AND target_id IN (`+s.specAnchorIDsSQL()+`))) ORDER BY id`, specID, specID) {
+		r := buildNoteRow(n)
+		if n.Str("target_type") == "spec_anchor" {
+			v := s.viewerNote(sp, n)
+			sec := v.Get("section")
+			if sec == nil {
+				sec = v.Get("anchor")
+			}
+			r.Set("section", sec)
+		}
+		out = append(out, r)
 	}
 	return out
 }
@@ -135,7 +148,14 @@ func (s *Store) SpecApprove(specID int64, note string, buildNotes []string) (app
 	s.tx(func() {
 		sp := s.specByID(specID)
 		head := s.versionN(sp, 0)
-		if a := s.latestApproval(sp); a != nil && !s.approvalStale(sp, a) {
+		// A bare repeat of a current approval is a no-op (double-click safe);
+		// one carrying a note or build notes is recorded as a new approval.
+		fresh := strings.TrimSpace(note) != ""
+		for _, bn := range buildNotes {
+			fresh = fresh || strings.TrimSpace(bn) != ""
+		}
+		if a := s.latestApproval(sp); a != nil && !s.approvalStale(sp, a) && !fresh {
+			s.release(sp) // comments written since are still sent
 			approval = a
 			return
 		}
@@ -243,6 +263,30 @@ func (s *Store) SpecNote(specID, noteID int64) (r *row.Row, err error) {
 func (s *Store) SpecBuildNotes(specID int64) (out []*row.Row, err error) {
 	defer guard(&err)
 	return s.buildNotes(specID), nil
+}
+
+// SpecApprovalNote is the approval recorded by one note, with whether its
+// content is still head (nil when the note is not an approval of the spec).
+func (s *Store) SpecApprovalNote(specID, noteID int64) (a *row.Row, stale bool, err error) {
+	defer guard(&err)
+	sp := s.specByID(specID)
+	r := s.one("SELECT n.*, v.n AS revision FROM notes n LEFT JOIN spec_versions v ON v.id = n.version_id WHERE n.id = ? AND n.kind = 'approval' AND n.target_type = 'spec' AND n.target_id = ?", noteID, specID)
+	if r == nil {
+		return nil, false, nil
+	}
+	a = approvalRow(r)
+	return a, s.approvalStale(sp, a), nil
+}
+
+// SpecReleasedOpen lists released, unresolved comments on a spec.
+func (s *Store) SpecReleasedOpen(specID int64) (out []*row.Row, err error) {
+	defer guard(&err)
+	sp := s.specByID(specID)
+	out = []*row.Row{}
+	for _, n := range s.q("SELECT * FROM notes WHERE released_at IS NOT NULL AND resolved_at IS NULL AND kind NOT IN ('build-note','approval') AND target_type = 'spec_anchor' AND target_id IN ("+s.specAnchorIDsSQL()+") ORDER BY id", specID) {
+		out = append(out, s.viewerNote(sp, n))
+	}
+	return out, nil
 }
 
 // SpecApproval is the latest approval, with whether it names the head.

@@ -371,15 +371,18 @@ func gitState(root, rel string) (dirty bool, meta gitMeta) {
 	return false, meta
 }
 
-// specFile is where a spec's source lives: under repoRoot when given and the
-// file exists there (another worktree of the same repo), else under the
-// recorded repo_root.
-func specFile(sp *row.Row, repoRoot string) (root, path string) {
+// specFile is where a spec's source lives: under repoRoot (the caller's
+// worktree) when that is the spec's own repository — the recorded root,
+// another worktree of it, or a clone whose origin is linked to the spec's
+// project — and the file exists there; otherwise under the recorded
+// repo_root. An unrelated repository with a file at the same relative path
+// is never read.
+func (s *Store) specFile(sp *row.Row, repoRoot string) (root, path string) {
 	rel := sp.Str("source_path")
 	if rel == "" {
 		fail(errs.New("spec %s has no source file", sp.Str("slug")))
 	}
-	if repoRoot != "" {
+	if repoRoot != "" && s.sameRepo(sp, repoRoot) {
 		p := filepath.Join(repoRoot, filepath.FromSlash(rel))
 		if _, err := os.Stat(p); err == nil {
 			return repoRoot, p
@@ -387,6 +390,46 @@ func specFile(sp *row.Row, repoRoot string) (root, path string) {
 	}
 	root = sp.Str("repo_root")
 	return root, filepath.Join(root, filepath.FromSlash(rel))
+}
+
+func gitCommonDir(dir string) string {
+	d, ok := gitOut(dir, "rev-parse", "--git-common-dir")
+	if !ok || d == "" {
+		return ""
+	}
+	if !filepath.IsAbs(d) {
+		d = filepath.Join(dir, d)
+	}
+	return realPath(d)
+}
+
+func (s *Store) sameRepo(sp *row.Row, repoRoot string) bool {
+	recorded := sp.Str("repo_root")
+	if recorded != "" && realPath(repoRoot) == realPath(recorded) {
+		return true
+	}
+	if a, b := gitCommonDir(repoRoot), gitCommonDir(recorded); a != "" && a == b {
+		return true
+	}
+	if remote, ok := gitOut(repoRoot, "remote", "get-url", "origin"); ok && remote != "" {
+		for _, p := range s.findProjectsByRepo(remote) {
+			if p.Int("id") == sp.Int("project_id") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// committedBlob is the file's content at HEAD, if it is tracked.
+func committedBlob(root, rel string) ([]byte, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "git", "-C", root, "show", "HEAD:"+rel).Output()
+	if err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 func readFile(path string) []byte {
@@ -417,6 +460,8 @@ type ImportResult struct {
 	Weak         int // similar matches below 0.9 (for --strict)
 	Restored     int // pins restored to the file (failed write-back recovery)
 	File         string
+	Path         string // the file actually read
+	Root         string // the repository root it was read under
 	SHA, BaseSHA string
 }
 
@@ -619,6 +664,8 @@ func (s *Store) writeVersion(sp *row.Row, head *row.Row, p *plan, meta gitMeta, 
 	}
 	for _, a := range p.orphaned {
 		s.exec("UPDATE spec_anchors SET state = 'orphaned' WHERE id = ?", a.Int("id"))
+		// Its section is gone, so its quotes are not present anywhere (§5.6).
+		s.exec("UPDATE notes SET quote_ok = 0 WHERE target_type = 'spec_anchor' AND target_id = ? AND quote IS NOT NULL", a.Int("id"))
 	}
 	title := sp.Get("title")
 	if title == nil && doc.Title != "" {
@@ -773,11 +820,11 @@ type SpecSyncInput struct {
 func (s *Store) SyncSpec(specID int64, in SpecSyncInput) (res *ImportResult, err error) {
 	defer guard(&err)
 	sp := s.specByID(specID)
-	root, path := specFile(sp, in.RepoRoot)
+	root, path := s.specFile(sp, in.RepoRoot)
 	rel := sp.Str("source_path")
 	src := readFile(path)
 	head := s.headVersion(sp)
-	res = &ImportResult{File: rel, SHA: spec.SHA(src)}
+	res = &ImportResult{File: rel, SHA: spec.SHA(src), Path: path, Root: root}
 	if head != nil {
 		res.Base, res.BaseSHA, res.Version = head.Int("n"), head.Str("sha256"), head.Int("n")
 	}
@@ -787,7 +834,10 @@ func (s *Store) SyncSpec(specID int64, in SpecSyncInput) (res *ImportResult, err
 	}
 	// A pin write-back that failed after its version was published leaves the
 	// file one comment short of head: put the pins back instead of importing.
-	if head != nil && !in.DryRun {
+	// Not when that pin-less file is what is committed: removing a pin and
+	// committing it is the human's decision, imported (and reported) below.
+	committed, tracked := committedBlob(root, rel)
+	if head != nil && !in.DryRun && !(tracked && string(committed) == string(src)) {
 		if fixed, n := s.restorePins(sp, head, src); n > 0 {
 			if e := spec.WriteFileAtomic(path, fixed, res.SHA); e != nil {
 				fail(e)
@@ -911,7 +961,7 @@ func (s *Store) SpecStatus(project *row.Row, context, repoRoot string) (out []*r
 	out = []*row.Row{}
 	for _, info := range list {
 		sp := s.specByID(info.Int("id"))
-		root, path := specFile(sp, repoRoot)
+		root, path := s.specFile(sp, repoRoot)
 		state := "clean"
 		if b, e := os.ReadFile(path); e != nil {
 			state = "missing: file not found"

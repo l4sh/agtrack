@@ -94,7 +94,7 @@ func (s *Store) pinSection(sp, head, sec *row.Row, repoRoot string) *pinResult {
 		}
 	}
 	res.key = spec.MintKey(&mint, taken)
-	_, path := specFile(sp, repoRoot)
+	_, path := s.specFile(sp, repoRoot)
 	src := readFile(path)
 	if spec.SHA(src) != head.Str("sha256") {
 		fail(errs.Conflict("%s has changed since v%d; run `agtrack spec sync %s` first, then retry", sp.Str("source_path"), head.Int("n"), sp.Str("slug")))
@@ -695,6 +695,9 @@ func (s *Store) SpecRelink(fromRef, context string, into []string, kind, repoRoo
 		}
 		if kind == "split" {
 			s.exec("DELETE FROM spec_task_links WHERE anchor_id = ?", from.Int("id"))
+			s.exec("UPDATE notes SET quote_ok = 0 WHERE target_type = 'spec_anchor' AND target_id = ? AND quote IS NOT NULL", from.Int("id"))
+		} else if sec := s.anchorHeadSection(sp, targets[0].Int("id")); sec != nil {
+			s.recheckQuotes(targets[0].Int("id"), sec.Str("body")) // moved quotes are checked where they now live
 		}
 		s.exec("UPDATE spec_anchors SET state = 'retired' WHERE id = ?", from.Int("id"))
 		if !sp.IsNull("head_version_id") {

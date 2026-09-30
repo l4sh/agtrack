@@ -46,6 +46,7 @@ func taskAdd(c *Ctx) error {
 	if in.Closed, err = c.When("closed"); err != nil {
 		return err
 	}
+	var pins []*pendingPin // pin write-backs, applied only after the commit
 	ids, err := c.record("task", func() ([]int64, error) {
 		var task *row.Row
 		err := c.S.Tx(func() error {
@@ -64,9 +65,11 @@ func taskAdd(c *Ctx) error {
 				}
 			}
 			for _, ref := range c.Strs("spec") {
-				if err := c.linkSpec(ref, task, "implements", "self"); err != nil {
+				p, err := c.linkSpec(ref, task, "implements", "self")
+				if err != nil {
 					return err
 				}
+				pins = append(pins, p)
 			}
 			return nil
 		})
@@ -78,6 +81,7 @@ func taskAdd(c *Ctx) error {
 	if err != nil {
 		return err
 	}
+	c.applyPins(pins)
 	return show(ids)
 }
 
