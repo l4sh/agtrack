@@ -157,7 +157,14 @@ func TestSSEDeliversNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	go do(t, "POST", base+"/api/spec/orbiter:api%2Fauth/note", "", "tok", "application/json", `{"section":"s","body":"streamed"}`)
+	go func() {
+		req, _ := http.NewRequest("POST", base+"/api/spec/orbiter:api%2Fauth/note", strings.NewReader(`{"section":"s","body":"streamed"}`))
+		req.Header.Set("X-Agtrack-Token", "tok")
+		req.Header.Set("Content-Type", "application/json")
+		if resp, err := http.DefaultClient.Do(req); err == nil {
+			resp.Body.Close()
+		}
+	}()
 	sc := bufio.NewScanner(resp.Body)
 	deadline := time.After(5 * time.Second)
 	lines := make(chan string)
