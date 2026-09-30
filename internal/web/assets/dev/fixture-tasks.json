@@ -1,0 +1,22 @@
+{
+  "links": [
+    {
+      "section": "tokens__rotation", "anchor": "grace-policy", "task_id": 12,
+      "title": "Rotate refresh tokens", "status": "done", "claimed_by": "codex",
+      "claim_expires_at": null, "kind": "implements", "blocked_by": [],
+      "agreed_revision": 3, "stale": true
+    },
+    {
+      "section": "tokens__rotation", "anchor": "grace-policy", "task_id": 13,
+      "title": "Grace-window config flag", "status": "in_progress", "claimed_by": "codex",
+      "claim_expires_at": "2026-09-30T18:00:00Z", "kind": "implements", "blocked_by": [12],
+      "agreed_revision": 6, "stale": false
+    }
+  ],
+  "coverage_gaps": [
+    {"section": "sessions__idle_timeout", "number": "3.2", "heading": "Idle timeout"}
+  ],
+  "drift": [
+    {"section": "tokens__rotation", "task_id": 12, "agreed_revision": 3, "head_revision": 6}
+  ]
+}
