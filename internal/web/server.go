@@ -1,0 +1,509 @@
+// Package web serves the spec viewer: a loopback-only HTTP server with a
+// capability token, through which a human reviews a spec in a browser and
+// comments reach the running agent (go-rewrite-spec §9).
+//
+// Every item of go-rewrite-spec §7.4 is a requirement here, not a nicety:
+// 127.0.0.1 only, a 32-byte crypto/rand token compared in constant time,
+// Host validation against DNS rebinding, no CORS, a CSP forbidding anything
+// external, sanitised rendering (internal/spec.RenderHTML), and an idle
+// timeout so no mutating server outlives the session. Mutations go through
+// the same store, transactions and attribution as the CLI.
+package web
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"mime"
+	"net"
+	"net/http"
+	"net/url"
+	"os/exec"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/l4sh/agtrack/internal/errs"
+	"github.com/l4sh/agtrack/internal/render"
+	"github.com/l4sh/agtrack/internal/row"
+	"github.com/l4sh/agtrack/internal/store"
+)
+
+// CSP forbids external script, style and connect; everything ships from embed.
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
+	"connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+// Options configure one serving session.
+type Options struct {
+	Store    *store.Store
+	SpecID   int64
+	SpecRef  string
+	Addr     string        // default 127.0.0.1:0
+	Idle     time.Duration // default 30m
+	Out      io.Writer     // where the URL line goes
+	Open     bool          // try to open a browser
+	RepoRoot string        // for pin write-back
+	Token    string        // tests only; default: fresh random
+	// Ready, if set, receives the base URL once listening (tests).
+	Ready func(url string)
+}
+
+// Server is one session.
+type Server struct {
+	o        Options
+	mu       sync.Mutex // serialises store access: one *sql.Conn per process
+	token    string
+	hosts    map[string]bool
+	last     time.Time
+	lastMu   sync.Mutex
+	clients  int
+	assets   fs.FS
+	stopOnce sync.Once
+	stop     chan struct{}
+}
+
+// NewToken mints a capability token: 32 bytes from crypto/rand, base64url.
+func NewToken() (string, error) {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b[:]), nil
+}
+
+// Serve listens on loopback, prints the URL and blocks until the idle
+// timeout, ctx cancellation, or a fatal listener error.
+func Serve(ctx context.Context, o Options) error {
+	if o.Addr == "" {
+		o.Addr = "127.0.0.1:0"
+	}
+	host, _, err := net.SplitHostPort(o.Addr)
+	if err != nil {
+		return errs.New("invalid listen address: %s", o.Addr)
+	}
+	if host != "127.0.0.1" {
+		// Never 0.0.0.0: on a café network that difference is the whole exposure.
+		return errs.New("the viewer binds 127.0.0.1 only (got %s)", host)
+	}
+	if o.Idle <= 0 {
+		o.Idle = 30 * time.Minute
+	}
+	tok := o.Token
+	if tok == "" {
+		if tok, err = NewToken(); err != nil {
+			return err
+		}
+	}
+	sub, err := fs.Sub(Assets, "assets")
+	if err != nil {
+		return err
+	}
+	ln, err := net.Listen("tcp", o.Addr)
+	if err != nil {
+		return errs.New("cannot listen on %s: %v", o.Addr, err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	s := &Server{o: o, token: tok, assets: sub, stop: make(chan struct{}),
+		hosts: map[string]bool{fmt.Sprintf("127.0.0.1:%d", port): true, fmt.Sprintf("localhost:%d", port): true},
+		last:  time.Now()}
+	base := fmt.Sprintf("http://127.0.0.1:%d", port)
+	link := fmt.Sprintf("%s/s/%s?t=%s", base, url.PathEscape(o.SpecRef), tok)
+	if o.Out != nil {
+		fmt.Fprintf(o.Out, "serving %s at %s\n", o.SpecRef, link)
+		fmt.Fprintf(o.Out, "idle timeout %s; comments reach agents via `agtrack spec watch|await %s`\n", o.Idle, o.SpecRef)
+	}
+	if o.Open {
+		openBrowser(link)
+	}
+	srv := &http.Server{Handler: s, ReadHeaderTimeout: 10 * time.Second}
+	errc := make(chan error, 1)
+	go func() { errc <- srv.Serve(ln) }()
+	if o.Ready != nil {
+		o.Ready(base)
+	}
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case err := <-errc:
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			return err
+		case <-ctx.Done():
+			s.shutdown(srv)
+			return nil
+		case <-s.stop:
+			s.shutdown(srv)
+			return nil
+		case <-tick.C:
+			if s.idle() {
+				if o.Out != nil {
+					fmt.Fprintf(o.Out, "idle for %s; viewer stopped\n", o.Idle)
+				}
+				s.shutdown(srv)
+				return nil
+			}
+		}
+	}
+}
+
+func (s *Server) shutdown(srv *http.Server) {
+	s.stopOnce.Do(func() { close(s.stop) })
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(ctx)
+}
+
+func (s *Server) touch() {
+	s.lastMu.Lock()
+	s.last = time.Now()
+	s.lastMu.Unlock()
+}
+
+func (s *Server) idle() bool {
+	s.lastMu.Lock()
+	defer s.lastMu.Unlock()
+	return s.clients == 0 && time.Since(s.last) > s.o.Idle
+}
+
+func openBrowser(link string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", link)
+	default:
+		cmd = exec.Command("xdg-open", link)
+	}
+	_ = cmd.Start()
+}
+
+// --- request plumbing --------------------------------------------------------------
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h := w.Header()
+	h.Set("Content-Security-Policy", CSP)
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Referrer-Policy", "no-referrer")
+	h.Set("Cache-Control", "no-store")
+	// DNS rebinding: a public name resolving to 127.0.0.1 carries its own Host.
+	if !s.hosts[r.Host] {
+		writeErr(w, http.StatusForbidden, "forbidden", "unexpected Host header")
+		return
+	}
+	s.touch()
+	path := r.URL.EscapedPath()
+	switch {
+	case strings.HasPrefix(path, "/assets/"):
+		s.serveAsset(w, r, strings.TrimPrefix(r.URL.Path, "/assets/"))
+	case strings.HasPrefix(path, "/s/"):
+		if !s.authQuery(r) {
+			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+			return
+		}
+		if r.Method != http.MethodGet {
+			writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "GET only")
+			return
+		}
+		s.serveAsset(w, r, "index.html")
+	case path == "/api/events":
+		if !s.authQuery(r) && !s.authHeader(r) {
+			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+			return
+		}
+		s.events(w, r)
+	case strings.HasPrefix(path, "/api/spec/"):
+		if !s.authHeader(r) {
+			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+			return
+		}
+		s.api(w, r, strings.TrimPrefix(path, "/api/spec/"))
+	default:
+		writeErr(w, http.StatusNotFound, "not_found", "no such page")
+	}
+}
+
+func (s *Server) tokenOK(got string) bool {
+	return got != "" && subtle.ConstantTimeCompare([]byte(got), []byte(s.token)) == 1
+}
+
+func (s *Server) authQuery(r *http.Request) bool { return s.tokenOK(r.URL.Query().Get("t")) }
+
+func (s *Server) authHeader(r *http.Request) bool { return s.tokenOK(r.Header.Get("X-Agtrack-Token")) }
+
+func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string) {
+	if name == "" || strings.Contains(name, "..") || strings.HasPrefix(name, "dev/") {
+		writeErr(w, http.StatusNotFound, "not_found", "no such asset")
+		return
+	}
+	data, err := fs.ReadFile(s.assets, name)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "no such asset")
+		return
+	}
+	ct := mime.TypeByExtension(name[strings.LastIndexByte(name, '.'):])
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", ct)
+	w.Write(data)
+}
+
+func writeErr(w http.ResponseWriter, status int, token, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	w.Write(render.JSONCompact(row.Of("error", token, "message", msg)))
+}
+
+func writeJSON(w http.ResponseWriter, status int, obj any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	w.Write(render.JSONCompact(obj))
+}
+
+// storeErr maps a store failure onto an HTTP status with the CLI's token.
+func storeErr(w http.ResponseWriter, err error) {
+	e, ok := errs.As(err)
+	if !ok {
+		writeErr(w, http.StatusInternalServerError, errs.TokDatabase, err.Error())
+		return
+	}
+	status := http.StatusBadRequest
+	switch e.Code {
+	case errs.ExitNotFound:
+		status = http.StatusNotFound
+	case errs.ExitConflict:
+		status = http.StatusConflict
+	}
+	writeErr(w, status, e.Token, e.Message)
+}
+
+// --- API -------------------------------------------------------------------------------
+
+// api routes /api/spec/{spec}[/tasks|/note|/note/{id}/resolve|/release|/approve].
+// The server is bound to one spec; {spec} must name it.
+func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
+	specPart, tail, _ := strings.Cut(rest, "/")
+	ref, err := url.PathUnescape(specPart)
+	if err != nil || ref != s.o.SpecRef {
+		writeErr(w, http.StatusNotFound, "not_found", "this viewer serves "+s.o.SpecRef)
+		return
+	}
+	if r.Method == http.MethodPost {
+		ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if ct != "application/json" {
+			writeErr(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "POST bodies must be application/json")
+			return
+		}
+	}
+	id := s.o.SpecID
+	switch {
+	case tail == "" && r.Method == http.MethodGet:
+		s.locked(w, func() (any, error) { return s.o.Store.SpecModel(id) })
+	case tail == "tasks" && r.Method == http.MethodGet:
+		s.locked(w, func() (any, error) { return s.o.Store.SpecTasks(id) })
+	case tail == "note" && r.Method == http.MethodPost:
+		var in struct {
+			Section, Quote, Prefix, Suffix, Kind, Body string
+			ParentID                                   *int64 `json:"parent_id"`
+		}
+		if !decode(w, r, &in) {
+			return
+		}
+		kind := in.Kind
+		if kind == "" {
+			kind = "note"
+		}
+		switch kind {
+		case "note", "question", "decision", "blocker", "build-note":
+		default:
+			writeErr(w, http.StatusBadRequest, errs.TokInvalidArgument, "kind must be note, question, decision, blocker or build-note")
+			return
+		}
+		if strings.TrimSpace(in.Body) == "" {
+			writeErr(w, http.StatusBadRequest, errs.TokInvalidArgument, "a note needs a body")
+			return
+		}
+		var parent int64
+		if in.ParentID != nil {
+			parent = *in.ParentID
+		}
+		s.mu.Lock()
+		note, pinned, modified, err := s.o.Store.SpecAddNote(id, store.SpecNoteInput{Section: in.Section, Quote: in.Quote,
+			Prefix: in.Prefix, Suffix: in.Suffix, Kind: kind, Body: in.Body, ParentID: parent, RepoRoot: s.o.RepoRoot})
+		s.mu.Unlock()
+		if err != nil {
+			storeErr(w, err)
+			return
+		}
+		var p any
+		if pinned != "" {
+			p = pinned
+		}
+		writeJSON(w, http.StatusCreated, row.Of("note", note, "pinned", p, "file_modified", modified))
+	case strings.HasPrefix(tail, "note/") && strings.HasSuffix(tail, "/resolve") && r.Method == http.MethodPost:
+		nid, err := strconv.ParseInt(strings.TrimSuffix(strings.TrimPrefix(tail, "note/"), "/resolve"), 10, 64)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, "not_found", "no such note")
+			return
+		}
+		var in struct{ Note string }
+		if !decode(w, r, &in) {
+			return
+		}
+		s.locked(w, func() (any, error) {
+			ok, err := s.o.Store.SpecNoteBelongs(id, nid)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, errs.NotFound("note", fmt.Sprint(nid), "no such note on this spec: %d", nid)
+			}
+			if _, _, err := s.o.Store.ResolveNote(nid, in.Note, false); err != nil {
+				return nil, err
+			}
+			model, err := s.o.Store.SpecModel(id)
+			if err != nil {
+				return nil, err
+			}
+			for _, n := range asRows(model.Get("notes")) {
+				if n.Int("id") == nid {
+					return row.Of("note", n), nil
+				}
+			}
+			return row.Of("note", row.Of("id", nid)), nil
+		})
+	case tail == "release" && r.Method == http.MethodPost:
+		var in struct{}
+		if !decode(w, r, &in) {
+			return
+		}
+		s.locked(w, func() (any, error) {
+			n, cursor, err := s.o.Store.SpecRelease(id)
+			if err != nil {
+				return nil, err
+			}
+			return row.Of("released", int64(n), "cursor", cursor), nil
+		})
+	case tail == "approve" && r.Method == http.MethodPost:
+		var in struct {
+			Note       string
+			BuildNotes []string `json:"build_notes"`
+		}
+		if !decode(w, r, &in) {
+			return
+		}
+		s.locked(w, func() (any, error) {
+			a, bn, err := s.o.Store.SpecApprove(id, in.Note, in.BuildNotes)
+			if err != nil {
+				return nil, err
+			}
+			if bn == nil {
+				bn = []*row.Row{}
+			}
+			return row.Of("approval", a, "build_notes", bn), nil
+		})
+	default:
+		writeErr(w, http.StatusNotFound, "not_found", "no such endpoint")
+	}
+}
+
+func asRows(v any) []*row.Row {
+	rows, _ := v.([]*row.Row)
+	return rows
+}
+
+func (s *Server) locked(w http.ResponseWriter, fn func() (any, error)) {
+	s.mu.Lock()
+	obj, err := fn()
+	s.mu.Unlock()
+	if err != nil {
+		storeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, obj)
+}
+
+func decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	body := http.MaxBytesReader(w, r.Body, 1<<20)
+	dec := json.NewDecoder(body)
+	if err := dec.Decode(v); err != nil && !errors.Is(err, io.EOF) {
+		writeErr(w, http.StatusBadRequest, errs.TokInvalidArgument, "invalid JSON body: "+err.Error())
+		return false
+	}
+	return true
+}
+
+// events is the SSE stream. The signal itself is a database row; this is a
+// latency optimisation for the page (go spec §9.1.6).
+func (s *Server) events(w http.ResponseWriter, r *http.Request) {
+	fl, ok := w.(http.Flusher)
+	if !ok {
+		writeErr(w, http.StatusInternalServerError, "error", "streaming unsupported")
+		return
+	}
+	if ref := r.URL.Query().Get("spec"); ref != "" && ref != s.o.SpecRef {
+		writeErr(w, http.StatusNotFound, "not_found", "this viewer serves "+s.o.SpecRef)
+		return
+	}
+	after, _ := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
+	if v := r.Header.Get("Last-Event-ID"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			after = n
+		}
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	fl.Flush()
+	s.lastMu.Lock()
+	s.clients++
+	s.lastMu.Unlock()
+	defer func() {
+		s.lastMu.Lock()
+		s.clients--
+		s.last = time.Now()
+		s.lastMu.Unlock()
+	}()
+	poll := time.NewTicker(500 * time.Millisecond)
+	ping := time.NewTicker(15 * time.Second)
+	defer poll.Stop()
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-s.stop:
+			return
+		case <-ping.C:
+			fmt.Fprint(w, "event: ping\ndata: {}\n\n")
+			fl.Flush()
+		case <-poll.C:
+			s.mu.Lock()
+			evs, err := s.o.Store.SpecEventsAfter(s.o.SpecID, after, 200)
+			s.mu.Unlock()
+			if err != nil {
+				fmt.Fprintf(w, "event: error\ndata: %s\n\n", render.JSONCompact(row.Of("message", err.Error())))
+				fl.Flush()
+				return
+			}
+			for _, e := range evs {
+				after = e.Int("id")
+				data := row.Of("id", e.Int("id"), "action", e.Str("action"), "actor", e.Get("actor"),
+					"target", e.Get("target"), "detail", e.Get("detail"))
+				fmt.Fprintf(w, "id: %d\nevent: agtrack\ndata: %s\n\n", after, render.JSONCompact(data))
+			}
+			if len(evs) > 0 {
+				fl.Flush()
+			}
+		}
+	}
+}
