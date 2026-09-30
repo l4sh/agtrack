@@ -1,0 +1,273 @@
+{
+ "actor": "agent-b",
+ "scenario": "idempotent_status_note_reappend",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "idempotent task"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "done",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [x] idempotent task\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "done",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [x] idempotent task\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "done",
+    "1",
+    "--note",
+    "still done"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [x] idempotent task\n",
+   "tags": [
+    "parity",
+    "known-defect-D10"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "done",
+    "1",
+    "--note",
+    "again"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [x] idempotent task\n",
+   "tags": [
+    "parity",
+    "known-defect-D10"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "notes",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "--task",
+    "1",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "[\n  {\n    \"id\": 5,\n    \"at\": \"2026-09-01T12:02:00Z\",\n    \"recorded_at\": \"2026-09-01T12:02:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"created\",\n    \"detail\": \"idempotent task\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  },\n  {\n    \"id\": 6,\n    \"at\": \"2026-09-01T12:03:00Z\",\n    \"recorded_at\": \"2026-09-01T12:03:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"status\",\n    \"detail\": \"todo -\u003e done\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  }\n]\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "add",
+    "1",
+    "step"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask 1.1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "done",
+    "1.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.1 [x] step\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "done",
+    "1.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.1 [x] step\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "done",
+    "1.1",
+    "--note",
+    "sub note repeat"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.1 [x] step\n",
+   "tags": [
+    "parity",
+    "known-defect-D10"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "notes",
+    "1.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

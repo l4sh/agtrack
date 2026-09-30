@@ -1,0 +1,279 @@
+{
+ "actor": null,
+ "scenario": "ctx_failures",
+ "steps": [
+  {
+   "argv": [
+    "context",
+    "add",
+    "solo",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context solo\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "solo"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "agtrack: context already exists: solo\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    ""
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "agtrack: invalid name: '' (use letters, digits, . _ -)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "!!!"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "agtrack: invalid name: '!!!' (use letters, digits, . _ -)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "show",
+    "missing-ctx"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "agtrack: no such context: missing-ctx\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "rm",
+    "missing-ctx"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "agtrack: no such context: missing-ctx\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "use",
+    "missing-ctx"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "agtrack: no such context: missing-ctx\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "set",
+    "missing-ctx",
+    "--title",
+    "x"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "agtrack: no such context: missing-ctx\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "-c",
+    "solo",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "rm",
+    "solo"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "agtrack: context solo still holds 1 project(s); pass --force to delete everything under it\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "rm",
+    "solo",
+    "--force"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted context solo\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "current"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "agtrack: no current context\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "renametest",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context renametest\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "set",
+    "renametest",
+    "--rename",
+    "renamed"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "Traceback (most recent call last):\n  File \"<repo>/scripts/golden/pyagtrack\", line 62, in <module>\n    sys.exit(main())\n             ~~~~^^\n  File \"<agtrack-1.x>/agtracklib/cli.py\", line 603, in main\n    ns.func(Store(conn, actor=ns.actor), ns)\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<agtrack-1.x>/agtracklib/commands.py\", line 230, in context_set\n    ctx = store.update_context(ns.name, **fields)\nTypeError: Store.update_context() got multiple values for argument 'name'\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure",
+    "skip-replay",
+    "undocumented-python-bug"
+   ]
+  }
+ ]
+}

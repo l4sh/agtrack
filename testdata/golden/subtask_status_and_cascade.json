@@ -1,0 +1,353 @@
+{
+ "actor": null,
+ "scenario": "subtask_status_and_cascade",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "cascade task",
+    "--step",
+    "s1",
+    "--step",
+    "s2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [ ] cascade task\nstatus: todo\nproject: acme/orbiter\ncreated: 2026-09-01 12:02\nsubtasks:\n  1.1      [ ] s1\n  1.2      [ ] s2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "start",
+    "1.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.1 [~] s1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [~] cascade task\nstatus: in-progress\nproject: acme/orbiter\ncreated: 2026-09-01 12:02\nstarted: 2026-09-01 12:04\nsubtasks:\n  1.1      [~] s1\n  1.2      [ ] s2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "done",
+    "1.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.1 [x] s1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [~] cascade task\nstatus: in-progress\nproject: acme/orbiter\ncreated: 2026-09-01 12:02\nstarted: 2026-09-01 12:04\nsubtasks:\n  1.1      [x] s1\n  1.2      [ ] s2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "done",
+    "1.2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1.2 [x] s2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #1 [~] cascade task\nstatus: in-progress\nproject: acme/orbiter\ncreated: 2026-09-01 12:02\nstarted: 2026-09-01 12:04\nsubtasks:\n  1.1      [x] s1\n  1.2      [x] s2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "no-cascade task",
+    "--step",
+    "x1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "start",
+    "2.1",
+    "--no-cascade"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "2.1 [~] x1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #2 [ ] no-cascade task\nstatus: todo\nproject: acme/orbiter\ncreated: 2026-09-01 12:10\nsubtasks:\n  2.1      [~] x1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "status",
+    "done",
+    "2.1",
+    "--no-cascade"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "2.1 [x] x1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "status",
+    "done",
+    "2.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "2.1 [x] x1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "status",
+    "in-progress",
+    "2.1",
+    "--at",
+    "2026-09-01T12:12:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "2.1 [~] x1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "add",
+    "2",
+    "future step",
+    "--at",
+    "2026-09-05T00:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "agtrack: --at is in the future: 2026-09-05T00:00:00Z. agtrack records work that happened, not work that is planned\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "add",
+    "2",
+    "past before task",
+    "--at",
+    "2026-09-01T11:00:00Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:17:00Z",
+   "stderr": "agtrack: --at (2026-09-01 11:00) is before the task's creation (2026-09-01 12:10); backfill the task's creation first if the record is wrong\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  }
+ ]
+}

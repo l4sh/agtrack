@@ -1,0 +1,461 @@
+{
+ "actor": null,
+ "scenario": "global_flags_and_aliases",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "other-ctx"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context other-ctx\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "otherp",
+    "-c",
+    "other-ctx",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project otherp\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "-c",
+    "acme",
+    "task",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "-f",
+    "json",
+    "task",
+    "ls",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "[]\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-c",
+    "acme",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "[]\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "context",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "NAME       CURRENT  PROJECTS  OPEN_TASKS\nacme                1         0\nother-ctx  yes      1         0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "contexts",
+    "list"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "NAME       CURRENT  PROJECTS  OPEN_TASKS\nacme                1         0\nother-ctx  yes      1         0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "p",
+    "ls",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "REF      TASKS  OPEN  REPOS  TAGS\norbiter  0      0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "proj",
+    "list",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "REF      TASKS  OPEN  REPOS  TAGS\norbiter  0      0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "projects",
+    "show",
+    "orbiter",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project: acme/orbiter\ntasks: todo=0 in-progress=0 done=0 cancelled=0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "t",
+    "add",
+    "alias task",
+    "-p",
+    "orbiter",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "tasks",
+    "ls",
+    "-p",
+    "orbiter",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE       SUBTASKS  TAGS\n1   todo    orbiter  alias task\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "list",
+    "-p",
+    "orbiter",
+    "-c",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE       SUBTASKS  TAGS\n1   todo    orbiter  alias task\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "subtask",
+    "add",
+    "1",
+    "aliased sub"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask 1.1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "subtasks",
+    "ls",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:17:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "REF  MARK  STATUS  TITLE        TAGS\n1.1  [ ]   todo    aliased sub\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "s",
+    "show",
+    "1.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:18:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "subtask: 1.1 [ ] aliased sub\nstatus: todo\ntask: #1\ncreated: 2026-09-01 12:16\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "list",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:19:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "REF  MARK  STATUS  TITLE        TAGS\n1.1  [ ]   todo    aliased sub\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "tags",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:20:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "prs",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:21:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "worklog",
+    "add",
+    "alias log entry"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:22:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "logged\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "list"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:23:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR  TARGET   ACTION   DETAIL\n2026-09-01 12:02         context  created  other-ctx\n2026-09-01 12:03         project  created  otherp\n2026-09-01 12:03         project  use\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

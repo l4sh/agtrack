@@ -1,0 +1,392 @@
+{
+ "actor": "agent-a",
+ "scenario": "log_worklog",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "log task"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "add",
+    "started investigating",
+    "-t",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "logged\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "add",
+    "context wide note",
+    "-p",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "logged\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "add",
+    "generic note"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "logged\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET   ACTION   DETAIL\n2026-09-01 12:00  agent-a  context  created  acme\n2026-09-01 12:00  agent-a  context  use\n2026-09-01 12:01  agent-a  project  created  orbiter\n2026-09-01 12:01  agent-a  project  use\n2026-09-01 12:02  agent-a  #1       created  log task\n2026-09-01 12:03  agent-a  #1       log      started investigating\n2026-09-01 12:04  agent-a  project  log      context wide note\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "[\n  {\n    \"id\": 1,\n    \"at\": \"2026-09-01T12:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:00:00Z\",\n    \"actor\": \"agent-a\",\n    \"target_type\": \"context\",\n    \"target_id\": 1,\n    \"action\": \"created\",\n    \"detail\": \"acme\",\n    \"task_id\": null,\n    \"project_id\": null,\n    \"backdated\": false,\n    \"target\": \"context\",\n    \"task\": \"\"\n  },\n  {\n    \"id\": 2,\n    \"at\": \"2026-09-01T12:00:00Z\",\n    \"recorded_at\": \"2026-09-01T12:00:00Z\",\n    \"actor\": \"agent-a\",\n    \"target_type\": \"context\",\n    \"target_id\": 1,\n    \"action\": \"use\",\n    \"detail\": null,\n    \"task_id\": null,\n    \"project_id\": null,\n    \"backdated\": false,\n    \"target\": \"context\",\n    \"task\": \"\"\n  },\n  {\n    \"id\": 3,\n    \"at\": \"2026-09-01T12:01:00Z\",\n    \"recorded_at\": \"2026-09-01T12:01:00Z\",\n    \"actor\": \"agent-a\",\n    \"target_type\": \"project\",\n    \"target_id\": 1,\n    \"action\": \"created\",\n    \"detail\": \"orbiter\",\n    \"task_id\": null,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"project\",\n    \"task\": \"\"\n  },\n  {\n    \"id\": 4,\n    \"at\": \"2026-09-01T12:01:00Z\",\n    \"recorded_at\": \"2026-09-01T12:01:00Z\",\n    \"actor\": \"agent-a\",\n    \"target_type\": \"project\",\n    \"target_id\": 1,\n    \"action\": \"use\",\n    \"detail\": null,\n    \"task_id\": null,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"project\",\n    \"task\": \"\"\n  },\n  {\n    \"id\": 5,\n    \"at\": \"2026-09-01T12:02:00Z\",\n    \"recorded_at\": \"2026-09-01T12:02:00Z\",\n    \"actor\": \"agent-a\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"created\",\n    \"detail\": \"log task\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"#1\",\n    \"task\": \"log task\"\n  },\n  {\n    \"id\": 6,\n    \"at\": \"2026-09-01T12:03:00Z\",\n    \"recorded_at\": \"2026-09-01T12:03:00Z\",\n    \"actor\": \"agent-a\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"log\",\n    \"detail\": \"started investigating\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"#1\",\n    \"task\": \"log task\"\n  },\n  {\n    \"id\": 7,\n    \"at\": \"2026-09-01T12:04:00Z\",\n    \"recorded_at\": \"2026-09-01T12:04:00Z\",\n    \"actor\": \"agent-a\",\n    \"target_type\": \"project\",\n    \"target_id\": 1,\n    \"action\": \"log\",\n    \"detail\": \"context wide note\",\n    \"task_id\": null,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"project\",\n    \"task\": \"\"\n  }\n]\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET   ACTION   DETAIL\n2026-09-01 12:00  agent-a  context  created  acme\n2026-09-01 12:00  agent-a  context  use\n2026-09-01 12:01  agent-a  project  created  orbiter\n2026-09-01 12:01  agent-a  project  use\n2026-09-01 12:02  agent-a  #1       created  log task\n2026-09-01 12:03  agent-a  #1       log      started investigating\n2026-09-01 12:04  agent-a  project  log      context wide note\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "--since",
+    "1h"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET   ACTION   DETAIL\n2026-09-01 12:00  agent-a  context  created  acme\n2026-09-01 12:00  agent-a  context  use\n2026-09-01 12:01  agent-a  project  created  orbiter\n2026-09-01 12:01  agent-a  project  use\n2026-09-01 12:02  agent-a  #1       created  log task\n2026-09-01 12:03  agent-a  #1       log      started investigating\n2026-09-01 12:04  agent-a  project  log      context wide note\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "--action",
+    "created,status"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET   ACTION   DETAIL\n2026-09-01 12:00  agent-a  context  created  acme\n2026-09-01 12:01  agent-a  project  created  orbiter\n2026-09-01 12:02  agent-a  #1       created  log task\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "--by",
+    "agent-a"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET   ACTION   DETAIL\n2026-09-01 12:00  agent-a  context  created  acme\n2026-09-01 12:00  agent-a  context  use\n2026-09-01 12:01  agent-a  project  created  orbiter\n2026-09-01 12:01  agent-a  project  use\n2026-09-01 12:02  agent-a  #1       created  log task\n2026-09-01 12:03  agent-a  #1       log      started investigating\n2026-09-01 12:04  agent-a  project  log      context wide note\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "--by-day"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "2026-09-01\n  12:00 agent-a context created acme\n  12:00 agent-a context use\n  12:01 agent-a project created orbiter\n  12:01 agent-a project use\n  12:02 agent-a #1 created log task\n  12:03 agent-a #1 log started investigating\n  12:04 agent-a project log context wide note\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "add",
+    "backdated entry",
+    "--at",
+    "2026-09-01T12:00:30Z"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "logged\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "--backdated"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "--task",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET  ACTION   DETAIL\n2026-09-01 12:02  agent-a  #1      created  log task\n2026-09-01 12:03  agent-a  #1      log      started investigating\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "--project",
+    "orbiter",
+    "--direct"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET   ACTION   DETAIL\n2026-09-01 12:01  agent-a  project  created  orbiter\n2026-09-01 12:01  agent-a  project  use\n2026-09-01 12:02  agent-a  #1       created  log task\n2026-09-01 12:03  agent-a  #1       log      started investigating\n2026-09-01 12:04  agent-a  project  log      context wide note\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "--count"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:17:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "7\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "--ids"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:18:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1\n2\n3\n4\n5\n6\n7\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "log",
+    "ls",
+    "-n",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:19:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "WHEN              ACTOR    TARGET   ACTION  DETAIL\n2026-09-01 12:04  agent-a  project  log     context wide note\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "worklog",
+    "add",
+    "alias verb entry"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:20:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "logged\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

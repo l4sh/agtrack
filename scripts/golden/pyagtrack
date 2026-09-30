@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Runs the real Python agtrack CLI with the clock frozen, for golden capture.
+
+Never modify agtracklib (read only, the 1.x reference checkout); every monkeypatch
+lives here instead. AGTRACK_NOW (required) is a UTC ISO-8601 instant such as
+"2026-09-01T12:00:05Z". It drives:
+
+  * agtracklib.refs.now() (and so now_iso(), event timestamps, the future
+    check in parse_when)
+  * datetime.datetime.now() as called from refs.parse_since() for its
+    today/yesterday branch, which reads local time directly rather than
+    going through refs.now()
+
+Both are satisfied by replacing the stdlib datetime.datetime class with a
+frozen subclass before agtracklib is imported. refs.py's `import datetime as
+_dt` binds the same module object, so the swap is visible there too. This
+process is single-purpose (it runs one CLI invocation and exits), so a
+process-wide patch is safe.
+"""
+
+from __future__ import annotations
+
+import datetime
+import os
+import sys
+
+AGTRACK_SRC = os.environ["AGTRACK_PY_SRC"]
+sys.path.insert(0, AGTRACK_SRC)
+
+
+def _freeze() -> None:
+    raw = os.environ.get("AGTRACK_NOW")
+    if not raw:
+        print("pyagtrack: AGTRACK_NOW must be set (e.g. 2026-09-01T12:00:00Z)",
+              file=sys.stderr)
+        sys.exit(1)
+    instant = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=datetime.timezone.utc)
+    else:
+        instant = instant.astimezone(datetime.timezone.utc)
+
+    class _FrozenDateTime(datetime.datetime):
+        _frozen = instant
+
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                # Naive "local" time: correct as long as TZ=UTC in the
+                # environment, which the capture harness always sets.
+                return cls._frozen.replace(tzinfo=None)
+            return cls._frozen.astimezone(tz)
+
+    datetime.datetime = _FrozenDateTime  # noqa: F811 - deliberate monkeypatch
+
+
+_freeze()
+
+from agtracklib.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -6,3 +6,4 @@
 /.marshal/
 /.work/
 AGTASK-*
+__pycache__/

@@ -1,0 +1,181 @@
+{
+ "actor": "agent-c",
+ "scenario": "d1_stale_pin_bug",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "work",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context work\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "personal",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context personal\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "current"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "personal\n",
+   "tags": [
+    "parity",
+    "known-defect-D1"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "current",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "{\n  \"context\": \"personal\",\n  \"project\": null\n}\n",
+   "tags": [
+    "parity",
+    "known-defect-D1"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "silently misfiled",
+    "--status",
+    "todo"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "agtrack: no project given and none is current: pass --project or run `agtrack project use \u003cref\u003e`\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "known-defect-D1"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "known-defect-D1"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-c",
+    "work"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "known-defect-D1"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--all-contexts",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "[]\n",
+   "tags": [
+    "parity",
+    "known-defect-D1"
+   ]
+  }
+ ]
+}

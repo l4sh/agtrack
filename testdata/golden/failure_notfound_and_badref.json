@@ -1,0 +1,332 @@
+{
+ "actor": null,
+ "scenario": "failure_notfound_and_badref",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "seed task"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "999"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "agtrack: no such task: 999\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "999",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "{\"error\":\"not_found\",\"code\":3,\"message\":\"no such task: 999\",\"entity\":\"task\",\"ref\":\"999\"}\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure",
+    "known-defect-D4"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "abc"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "agtrack: invalid task reference: abc (expected a task id)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "show",
+    "999"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "agtrack: no such subtask: 999\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "show",
+    "abc"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "agtrack: invalid subtask reference: abc (expected \u003cid\u003e or \u003ctask\u003e.\u003cposition\u003e)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "show",
+    "1.99"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "agtrack: no such subtask: 1.99\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "show",
+    "missing"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "agtrack: no such project: acme/missing\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "show",
+    "a:b:c"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "agtrack: invalid project reference: a:b:c (nesting is project:subproject only)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "show",
+    "ctx-missing/orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "agtrack: no such context: ctx-missing\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "show",
+    "missing"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "agtrack: no such context: missing\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "tag",
+    "show",
+    "missing"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "agtrack: no such tag: missing\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "pr",
+    "rm",
+    "999"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "agtrack: no such pull request record: 999\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "pr",
+    "state",
+    "999",
+    "merged"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 3,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "agtrack: no such pull request record: 999\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "!!!"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "agtrack: invalid name: '!!!' (use letters, digits, . _ -)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  }
+ ]
+}
