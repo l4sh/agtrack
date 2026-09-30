@@ -55,7 +55,7 @@
    "now": "2026-09-01T12:02:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets -> orbiter\n",
+   "stdout": "linked github.com/acme/widgets -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -75,7 +75,7 @@
    "now": "2026-09-01T12:03:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets2 -> orbiter\n",
+   "stdout": "linked github.com/acme/widgets2 -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -94,7 +94,7 @@
    "now": "2026-09-01T12:04:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "acme/widgets\nacme/widgets2\n",
+   "stdout": "github.com/acme/widgets\ngithub.com/acme/widgets2\n",
    "tags": [
     "parity"
    ]
@@ -115,7 +115,7 @@
    "now": "2026-09-01T12:05:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "[\n  {\n    \"slug\": \"acme/widgets\"\n  },\n  {\n    \"slug\": \"acme/widgets2\"\n  }\n]\n",
+   "stdout": "[\n  {\n    \"slug\": \"github.com/acme/widgets\"\n  },\n  {\n    \"slug\": \"github.com/acme/widgets2\"\n  }\n]\n",
    "tags": [
     "parity"
    ]
@@ -134,7 +134,7 @@
    "now": "2026-09-01T12:06:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "REF      TASKS  OPEN  REPOS                       TAGS\norbiter  0      0     acme/widgets,acme/widgets2\n",
+   "stdout": "REF      TASKS  OPEN  REPOS                                             TAGS\norbiter  0      0     github.com/acme/widgets,github.com/acme/widgets2\n",
    "tags": [
     "parity"
    ]
@@ -155,7 +155,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "[\n  {\n    \"id\": 1,\n    \"context_id\": 1,\n    \"parent_id\": null,\n    \"name\": \"orbiter\",\n    \"title\": null,\n    \"archived\": 0,\n    \"created_at\": \"2026-09-01T12:01:00Z\",\n    \"updated_at\": \"2026-09-01T12:01:00Z\",\n    \"ref\": \"orbiter\",\n    \"path\": \"acme/orbiter\",\n    \"repos\": \"acme/widgets,acme/widgets2\",\n    \"open\": 0,\n    \"tasks\": 0,\n    \"tags\": \"\"\n  }\n]\n",
+   "stdout": "[\n  {\n    \"id\": 1,\n    \"context_id\": 1,\n    \"parent_id\": null,\n    \"name\": \"orbiter\",\n    \"title\": null,\n    \"archived\": 0,\n    \"created_at\": \"2026-09-01T12:01:00Z\",\n    \"updated_at\": \"2026-09-01T12:01:00Z\",\n    \"ref\": \"orbiter\",\n    \"repos\": \"github.com/acme/widgets,github.com/acme/widgets2\",\n    \"open\": 0,\n    \"tasks\": 0,\n    \"tags\": \"\"\n  }\n]\n",
    "tags": [
     "parity"
    ]
@@ -172,7 +172,7 @@
    "exit": 0,
    "normalize": [],
    "now": "2026-09-01T12:08:00Z",
-   "stderr": "no project linked to such/repo\n",
+   "stderr": "no project linked to example.com/such/repo\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -193,7 +193,7 @@
    "exit": 0,
    "normalize": [],
    "now": "2026-09-01T12:09:00Z",
-   "stderr": "no project linked to such/repo\n",
+   "stderr": "no project linked to example.com/such/repo\n",
    "stdin": "",
    "stdout": "[]\n",
    "tags": [
@@ -232,9 +232,9 @@
    "exit": 0,
    "normalize": [],
    "now": "2026-09-01T12:11:00Z",
-   "stderr": "agtrack: warning: acme/widgets is already linked to acme/orbiter; `-p .` will not resolve it until one link is removed\n",
+   "stderr": "agtrack: warning: github.com/acme/widgets is already linked to acme/orbiter; `-p .` will not resolve it until one link is removed\n",
    "stdin": "",
-   "stdout": "linked acme/widgets -> other\n",
+   "stdout": "linked github.com/acme/widgets -\u003e other\n",
    "tags": [
     "parity"
    ]
@@ -253,7 +253,7 @@
    "now": "2026-09-01T12:12:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "REF      TASKS  OPEN  REPOS                       TAGS\norbiter  0      0     acme/widgets,acme/widgets2\nother    0      0     acme/widgets\n",
+   "stdout": "REF      TASKS  OPEN  REPOS                                             TAGS\norbiter  0      0     github.com/acme/widgets,github.com/acme/widgets2\nother    0      0     github.com/acme/widgets\n",
    "tags": [
     "parity"
    ]
@@ -294,7 +294,7 @@
    "now": "2026-09-01T12:14:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "unlinked acme/widgets\n",
+   "stdout": "unlinked github.com/acme/widgets\n",
    "tags": [
     "parity"
    ]
@@ -332,7 +332,7 @@
    "exit": 3,
    "normalize": [],
    "now": "2026-09-01T12:16:00Z",
-   "stderr": "agtrack: x/y is not linked to acme/orbiter\n",
+   "stderr": "agtrack: not-linked.example/x/y is not linked to acme/orbiter\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -351,7 +351,7 @@
    "now": "2026-09-01T12:17:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "acme/widgets\n  acme/orbiter\n",
+   "stdout": "github.com/acme/widgets\n  acme/orbiter\n",
    "tags": [
     "parity"
    ]
@@ -369,7 +369,7 @@
    "now": "2026-09-01T12:18:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "{\n  \"repo\": \"acme/widgets\",\n  \"projects\": [\n    {\n      \"id\": 1,\n      \"context_id\": 1,\n      \"parent_id\": null,\n      \"name\": \"orbiter\",\n      \"title\": null,\n      \"archived\": 0,\n      \"created_at\": \"2026-09-01T12:01:00Z\",\n      \"updated_at\": \"2026-09-01T12:01:00Z\",\n      \"path\": \"acme/orbiter\",\n      \"ref\": \"orbiter\"\n    }\n  ]\n}\n",
+   "stdout": "{\n  \"repo\": \"github.com/acme/widgets\",\n  \"projects\": [\n    {\n      \"id\": 1,\n      \"context_id\": 1,\n      \"parent_id\": null,\n      \"name\": \"orbiter\",\n      \"title\": null,\n      \"archived\": 0,\n      \"created_at\": \"2026-09-01T12:01:00Z\",\n      \"updated_at\": \"2026-09-01T12:01:00Z\",\n      \"path\": \"acme/orbiter\",\n      \"ref\": \"orbiter\"\n    }\n  ]\n}\n",
    "tags": [
     "parity"
    ]
@@ -387,7 +387,7 @@
    "now": "2026-09-01T12:19:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "REF      TASKS  OPEN  REPOS                       TAGS\norbiter  1      1     acme/widgets,acme/widgets2\n",
+   "stdout": "REF      TASKS  OPEN  REPOS                                             TAGS\norbiter  1      1     github.com/acme/widgets,github.com/acme/widgets2\n",
    "tags": [
     "parity"
    ]

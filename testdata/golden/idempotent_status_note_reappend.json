@@ -149,7 +149,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  CREATED           ACTOR    BODY\n1   2026-09-01 12:05  agent-b  still done\n2   2026-09-01 12:06  agent-b  again\n",
+   "stdout": "",
    "tags": [
     "parity"
    ]
@@ -170,7 +170,7 @@
    "now": "2026-09-01T12:08:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "[\n  {\n    \"id\": 5,\n    \"at\": \"2026-09-01T12:02:00Z\",\n    \"recorded_at\": \"2026-09-01T12:02:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"created\",\n    \"detail\": \"idempotent task\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"when\": \"2026-09-01 12:02\",\n    \"date\": \"2026-09-01\",\n    \"backdated\": false,\n    \"recorded\": \"\",\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  },\n  {\n    \"id\": 6,\n    \"at\": \"2026-09-01T12:03:00Z\",\n    \"recorded_at\": \"2026-09-01T12:03:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"status\",\n    \"detail\": \"todo -> done\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"when\": \"2026-09-01 12:03\",\n    \"date\": \"2026-09-01\",\n    \"backdated\": false,\n    \"recorded\": \"\",\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  },\n  {\n    \"id\": 7,\n    \"at\": \"2026-09-01T12:05:00Z\",\n    \"recorded_at\": \"2026-09-01T12:05:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"note\",\n    \"detail\": \"still done\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"when\": \"2026-09-01 12:05\",\n    \"date\": \"2026-09-01\",\n    \"backdated\": false,\n    \"recorded\": \"\",\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  },\n  {\n    \"id\": 8,\n    \"at\": \"2026-09-01T12:06:00Z\",\n    \"recorded_at\": \"2026-09-01T12:06:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"note\",\n    \"detail\": \"again\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"when\": \"2026-09-01 12:06\",\n    \"date\": \"2026-09-01\",\n    \"backdated\": false,\n    \"recorded\": \"\",\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  }\n]\n",
+   "stdout": "[\n  {\n    \"id\": 5,\n    \"at\": \"2026-09-01T12:02:00Z\",\n    \"recorded_at\": \"2026-09-01T12:02:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"created\",\n    \"detail\": \"idempotent task\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  },\n  {\n    \"id\": 6,\n    \"at\": \"2026-09-01T12:03:00Z\",\n    \"recorded_at\": \"2026-09-01T12:03:00Z\",\n    \"actor\": \"agent-b\",\n    \"target_type\": \"task\",\n    \"target_id\": 1,\n    \"action\": \"status\",\n    \"detail\": \"todo -\u003e done\",\n    \"task_id\": 1,\n    \"project_id\": 1,\n    \"backdated\": false,\n    \"target\": \"#1\",\n    \"task\": \"idempotent task\"\n  }\n]\n",
    "tags": [
     "parity"
    ]
@@ -264,7 +264,7 @@
    "now": "2026-09-01T12:13:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  CREATED           ACTOR    BODY\n3   2026-09-01 12:12  agent-b  sub note repeat\n",
+   "stdout": "",
    "tags": [
     "parity"
    ]

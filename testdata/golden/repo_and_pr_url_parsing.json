@@ -55,7 +55,7 @@
    "now": "2026-09-01T12:02:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets -> orbiter\n",
+   "stdout": "linked github.com/acme/widgets -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -75,7 +75,7 @@
    "now": "2026-09-01T12:03:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets-ssh -> orbiter\n",
+   "stdout": "linked github.com/acme/widgets-ssh -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -95,7 +95,7 @@
    "now": "2026-09-01T12:04:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets-proto -> orbiter\n",
+   "stdout": "linked github.com/acme/widgets-proto -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -115,7 +115,7 @@
    "now": "2026-09-01T12:05:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets-bare -> orbiter\n",
+   "stdout": "linked acme/widgets-bare -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -135,7 +135,7 @@
    "now": "2026-09-01T12:06:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets-gitlab -> orbiter\n",
+   "stdout": "linked gitlab.com/acme/widgets-gitlab -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -154,7 +154,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "acme/widgets\nacme/widgets-bare\nacme/widgets-gitlab\nacme/widgets-proto\nacme/widgets-ssh\n",
+   "stdout": "acme/widgets-bare\ngithub.com/acme/widgets\ngithub.com/acme/widgets-proto\ngithub.com/acme/widgets-ssh\ngitlab.com/acme/widgets-gitlab\n",
    "tags": [
     "parity"
    ]
@@ -250,7 +250,7 @@
    "now": "2026-09-01T12:12:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "[\n  {\n    \"id\": 1,\n    \"task_id\": 1,\n    \"url\": \"https://github.com/acme/widgets/pull/7\",\n    \"repo\": \"acme/widgets\",\n    \"number\": 7,\n    \"title\": null,\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:09:00Z\",\n    \"updated_at\": \"2026-09-01T12:09:00Z\",\n    \"created\": \"2026-09-01 12:09\",\n    \"task_title\": \"pr url task\"\n  },\n  {\n    \"id\": 2,\n    \"task_id\": 1,\n    \"url\": \"https://github.com/acme/widgets/pulls/8\",\n    \"repo\": \"acme/widgets\",\n    \"number\": 8,\n    \"title\": null,\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:10:00Z\",\n    \"updated_at\": \"2026-09-01T12:10:00Z\",\n    \"created\": \"2026-09-01 12:10\",\n    \"task_title\": \"pr url task\"\n  },\n  {\n    \"id\": 3,\n    \"task_id\": 1,\n    \"url\": \"https://example.com/no/pr/pattern/here\",\n    \"repo\": null,\n    \"number\": null,\n    \"title\": null,\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:11:00Z\",\n    \"updated_at\": \"2026-09-01T12:11:00Z\",\n    \"created\": \"2026-09-01 12:11\",\n    \"task_title\": \"pr url task\"\n  }\n]\n",
+   "stdout": "[\n  {\n    \"id\": 1,\n    \"task_id\": 1,\n    \"url\": \"https://github.com/acme/widgets/pull/7\",\n    \"repo\": \"acme/widgets\",\n    \"number\": 7,\n    \"title\": null,\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:09:00Z\",\n    \"updated_at\": \"2026-09-01T12:09:00Z\",\n    \"task_title\": \"pr url task\"\n  },\n  {\n    \"id\": 2,\n    \"task_id\": 1,\n    \"url\": \"https://github.com/acme/widgets/pulls/8\",\n    \"repo\": \"acme/widgets\",\n    \"number\": 8,\n    \"title\": null,\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:10:00Z\",\n    \"updated_at\": \"2026-09-01T12:10:00Z\",\n    \"task_title\": \"pr url task\"\n  },\n  {\n    \"id\": 3,\n    \"task_id\": 1,\n    \"url\": \"https://example.com/no/pr/pattern/here\",\n    \"repo\": null,\n    \"number\": null,\n    \"title\": null,\n    \"state\": \"open\",\n    \"created_at\": \"2026-09-01T12:11:00Z\",\n    \"updated_at\": \"2026-09-01T12:11:00Z\",\n    \"task_title\": \"pr url task\"\n  }\n]\n",
    "tags": [
     "parity"
    ]

@@ -149,7 +149,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:07:00Z",
-   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               <command> ...\nagtrack: error: unrecognized arguments: -p orbiter\n",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               \u003ccommand\u003e ...\nagtrack: error: unrecognized arguments: -p orbiter\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -189,7 +189,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:09:00Z",
-   "stderr": "usage: agtrack task ls [-h] [--db PATH] [-c NAME]\n                       [-f {table,plain,tsv,json,yaml}] [--fields A,B] [-x]\n                       [--no-header] [--color] [--no-color] [-q]\n                       [--actor NAME] [-p REF] [--direct] [-s LIST]\n                       [--tag TAG] [--tags-all] [--grep TEXT] [--since WHEN]\n                       [--repo URL] [-n LIMIT]\n                       [--order {created,id,status,updated}] [--all-contexts]\n                       [--count] [--ids]\nagtrack task ls: error: argument -f/--format: invalid choice: 'xml' (choose from 'table', 'plain', 'tsv', 'json', 'yaml')\n",
+   "stderr": "usage: agtrack task ls [-h] [-p REF] [--direct] [-s LIST] [--tag TAG]\n                       [--tags-all] [--grep TEXT] [--since WHEN] [--repo URL]\n                       [-n LIMIT] [--order {created,id,status,updated}]\n                       [--all-contexts] [--unclaimed] [--ready] [--blocked]\n                       [--count] [--ids]\nagtrack task ls: error: argument -f/--format: invalid choice: 'xml' (choose from 'table', 'plain', 'tsv', 'json', 'jsonl', 'yaml')\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -240,7 +240,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:12:00Z",
-   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               <command> ...\nagtrack: error: the following arguments are required: <command>\n",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               \u003ccommand\u003e ...\nagtrack: error: the following arguments are required: \u003ccommand\u003e\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -257,7 +257,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:13:00Z",
-   "stderr": "usage: agtrack ctx [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n                   [--fields A,B] [-x] [--no-header] [--color] [--no-color]\n                   [-q] [--actor NAME]\n                   <verb> ...\nagtrack ctx: error: the following arguments are required: <verb>\n",
+   "stderr": "usage: agtrack ctx [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n                   [--fields A,B] [-x] [--no-header] [--color] [--no-color]\n                   [-q] [--actor NAME]\n                   \u003cverb\u003e ...\nagtrack ctx: error: the following arguments are required: \u003cverb\u003e\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -274,7 +274,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:14:00Z",
-   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               <command> ...\nagtrack: error: argument <command>: invalid choice: 'bogus-noun' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'next', 'summary', 'here', 'dump', 'info')\n",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME]\n               [-f {table,plain,tsv,json,jsonl,yaml}] [--fields A,B] [-x]\n               [--no-header] [--color] [--no-color] [-q] [--actor NAME]\n               [--max-bytes N] [--idem KEY] [-V]\n               \u003ccommand\u003e ...\nagtrack: error: argument \u003ccommand\u003e: invalid choice: 'bogus-noun' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'note', 'notes', 'next', 'resume', 'summary', 'here', 'watch', 'dump', 'info', 'grammar', 'describe', 'config')\n",
    "stdin": "",
    "stdout": "",
    "tags": [

@@ -272,7 +272,7 @@
    "now": "2026-09-01T12:14:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "linked acme/widgets -> orbiter\n",
+   "stdout": "linked github.com/acme/widgets -\u003e orbiter\n",
    "tags": [
     "parity"
    ]
@@ -308,7 +308,7 @@
    "now": "2026-09-01T12:16:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "acme/widgets\n  acme/orbiter\n",
+   "stdout": "github.com/acme/widgets\n  acme/orbiter\n",
    "tags": [
     "parity"
    ]
@@ -325,7 +325,7 @@
    "now": "2026-09-01T12:17:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "REF      TASKS  OPEN  REPOS         TAGS\norbiter  3      3     acme/widgets\n",
+   "stdout": "REF      TASKS  OPEN  REPOS                    TAGS\norbiter  3      3     github.com/acme/widgets\n",
    "tags": [
     "parity"
    ]

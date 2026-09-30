@@ -71,7 +71,7 @@
    "now": "2026-09-01T12:03:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "personal orbiter\n",
+   "stdout": "personal\n",
    "tags": [
     "parity",
     "known-defect-D1"
@@ -91,7 +91,7 @@
    "now": "2026-09-01T12:04:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "{\n  \"context\": \"personal\",\n  \"project\": \"orbiter\"\n}\n",
+   "stdout": "{\n  \"context\": \"personal\",\n  \"project\": null\n}\n",
    "tags": [
     "parity",
     "known-defect-D1"
@@ -107,12 +107,12 @@
    ],
    "cwd": "plain",
    "env": {},
-   "exit": 0,
+   "exit": 1,
    "normalize": [],
    "now": "2026-09-01T12:05:00Z",
-   "stderr": "",
+   "stderr": "agtrack: no project given and none is current: pass --project or run `agtrack project use \u003cref\u003e`\n",
    "stdin": "",
-   "stdout": "task 1\n",
+   "stdout": "",
    "tags": [
     "parity",
     "known-defect-D1"
@@ -150,7 +150,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "ID  STATUS  PROJECT  TITLE              SUBTASKS  TAGS\n1   todo    orbiter  silently misfiled\n",
+   "stdout": "",
    "tags": [
     "parity",
     "known-defect-D1"
@@ -171,7 +171,7 @@
    "now": "2026-09-01T12:08:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "[\n  {\n    \"id\": 1,\n    \"project_id\": 1,\n    \"title\": \"silently misfiled\",\n    \"status\": \"todo\",\n    \"created_at\": \"2026-09-01T12:05:00Z\",\n    \"updated_at\": \"2026-09-01T12:05:00Z\",\n    \"started_at\": null,\n    \"closed_at\": null,\n    \"project\": \"orbiter\",\n    \"path\": \"work/orbiter\",\n    \"context\": \"work\",\n    \"mark\": \"[ ]\",\n    \"tags\": \"\",\n    \"subtasks\": \"\",\n    \"prs\": 0,\n    \"notes\": 0,\n    \"created\": \"2026-09-01 12:05\",\n    \"updated\": \"2026-09-01 12:05\",\n    \"started\": \"\",\n    \"closed\": \"\"\n  }\n]\n",
+   "stdout": "[]\n",
    "tags": [
     "parity",
     "known-defect-D1"

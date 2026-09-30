@@ -131,7 +131,7 @@
    "now": "2026-09-01T12:06:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "[\n  {\n    \"id\": 1,\n    \"project_id\": 1,\n    \"title\": \"fmt task\",\n    \"status\": \"todo\",\n    \"created_at\": \"2026-09-01T12:02:00Z\",\n    \"updated_at\": \"2026-09-01T12:02:00Z\",\n    \"started_at\": null,\n    \"closed_at\": null,\n    \"project\": \"orbiter\",\n    \"path\": \"acme/orbiter\",\n    \"context\": \"acme\",\n    \"mark\": \"[ ]\",\n    \"tags\": \"demo\",\n    \"subtasks\": \"\",\n    \"prs\": 0,\n    \"notes\": 0,\n    \"created\": \"2026-09-01 12:02\",\n    \"updated\": \"2026-09-01 12:02\",\n    \"started\": \"\",\n    \"closed\": \"\"\n  }\n]\n",
+   "stdout": "[\n  {\n    \"id\": 1,\n    \"project_id\": 1,\n    \"title\": \"fmt task\",\n    \"status\": \"todo\",\n    \"created_at\": \"2026-09-01T12:02:00Z\",\n    \"updated_at\": \"2026-09-01T12:02:00Z\",\n    \"started_at\": null,\n    \"closed_at\": null,\n    \"project\": \"orbiter\",\n    \"tags\": \"demo\",\n    \"subtasks\": \"\",\n    \"prs\": 0,\n    \"notes\": 0\n  }\n]\n",
    "tags": [
     "parity"
    ]
@@ -150,7 +150,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "- id: 1\n  project_id: 1\n  title: fmt task\n  status: todo\n  created_at: 2026-09-01T12:02:00Z\n  updated_at: 2026-09-01T12:02:00Z\n  started_at: null\n  closed_at: null\n  project: orbiter\n  path: acme/orbiter\n  context: acme\n  mark: \"[ ]\"\n  tags: demo\n  subtasks: \"\"\n  prs: 0\n  notes: 0\n  created: 2026-09-01 12:02\n  updated: 2026-09-01 12:02\n  started: \"\"\n  closed: \"\"\n",
+   "stdout": "- id: 1\n  project_id: 1\n  title: fmt task\n  status: todo\n  created_at: 2026-09-01T12:02:00Z\n  updated_at: 2026-09-01T12:02:00Z\n  started_at: null\n  closed_at: null\n  project: orbiter\n  tags: demo\n  subtasks: \"\"\n  prs: 0\n  notes: 0\n",
    "tags": [
     "parity"
    ]
@@ -230,7 +230,7 @@
    "now": "2026-09-01T12:11:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "{\n  \"id\": 1,\n  \"project_id\": 1,\n  \"title\": \"fmt task\",\n  \"status\": \"todo\",\n  \"created_at\": \"2026-09-01T12:02:00Z\",\n  \"updated_at\": \"2026-09-01T12:02:00Z\",\n  \"started_at\": null,\n  \"closed_at\": null,\n  \"project\": \"orbiter\",\n  \"path\": \"acme/orbiter\",\n  \"context\": \"acme\",\n  \"mark\": \"[ ]\",\n  \"tags\": \"demo\",\n  \"subtasks\": \"\",\n  \"prs\": 0,\n  \"notes\": 0,\n  \"created\": \"2026-09-01 12:02\",\n  \"updated\": \"2026-09-01 12:02\",\n  \"started\": \"\",\n  \"closed\": \"\",\n  \"tag_list\": [\n    \"demo\"\n  ],\n  \"subtask_list\": [],\n  \"note_list\": [],\n  \"pr_list\": [],\n  \"events\": [\n    {\n      \"id\": 5,\n      \"at\": \"2026-09-01T12:02:00Z\",\n      \"recorded_at\": \"2026-09-01T12:02:00Z\",\n      \"actor\": null,\n      \"target_type\": \"task\",\n      \"target_id\": 1,\n      \"action\": \"created\",\n      \"detail\": \"fmt task\",\n      \"task_id\": 1,\n      \"project_id\": 1,\n      \"when\": \"2026-09-01 12:02\",\n      \"date\": \"2026-09-01\",\n      \"backdated\": false,\n      \"recorded\": \"\",\n      \"target\": \"#1\",\n      \"task\": \"fmt task\"\n    }\n  ]\n}\n",
+   "stdout": "{\n  \"id\": 1,\n  \"project_id\": 1,\n  \"title\": \"fmt task\",\n  \"status\": \"todo\",\n  \"created_at\": \"2026-09-01T12:02:00Z\",\n  \"updated_at\": \"2026-09-01T12:02:00Z\",\n  \"started_at\": null,\n  \"closed_at\": null,\n  \"project\": \"orbiter\",\n  \"tags\": \"demo\",\n  \"subtasks\": \"\",\n  \"prs\": 0,\n  \"notes\": 0,\n  \"tag_list\": [\n    \"demo\"\n  ],\n  \"subtask_list\": [],\n  \"note_list\": [],\n  \"pr_list\": []\n}\n",
    "tags": [
     "parity",
     "known-defect-D12"
@@ -251,7 +251,7 @@
    "now": "2026-09-01T12:12:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "id: 1\nproject_id: 1\ntitle: fmt task\nstatus: todo\ncreated_at: 2026-09-01T12:02:00Z\nupdated_at: 2026-09-01T12:02:00Z\nstarted_at: null\nclosed_at: null\nproject: orbiter\npath: acme/orbiter\ncontext: acme\nmark: \"[ ]\"\ntags: demo\nsubtasks: \"\"\nprs: 0\nnotes: 0\ncreated: 2026-09-01 12:02\nupdated: 2026-09-01 12:02\nstarted: \"\"\nclosed: \"\"\ntag_list:\n  - demo\nsubtask_list: []\nnote_list: []\npr_list: []\nevents:\n  - id: 5\n    at: 2026-09-01T12:02:00Z\n    recorded_at: 2026-09-01T12:02:00Z\n    actor: null\n    target_type: task\n    target_id: 1\n    action: created\n    detail: fmt task\n    task_id: 1\n    project_id: 1\n    when: 2026-09-01 12:02\n    date: 2026-09-01\n    backdated: false\n    recorded: \"\"\n    target: \"#1\"\n    task: fmt task\n",
+   "stdout": "id: 1\nproject_id: 1\ntitle: fmt task\nstatus: todo\ncreated_at: 2026-09-01T12:02:00Z\nupdated_at: 2026-09-01T12:02:00Z\nstarted_at: null\nclosed_at: null\nproject: orbiter\ntags: demo\nsubtasks: \"\"\nprs: 0\nnotes: 0\ntag_list:\n  - demo\nsubtask_list: []\nnote_list: []\npr_list: []\n",
    "tags": [
     "parity"
    ]

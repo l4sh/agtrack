@@ -74,7 +74,10 @@ func (s *Store) currentContext() *row.Row {
 	if !ok {
 		return nil
 	}
-	return s.one("SELECT * FROM contexts WHERE name = ?", name)
+	if r := s.one("SELECT * FROM contexts WHERE name = ?", name); r != nil {
+		return contextRow(r)
+	}
+	return nil
 }
 
 // CurrentContext is the pinned context, or nil.
@@ -181,10 +184,13 @@ func (s *Store) getContext(name string, required bool) *row.Row {
 		fail(err)
 	}
 	r := s.one("SELECT * FROM contexts WHERE name = ?", slug)
-	if r == nil && required {
-		fail(errs.NotFound("context", name, "no such context: %s", name))
+	if r == nil {
+		if required {
+			fail(errs.NotFound("context", name, "no such context: %s", name))
+		}
+		return nil
 	}
-	return r
+	return contextRow(r)
 }
 
 // GetContext looks a context up by name.
@@ -200,7 +206,7 @@ func (s *Store) defaultContext() *row.Row {
 	rows := s.q("SELECT * FROM contexts WHERE archived = 0 ORDER BY id")
 	switch {
 	case len(rows) == 1:
-		return rows[0]
+		return contextRow(rows[0])
 	case len(rows) == 0:
 		fail(errs.New("no contexts yet: agtrack ctx add <name>"))
 	}

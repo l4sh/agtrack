@@ -90,7 +90,7 @@
    "exit": 3,
    "normalize": [],
    "now": "2026-09-01T12:04:00Z",
-   "stderr": "agtrack: no such task: 999\n",
+   "stderr": "{\"error\":\"not_found\",\"code\":3,\"message\":\"no such task: 999\",\"entity\":\"task\",\"ref\":\"999\"}\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -148,7 +148,7 @@
    "exit": 1,
    "normalize": [],
    "now": "2026-09-01T12:07:00Z",
-   "stderr": "agtrack: invalid subtask reference: abc (expected <id> or <task>.<position>)\n",
+   "stderr": "agtrack: invalid subtask reference: abc (expected \u003cid\u003e or \u003ctask\u003e.\u003cposition\u003e)\n",
    "stdin": "",
    "stdout": "",
    "tags": [
