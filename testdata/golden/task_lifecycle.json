@@ -1,0 +1,442 @@
+{
+ "actor": null,
+ "scenario": "task_lifecycle",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "other"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project other\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "ship feature"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "start",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [~] ship feature\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "done",
+    "1",
+    "--note",
+    "shipped"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [x] ship feature\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "cancel",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [-] ship feature\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "reopen",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [ ] ship feature\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "status",
+    "in-progress",
+    "1",
+    "--tag",
+    "urgent"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 [~] ship feature\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "status",
+    "1",
+    "done"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "agtrack: 1 looks like a reference, not a status: this verb takes the status first, as `agtrack task status done 1`\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "note",
+    "1",
+    "investigating root cause"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "note 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "notes",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  CREATED           ACTOR  BODY\n1   2026-09-01 12:05         shipped\n2   2026-09-01 12:10         investigating root cause\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "tag",
+    "1",
+    "urgent",
+    "priority"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "urgent priority\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "untag",
+    "1",
+    "priority"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "priority\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "set",
+    "1",
+    "--title",
+    "ship the feature properly"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#1 ship the feature properly\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "helper task"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "set",
+    "2",
+    "--move",
+    "other"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "#2 helper task\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:17:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #2 [ ] helper task\nstatus: todo\nproject: acme/other\ncreated: 2026-09-01 12:15\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "2",
+    "-x"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:18:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task: #2 [ ] helper task\nstatus: todo\nproject: acme/other\ncreated: 2026-09-01 12:15\nhistory:\n  2026-09-01 12:15  #2     created helper task\n  2026-09-01 12:16  #2     updated project_id=2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "show",
+    "2",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:19:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "{\n  \"id\": 2,\n  \"project_id\": 2,\n  \"title\": \"helper task\",\n  \"status\": \"todo\",\n  \"created_at\": \"2026-09-01T12:15:00Z\",\n  \"updated_at\": \"2026-09-01T12:16:00Z\",\n  \"started_at\": null,\n  \"closed_at\": null,\n  \"project\": \"other\",\n  \"path\": \"acme/other\",\n  \"context\": \"acme\",\n  \"mark\": \"[ ]\",\n  \"tags\": \"\",\n  \"subtasks\": \"\",\n  \"prs\": 0,\n  \"notes\": 0,\n  \"created\": \"2026-09-01 12:15\",\n  \"updated\": \"2026-09-01 12:16\",\n  \"started\": \"\",\n  \"closed\": \"\",\n  \"tag_list\": [],\n  \"subtask_list\": [],\n  \"note_list\": [],\n  \"pr_list\": [],\n  \"events\": [\n    {\n      \"id\": 18,\n      \"at\": \"2026-09-01T12:15:00Z\",\n      \"recorded_at\": \"2026-09-01T12:15:00Z\",\n      \"actor\": null,\n      \"target_type\": \"task\",\n      \"target_id\": 2,\n      \"action\": \"created\",\n      \"detail\": \"helper task\",\n      \"task_id\": 2,\n      \"project_id\": 1,\n      \"when\": \"2026-09-01 12:15\",\n      \"date\": \"2026-09-01\",\n      \"backdated\": false,\n      \"recorded\": \"\",\n      \"target\": \"#2\",\n      \"task\": \"helper task\"\n    },\n    {\n      \"id\": 19,\n      \"at\": \"2026-09-01T12:16:00Z\",\n      \"recorded_at\": \"2026-09-01T12:16:00Z\",\n      \"actor\": null,\n      \"target_type\": \"task\",\n      \"target_id\": 2,\n      \"action\": \"updated\",\n      \"detail\": \"project_id=2\",\n      \"task_id\": 2,\n      \"project_id\": 2,\n      \"when\": \"2026-09-01 12:16\",\n      \"date\": \"2026-09-01\",\n      \"backdated\": false,\n      \"recorded\": \"\",\n      \"target\": \"#2\",\n      \"task\": \"helper task\"\n    }\n  ]\n}\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "rm",
+    "2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:20:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted task #2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "rm",
+    "1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:21:00Z",
+   "stderr": "agtrack: task #1 still holds 2 notes; pass --force to delete it all, or cancel the item instead of deleting it\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "rm",
+    "1",
+    "--force"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:22:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted task #1\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

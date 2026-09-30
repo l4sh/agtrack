@@ -1,0 +1,526 @@
+{
+ "actor": null,
+ "scenario": "task_listing_and_filters",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter:frontend"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter:frontend\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "alpha task",
+    "--tag",
+    "core",
+    "--status",
+    "todo"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "beta task",
+    "--tag",
+    "core",
+    "--tag",
+    "infra",
+    "--status",
+    "in-progress"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "gamma task",
+    "-p",
+    "orbiter:frontend",
+    "--status",
+    "done"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 3\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "delta cancelled",
+    "--status",
+    "cancelled"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE       SUBTASKS  TAGS\n1   todo         orbiter  alpha task            core\n2   in-progress  orbiter  beta task             core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT           TITLE            SUBTASKS  TAGS\n1   todo         orbiter           alpha task                 core\n2   in-progress  orbiter           beta task                  core,infra\n3   done         orbiter:frontend  gamma task\n4   cancelled    orbiter           delta cancelled\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--status",
+    "open"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE       SUBTASKS  TAGS\n1   todo         orbiter  alpha task            core\n2   in-progress  orbiter  beta task             core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--status",
+    "closed"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS     PROJECT           TITLE            SUBTASKS  TAGS\n3   done       orbiter:frontend  gamma task\n4   cancelled  orbiter           delta cancelled\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--status",
+    "done,cancelled"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS     PROJECT           TITLE            SUBTASKS  TAGS\n3   done       orbiter:frontend  gamma task\n4   cancelled  orbiter           delta cancelled\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--tag",
+    "core"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE       SUBTASKS  TAGS\n1   todo         orbiter  alpha task            core\n2   in-progress  orbiter  beta task             core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--tag",
+    "core",
+    "--tag",
+    "infra",
+    "--tags-all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE      SUBTASKS  TAGS\n2   in-progress  orbiter  beta task            core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--grep",
+    "beta"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE      SUBTASKS  TAGS\n2   in-progress  orbiter  beta task            core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--direct",
+    "-p",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE       SUBTASKS  TAGS\n1   todo         orbiter  alpha task            core\n2   in-progress  orbiter  beta task             core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-p",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE       SUBTASKS  TAGS\n1   todo         orbiter  alpha task            core\n2   in-progress  orbiter  beta task             core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--order",
+    "updated",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:17:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT           TITLE            SUBTASKS  TAGS\n4   cancelled    orbiter           delta cancelled\n3   done         orbiter:frontend  gamma task\n2   in-progress  orbiter           beta task                  core,infra\n1   todo         orbiter           alpha task                 core\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--order",
+    "created",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:18:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT           TITLE            SUBTASKS  TAGS\n1   todo         orbiter           alpha task                 core\n2   in-progress  orbiter           beta task                  core,infra\n3   done         orbiter:frontend  gamma task\n4   cancelled    orbiter           delta cancelled\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--order",
+    "status",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:19:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT           TITLE            SUBTASKS  TAGS\n2   in-progress  orbiter           beta task                  core,infra\n1   todo         orbiter           alpha task                 core\n3   done         orbiter:frontend  gamma task\n4   cancelled    orbiter           delta cancelled\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-n",
+    "2",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:20:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE       SUBTASKS  TAGS\n1   todo         orbiter  alpha task            core\n2   in-progress  orbiter  beta task             core,infra\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "1h",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:21:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT           TITLE            SUBTASKS  TAGS\n1   todo         orbiter           alpha task                 core\n2   in-progress  orbiter           beta task                  core,infra\n3   done         orbiter:frontend  gamma task\n4   cancelled    orbiter           delta cancelled\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--all-contexts",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:22:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT           TITLE            SUBTASKS  TAGS\n1   todo         orbiter           alpha task                 core\n2   in-progress  orbiter           beta task                  core,infra\n3   done         orbiter:frontend  gamma task\n4   cancelled    orbiter           delta cancelled\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--count",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:23:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--ids",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:24:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1\n2\n3\n4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--repo",
+    "https://github.com/acme/widgets"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:25:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

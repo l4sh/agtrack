@@ -1,0 +1,367 @@
+{
+ "actor": null,
+ "scenario": "failure_conflict_and_children",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "agtrack: context already exists: acme\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "agtrack: project already exists: orbiter\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "pr dup task"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "pr",
+    "add",
+    "1",
+    "https://github.com/a/b/pull/1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "pr 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "pr",
+    "add",
+    "1",
+    "https://github.com/a/b/pull/1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "agtrack: pull request already linked to task 1\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "child task",
+    "--step",
+    "s1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "note",
+    "2",
+    "a note"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "note 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "rm",
+    "2"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "agtrack: task #2 still holds 1 subtasks, 1 notes; pass --force to delete it all, or cancel the item instead of deleting it\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "rm",
+    "2",
+    "--force"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted task #2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "sub child task",
+    "--step",
+    "s1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "note",
+    "2.1",
+    "note on sub"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "note 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "rm",
+    "2.1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "agtrack: subtask 2.1 still holds 1 notes; pass --force to delete it all, or cancel the item instead of deleting it\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "sub",
+    "rm",
+    "2.1",
+    "--force"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted subtask 2.1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter:frontend"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter:frontend\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "rm",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 4,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "agtrack: acme/orbiter still holds 1 subproject(s) and 2 task(s); pass --force\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "rm",
+    "orbiter",
+    "--force"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:17:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted project acme/orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "rm",
+    "acme"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:18:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted context acme\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

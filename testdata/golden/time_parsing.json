@@ -1,0 +1,366 @@
+{
+ "actor": null,
+ "scenario": "time_parsing",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "time task 1",
+    "--created",
+    "2026-08-01"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "time task 2",
+    "--created",
+    "2026-08-15",
+    "--started",
+    "2026-08-16",
+    "--status",
+    "in-progress"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "time task 3",
+    "--created",
+    "2026-08-01",
+    "--status",
+    "done",
+    "--closed",
+    "2026-08-20"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 3\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "time task 4",
+    "--status",
+    "done"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "2d",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE        SUBTASKS  TAGS\n4   done    orbiter  time task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "36h",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE        SUBTASKS  TAGS\n4   done    orbiter  time task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "90m",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE        SUBTASKS  TAGS\n4   done    orbiter  time task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "45s",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "3w",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE        SUBTASKS  TAGS\n2   in-progress  orbiter  time task 2\n3   done         orbiter  time task 3\n4   done         orbiter  time task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "today",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE        SUBTASKS  TAGS\n4   done    orbiter  time task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "yesterday",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE        SUBTASKS  TAGS\n4   done    orbiter  time task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "2026-08-10",
+    "--status",
+    "all"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS       PROJECT  TITLE        SUBTASKS  TAGS\n2   in-progress  orbiter  time task 2\n3   done         orbiter  time task 3\n4   done         orbiter  time task 4\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--since",
+    "not-a-time"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "agtrack: cannot parse time: not-a-time (use 2d, 36h, today, yesterday or a date)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "future closed",
+    "--status",
+    "done",
+    "--closed",
+    "2026-08-01",
+    "--created",
+    "2026-08-05"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "agtrack: --closed (2026-08-01T00:00:00Z) is before --created (2026-08-05T00:00:00Z)\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "bad status closed",
+    "--closed",
+    "2026-08-01"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "agtrack: --closed given but the status is todo: pass --status done or --status cancelled\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  }
+ ]
+}

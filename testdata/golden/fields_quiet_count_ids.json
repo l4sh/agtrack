@@ -1,0 +1,276 @@
+{
+ "actor": null,
+ "scenario": "fields_quiet_count_ids",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "f1",
+    "--tag",
+    "x"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "f2",
+    "--tag",
+    "y"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--fields",
+    "id,title,status"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  TITLE  STATUS\n1   f1     todo\n2   f2     todo\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--fields",
+    "id,title,status",
+    "-f",
+    "json"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "[\n  {\n    \"id\": 1,\n    \"title\": \"f1\",\n    \"status\": \"todo\"\n  },\n  {\n    \"id\": 2,\n    \"title\": \"f2\",\n    \"status\": \"todo\"\n  }\n]\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--fields",
+    "bogus_field"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "agtrack: unknown field(s): bogus_field; available: closed, closed_at, context, created, created_at, id, mark, notes, path, project, project_id, prs, started, started_at, status, subtasks, tags, title, updated, updated_at\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-q"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1\n2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--ids"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "1\n2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--count"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "f3",
+    "-q"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "3\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "quiet-ctx",
+    "-q"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "quiet-ctx\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "quiet-proj",
+    "-c",
+    "quiet-ctx",
+    "-q"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "quiet-proj\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "done",
+    "1",
+    "-q"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,324 @@
+{
+ "actor": null,
+ "scenario": "argparse_edges",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "acme",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context acme\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "edge task",
+    "--tag",
+    "a",
+    "--tag",
+    "b,c"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--proj",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE      SUBTASKS  TAGS\n1   todo    orbiter  edge task            a,b,c\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--gre",
+    "edge"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  STATUS  PROJECT  TITLE      SUBTASKS  TAGS\n1   todo    orbiter  edge task            a,b,c\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "orbiter:sub1"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project orbiter:sub1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "ls",
+    "--parent",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "REF           TASKS  OPEN  REPOS  TAGS\norbiter:sub1  0      0\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "ls",
+    "-p",
+    "orbiter"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               <command> ...\nagtrack: error: unrecognized arguments: -p orbiter\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-n",
+    "0"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "usage: agtrack task ls [-h] [--db PATH] [-c NAME]\n                       [-f {table,plain,tsv,json,yaml}] [--fields A,B] [-x]\n                       [--no-header] [--color] [--no-color] [-q]\n                       [--actor NAME] [-p REF] [--direct] [-s LIST]\n                       [--tag TAG] [--tags-all] [--grep TEXT] [--since WHEN]\n                       [--repo URL] [-n LIMIT]\n                       [--order {created,id,status,updated}] [--all-contexts]\n                       [--count] [--ids]\nagtrack task ls: error: argument -n/--limit: 0 must be 1 or more\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "-f",
+    "xml"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "usage: agtrack task ls [-h] [--db PATH] [-c NAME]\n                       [-f {table,plain,tsv,json,yaml}] [--fields A,B] [-x]\n                       [--no-header] [--color] [--no-color] [-q]\n                       [--actor NAME] [-p REF] [--direct] [-s LIST]\n                       [--tag TAG] [--tags-all] [--grep TEXT] [--since WHEN]\n                       [--repo URL] [-n LIMIT]\n                       [--order {created,id,status,updated}] [--all-contexts]\n                       [--count] [--ids]\nagtrack task ls: error: argument -f/--format: invalid choice: 'xml' (choose from 'table', 'plain', 'tsv', 'json', 'yaml')\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "usage: agtrack ctx add [-h] [--db PATH] [-c NAME]\n                       [-f {table,plain,tsv,json,yaml}] [--fields A,B] [-x]\n                       [--no-header] [--color] [--no-color] [-q]\n                       [--actor NAME] [--title TITLE] [--note NOTE] [--use]\n                       name\nagtrack ctx add: error: the following arguments are required: name\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "usage: agtrack task add [-h] [--db PATH] [-c NAME]\n                        [-f {table,plain,tsv,json,yaml}] [--fields A,B] [-x]\n                        [--no-header] [--color] [--no-color] [-q]\n                        [--actor NAME] [-p REF] [--status STATUS] [--tag TAG]\n                        [--note NOTE] [--pr URL] [--step TITLE]\n                        [--created WHEN] [--started WHEN] [--closed WHEN]\n                        title [title ...]\nagtrack task add: error: the following arguments are required: title\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:12:00Z",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               <command> ...\nagtrack: error: the following arguments are required: <command>\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:13:00Z",
+   "stderr": "usage: agtrack ctx [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n                   [--fields A,B] [-x] [--no-header] [--color] [--no-color]\n                   [-q] [--actor NAME]\n                   <verb> ...\nagtrack ctx: error: the following arguments are required: <verb>\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "bogus-noun"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 2,
+   "normalize": [],
+   "now": "2026-09-01T12:14:00Z",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME] [-f {table,plain,tsv,json,yaml}]\n               [--fields A,B] [-x] [--no-header] [--color] [--no-color] [-q]\n               [--actor NAME] [-V]\n               <command> ...\nagtrack: error: argument <command>: invalid choice: 'bogus-noun' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'next', 'summary', 'here', 'dump', 'info')\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "--",
+    "--weird-title"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:15:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 2\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "ls",
+    "--fie",
+    "id,title"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:16:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "ID  TITLE\n1   edge task\n2   --weird-title\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}

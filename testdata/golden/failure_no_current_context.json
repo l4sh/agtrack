@@ -1,0 +1,225 @@
+{
+ "actor": null,
+ "scenario": "failure_no_current_context",
+ "steps": [
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "a"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:00:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context a\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "b"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:01:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context b\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "add",
+    "c"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:02:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context c\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "rm",
+    "a"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:03:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "deleted context a\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:04:00Z",
+   "stderr": "agtrack: several contexts exist and none is current: pass --context or run `agtrack ctx use <name>`\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "x"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:05:00Z",
+   "stderr": "agtrack: no project given and none is current: pass --project or run `agtrack project use <ref>`\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "newproj"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:06:00Z",
+   "stderr": "agtrack: several contexts exist and none is current: pass --context or run `agtrack ctx use <name>`\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "ctx",
+    "use",
+    "b"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:07:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "context b\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "ls"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:08:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "y"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 1,
+   "normalize": [],
+   "now": "2026-09-01T12:09:00Z",
+   "stderr": "agtrack: no project given and none is current: pass --project or run `agtrack project use <ref>`\n",
+   "stdin": "",
+   "stdout": "",
+   "tags": [
+    "parity",
+    "failure"
+   ]
+  },
+  {
+   "argv": [
+    "project",
+    "add",
+    "p1",
+    "--use"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:10:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "project p1\n",
+   "tags": [
+    "parity"
+   ]
+  },
+  {
+   "argv": [
+    "task",
+    "add",
+    "y"
+   ],
+   "cwd": "plain",
+   "env": {},
+   "exit": 0,
+   "normalize": [],
+   "now": "2026-09-01T12:11:00Z",
+   "stderr": "",
+   "stdin": "",
+   "stdout": "task 1\n",
+   "tags": [
+    "parity"
+   ]
+  }
+ ]
+}
