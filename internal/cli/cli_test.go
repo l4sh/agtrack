@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -506,4 +507,47 @@ func TestArtifactRmIsScopedToItsTask(t *testing.T) {
 	e.ok("task", "add", "b")
 	e.ok("task", "artifact", "1", "branch", "feat/x")
 	e.fails(3, "task", "artifact", "2", "rm", "1")
+}
+
+func TestSkillCommands(t *testing.T) {
+	e := newEnv(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	os.MkdirAll(filepath.Join(home, ".claude"), 0o755)
+	os.MkdirAll(filepath.Join(home, ".codex"), 0o755)
+	out := e.ok("skill", "install", "--dry-run")
+	if !strings.Contains(out, "would install") {
+		t.Fatalf("dry run: %s", out)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude/skills/agtrack")); err == nil {
+		t.Fatal("dry run wrote files")
+	}
+	e.ok("skill", "install")
+	for _, d := range []string{".claude/skills/agtrack/SKILL.md", ".codex/skills/agtrack/SKILL.md"} {
+		if _, err := os.Stat(filepath.Join(home, d)); err != nil {
+			t.Fatalf("%s missing", d)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(home, ".gemini")); err == nil {
+		t.Fatal("installed into a harness that is not present")
+	}
+	status := e.ok("skill", "status")
+	if strings.Count(status, "current") != 2 || !strings.Contains(status, "harness not installed") {
+		t.Fatalf("status:\n%s", status)
+	}
+	proj := t.TempDir()
+	e.ok("skill", "install", "--dir", filepath.Join(proj, ".claude/skills"))
+	if _, err := os.Stat(filepath.Join(proj, ".claude/skills/agtrack/SKILL.md")); err != nil {
+		t.Fatal("--dir install missing")
+	}
+	if !strings.HasPrefix(e.ok("skill", "print"), "---\nname: agtrack") {
+		t.Fatal("skill print")
+	}
+	e.ok("skill", "uninstall", "--agent", "codex")
+	if _, err := os.Stat(filepath.Join(home, ".codex/skills/agtrack")); err == nil {
+		t.Fatal("uninstall left the skill")
+	}
+	if matches, _ := filepath.Glob(e.db + "*"); len(matches) != 0 {
+		t.Fatalf("skill commands created a database: %v", matches)
+	}
 }

@@ -289,7 +289,7 @@ func Tree() *argp.Command {
 		}}
 
 	root := &argp.Command{Name: "agtrack", Help: "Context / project / task / subtask tracker for agents and humans.", Epilog: Epilog, SubRequired: true,
-		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, specTree(),
+		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, specTree(), skillTree(),
 			{Name: "next", Help: "what is in progress, with its open steps", Run: Handler(cmdNext),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--todo", Kind: argp.Bool, Help: "include todo tasks"},
 					{Long: "--limit", Short: "-n", Kind: argp.PositiveInt}, {Long: "--all-contexts", Kind: argp.Bool},
