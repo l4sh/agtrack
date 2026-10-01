@@ -6,6 +6,15 @@ owner: alex
 
 A minimal todo list: one user, items with a title and a done flag.
 
+The product is a single-user personal list: no sharing, no assignees, no due dates.
+A user organises items into lists and ticks them off as they finish them. Clients
+(web and mobile) keep a local copy and sync it with the server in the background,
+so the app stays usable offline.
+
+This spec covers the item and list model, creation and deletion rules, and the sync
+contract between clients and the API. Authentication, accounts and notifications are
+out of scope and specified elsewhere.
+
 <!-- agtrack:id items -->
 ## Items
 
