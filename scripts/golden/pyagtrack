@@ -24,7 +24,7 @@ import datetime
 import os
 import sys
 
-AGTRACK_SRC = os.environ["AGTRACK_PY_SRC"]
+AGTRACK_SRC = os.environ["AGTRACK_PY_SRC"]  # checkout of agtrack 1.x (the directory holding agtracklib/)
 sys.path.insert(0, AGTRACK_SRC)
 
 
