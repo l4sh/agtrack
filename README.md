@@ -69,8 +69,8 @@ only replaced with `--force`. Re-run `agtrack skill install` after upgrading the
 
 Harness skill directories: Claude Code `~/.claude/skills`, Codex `~/.codex/skills`,
 Antigravity/Gemini CLI `~/.gemini/config/skills`. For any other harness that reads
-SKILL.md skills, use `--dir`. Agents that use the `npx skills` installer can also pull the
-skill straight from this repository.
+SKILL.md skills, use `--dir`. The skill sits in the standard `skills/<name>/SKILL.md` layout, so repository-based
+installers such as `npx skills add l4sh/agtrack` should find it (not yet tested).
 
 On macOS an unsigned binary downloaded by a browser is quarantined; `xattr -d
 com.apple.quarantine ./agtrack` clears it (archives fetched with `curl` are not affected).
