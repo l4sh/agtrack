@@ -77,7 +77,7 @@ func skillInstall(c *Ctx) error {
 		case (state == skill.Foreign || state == skill.Modified) && !c.Bool("force"):
 			action = "refused: " + string(state) + " (" + why + "); use --force"
 			failed = errs.Conflict("some targets were refused; see above")
-		case c.Bool("dry-run"):
+		case c.Bool("dry_run"):
 			action = "would " + plan[0]
 		default:
 			action = plan[1]
@@ -128,7 +128,7 @@ func skillUninstall(c *Ctx) error {
 		case (state == skill.Foreign || state == skill.Modified) && !c.Bool("force"):
 			action = "refused: " + string(state) + " (" + why + "); use --force"
 			failed = errs.Conflict("some targets were refused; see above")
-		case c.Bool("dry-run"):
+		case c.Bool("dry_run"):
 			action = "would remove"
 		default:
 			if _, err := skill.Uninstall(t, files, c.Bool("force")); err != nil {

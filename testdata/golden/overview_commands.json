@@ -266,7 +266,7 @@
    "now": "2026-09-01T12:14:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "agtrack: 2.0.0-dev\ndatabase: /tmp/TestGoldenoverview_commands2020345537/001/db/agtrack.db\nschema: v3 (migrates automatically; this build expects v3)\nsqlite: 3.49.1\ncontext: acme\nproject: orbiter\ncounts: contexts=1 projects=1 tasks=2 subtasks=1 tags=0 notes=0 pull_requests=0 events=8\n",
+   "stdout": "agtrack: 2.0.0-dev\ndatabase: /tmp/TestGoldenoverview_commands428539177/001/db/agtrack.db\nschema: v3 (migrates automatically; this build expects v3)\nsqlite: 3.49.1\ncontext: acme\nproject: orbiter\ncounts: contexts=1 projects=1 tasks=2 subtasks=1 tags=0 notes=0 pull_requests=0 events=8\n",
    "tags": [
     "parity"
    ]
@@ -286,7 +286,7 @@
    "now": "2026-09-01T12:15:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "{\n  \"version\": \"2.0.0-dev\",\n  \"database\": \"/tmp/TestGoldenoverview_commands2020345537/001/db/agtrack.db\",\n  \"schema\": 3,\n  \"schema_expected\": 3,\n  \"current_context\": \"acme\",\n  \"current_project\": \"orbiter\",\n  \"counts\": {\n    \"contexts\": 1,\n    \"projects\": 1,\n    \"tasks\": 2,\n    \"subtasks\": 1,\n    \"tags\": 0,\n    \"notes\": 0,\n    \"pull_requests\": 0,\n    \"events\": 8\n  },\n  \"sqlite\": \"3.49.1\",\n  \"actor\": null\n}\n",
+   "stdout": "{\n  \"version\": \"2.0.0-dev\",\n  \"database\": \"/tmp/TestGoldenoverview_commands428539177/001/db/agtrack.db\",\n  \"schema\": 3,\n  \"schema_expected\": 3,\n  \"current_context\": \"acme\",\n  \"current_project\": \"orbiter\",\n  \"counts\": {\n    \"contexts\": 1,\n    \"projects\": 1,\n    \"tasks\": 2,\n    \"subtasks\": 1,\n    \"tags\": 0,\n    \"notes\": 0,\n    \"pull_requests\": 0,\n    \"events\": 8\n  },\n  \"sqlite\": \"3.49.1\",\n  \"actor\": null\n}\n",
    "tags": [
     "parity"
    ]
