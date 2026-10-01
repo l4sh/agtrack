@@ -6,13 +6,17 @@ owner: alex
 
 A minimal todo list: one user, items with a title and a done flag.
 
+<!-- agtrack:id items -->
 ## Items
 
-Each item has a title (1–200 chars) and a `done` flag that starts false.
+Each item has a title (1–512 chars) and a `done` flag that starts false.
 
+<!-- agtrack:id creation -->
 ### Creation
 
-Empty titles are rejected. Duplicate titles are allowed.
+Empty titles are rejected. Duplicate titles are allowed; creating one shows a
+non-blocking warning ("an item with this title already exists") and the item is
+still created.
 
 ### Deletion
 
