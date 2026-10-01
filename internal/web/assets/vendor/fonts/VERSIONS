@@ -1,0 +1,13 @@
+Locally vendored fonts (CSP font-src 'self'; no external requests). Latin subset, variable weight, normal style only.
+
+inter-latin-wght-normal.woff2
+  source: https://registry.npmjs.org/@fontsource-variable/inter/-/inter-5.3.0.tgz (npm-shasum sha1 351dd1e02dab63a6cf66d57ec36dcfd10c07f07b)
+  extracted: package/files/inter-latin-wght-normal.woff2
+  sha256: 3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62
+  license: SIL OFL 1.1 (LICENSE-Inter.txt)
+
+jetbrains-mono-latin-wght-normal.woff2
+  source: https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz (npm-shasum sha1 5738dedd3af40606b0d9b7626f4ba7c4586cb39b)
+  extracted: package/files/jetbrains-mono-latin-wght-normal.woff2
+  sha256: 18be452724bfdc236c074ca94a249a7f41a86752c7d04ab258ce9ed5651f6a7e
+  license: SIL OFL 1.1 (LICENSE-JetBrainsMono.txt)

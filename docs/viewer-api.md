@@ -15,6 +15,9 @@ http://127.0.0.1:<port>/s/<spec>?t=<token>
 - Page and SSE requests carry the token as `?t=<token>`.
 - API requests carry it in the `X-Agtrack-Token` header (the page reads it from its own URL
   once, then strips it with `history.replaceState`).
+- Fonts (Inter, JetBrains Mono; latin subset) are vendored under `/assets/vendor/fonts/`
+  with their OFL licences and a `VERSIONS` file of sources and sha256 sums — no external font
+  requests (`font-src 'self'`).
 - `style-src` allows inline styles only because Mermaid's SVG output embeds a `<style>`
   block; scripts stay `'self'` only.
 - Every request: `Host` must be `127.0.0.1:<port>` or `localhost:<port>`, else 403.
@@ -110,7 +113,9 @@ connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-
 Section-level comparison of two revisions (the store's `SpecDiff`, as `agtrack spec diff`
 prints it). Both parameters are optional revision numbers ≥ 1 (else `400 invalid_argument`):
 `to` defaults to the head; `from` defaults to the approved revision when one exists and is
-older than `to`, else `to - 1`. An unknown revision is `404 not_found`. A spec with a single
+older than `to`, else `to - 1` — stepping further back past revisions that change no section
+(lazy pinning adds a revision that only writes an id comment), so the default shows the last
+real edit. An unknown revision is `404 not_found`. A spec with a single
 revision returns `"from": 0` and no changes.
 
 ```json

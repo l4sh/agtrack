@@ -9,56 +9,171 @@
 <body>
 <div id="app" class="app" aria-busy="true">
 
-  <header class="header" id="header">
-    <div class="header-title">
-      <h1 id="spec-title">Loading…</h1>
-      <div class="header-meta">
-        <span id="spec-ref" class="chip chip-ref"></span>
-        <span id="spec-revision" class="chip"></span>
-        <span id="spec-mode" class="chip"></span>
-        <span id="spec-approval" class="chip chip-approval"></span>
-      </div>
+  <header class="topbar" id="header">
+    <div class="topbar-left">
+      <button id="btn-outline" type="button" class="icon-btn only-narrow" aria-label="Show outline" aria-controls="outline" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      </button>
+      <svg class="doc-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+      <h1 id="spec-title" class="spec-title">Loading…</h1>
+      <span id="spec-ref" class="chip chip-mono hide-sm" title="Copy spec reference" role="button" tabindex="0"></span>
+      <span id="spec-rev" class="chip chip-amber"></span>
+      <span id="spec-approval" class="chip"></span>
     </div>
-    <div class="header-actions">
-      <button id="btn-send" type="button" class="btn" hidden>Send to agent</button>
-      <button id="btn-approve" type="button" class="btn btn-primary">Approve / Ready to build</button>
+
+    <div class="viewmode" role="group" aria-label="View">
+      <button type="button" class="viewmode-btn is-active" data-view="document" aria-pressed="true" title="Document">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.6a1 1 0 0 1 .7.3l5.4 5.4a1 1 0 0 1 .3.7V19a2 2 0 0 1-2 2z"/></svg>
+        <span class="label">Document</span>
+      </button>
+      <button type="button" class="viewmode-btn" data-view="diff" aria-pressed="false" title="Diff View">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h12m0 0-4-4m4 4-4 4m0 6H4m0 0 4 4m-4-4 4-4"/></svg>
+        <span class="label">Diff View</span>
+      </button>
+      <button type="button" class="viewmode-btn" id="btn-comfort" aria-pressed="false" title="Comfort Layout: roomier type and spacing">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4"/></svg>
+        <span class="label">Comfort Layout</span>
+      </button>
+    </div>
+
+    <div class="topbar-right">
+      <div id="presence" class="presence hide-sm" aria-label="Participants"></div>
+      <button id="btn-send" type="button" class="btn" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="ic-indigo"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span class="label">Send to agent</span>
+        <span id="btn-send-count" class="count-pill">0</span>
+      </button>
+      <button id="btn-approve" type="button" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
+        <span class="label">Approve / Ready to build</span>
+      </button>
+      <button id="btn-rail" type="button" class="icon-btn only-medium" aria-label="Show notes" aria-controls="rail" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+        <span id="btn-rail-count" class="count-pill"></span>
+      </button>
     </div>
   </header>
 
-  <div class="body">
-    <main class="doc" id="doc" tabindex="-1">
-      <p class="doc-loading" id="doc-loading">Loading spec…</p>
+  <div class="workspace">
+    <aside class="outline" id="outline" aria-label="Outline">
+      <div class="outline-scroll">
+        <div class="outline-head">
+          <span class="eyebrow">Outline</span>
+          <span id="outline-count" class="soft-pill"></span>
+        </div>
+        <label class="toc-filter">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z"/></svg>
+          <input id="toc-filter" type="search" placeholder="Jump to section…" autocomplete="off" spellcheck="false" aria-label="Filter sections">
+        </label>
+        <nav id="toc" class="toc"></nav>
+        <div class="metrics" id="metrics">
+          <div class="metrics-row"><span>Read time</span><strong id="metric-read"></strong></div>
+          <div class="meter"><div class="meter-fill" id="metric-meter"></div></div>
+          <div class="metrics-row metrics-sub"><span id="metric-threads"></span><span id="metric-resolved" class="metrics-accent"></span></div>
+        </div>
+      </div>
+      <div class="outline-foot">
+        <span class="kbd-hint"><kbd>c</kbd> comment</span>
+        <span class="kbd-hint"><kbd>/</kbd> jump</span>
+        <span class="kbd-hint"><kbd>Esc</kbd> close</span>
+      </div>
+    </aside>
+
+    <main class="canvas" id="canvas" tabindex="-1">
+      <article class="sheet" id="sheet">
+        <header class="sheet-head">
+          <div class="sheet-eyebrow" id="sheet-eyebrow"></div>
+          <h1 class="sheet-title" id="sheet-title"></h1>
+        </header>
+        <div id="diff-banner" class="diff-banner" hidden></div>
+        <div id="doc" class="doc">
+          <p class="doc-loading">Loading spec…</p>
+        </div>
+      </article>
     </main>
 
-    <aside class="rail" id="rail">
+    <aside class="rail" id="rail" aria-label="Review">
       <div class="rail-tabs" role="tablist">
-        <button id="tab-notes" class="rail-tab is-active" role="tab" aria-selected="true" type="button">Notes</button>
-        <button id="tab-tasks" class="rail-tab" role="tab" aria-selected="false" type="button">Tasks</button>
+        <button id="tab-notes" class="rail-tab is-active" role="tab" aria-selected="true" aria-controls="panel-notes" type="button" data-tab="notes">Notes <span class="tab-count" id="count-notes"></span></button>
+        <button id="tab-tasks" class="rail-tab" role="tab" aria-selected="false" aria-controls="panel-tasks" type="button" data-tab="tasks">Tasks <span class="tab-count" id="count-tasks"></span></button>
+        <button id="tab-build" class="rail-tab" role="tab" aria-selected="false" aria-controls="panel-build" type="button" data-tab="build">Build Notes <span class="tab-count" id="count-build"></span></button>
+        <button id="tab-diffs" class="rail-tab" role="tab" aria-selected="false" aria-controls="panel-diffs" type="button" data-tab="diffs">Diffs <span class="tab-count" id="count-diffs"></span></button>
+        <button id="btn-rail-close" type="button" class="icon-btn only-medium rail-close" aria-label="Close panel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
       </div>
 
       <div id="panel-notes" class="rail-panel is-active" role="tabpanel">
-        <div id="notes-list" class="notes-list"></div>
-        <div id="orphaned-group" class="orphaned-group" hidden>
-          <h2 class="rail-subheading">Orphaned</h2>
-          <div id="orphaned-list" class="notes-list"></div>
+        <div class="filterbar">
+          <div class="chips" role="group" aria-label="Filter notes">
+            <button type="button" class="chip-btn is-active" data-filter="all">All</button>
+            <button type="button" class="chip-btn" data-filter="decisions">Decisions</button>
+            <button type="button" class="chip-btn" data-filter="questions">Questions</button>
+            <button type="button" class="chip-btn" data-filter="unresolved">Unresolved</button>
+          </div>
+          <button type="button" id="btn-sort" class="sort-btn">Sort: Newest</button>
         </div>
-        <div id="build-notes-group" class="build-notes-group">
-          <h2 class="rail-subheading">Build notes</h2>
-          <div id="build-notes-list" class="build-notes-list"></div>
+        <div class="rail-scroll" id="notes-scroll">
+          <div id="notes-list" class="cards"></div>
+          <div id="orphaned-group" class="orphaned-group" hidden>
+            <h2 class="rail-subheading">Orphaned <span class="muted">— section no longer in the spec</span></h2>
+            <div id="orphaned-list" class="cards"></div>
+          </div>
         </div>
+        <form id="composer" class="composer" novalidate>
+          <div class="composer-target">
+            <span id="composer-target-text"></span>
+            <button type="button" id="composer-clear" class="link-btn" hidden aria-label="Clear reply target">×</button>
+            <select id="composer-kind" aria-label="Kind">
+              <option value="note">note</option>
+              <option value="question">question</option>
+              <option value="decision">decision</option>
+              <option value="blocker">blocker</option>
+              <option value="build-note">build-note</option>
+            </select>
+          </div>
+          <textarea id="composer-body" rows="2" placeholder="Add a note or reply…" aria-label="Add a note or reply"></textarea>
+          <div class="composer-foot">
+            <span class="muted">Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> newline</span>
+            <button type="submit" class="btn btn-primary btn-sm">Post</button>
+          </div>
+        </form>
       </div>
 
       <div id="panel-tasks" class="rail-panel" role="tabpanel" hidden>
-        <div id="tasks-links" class="tasks-links"></div>
-        <div class="rail-subheading">Coverage gaps</div>
-        <div id="tasks-gaps" class="tasks-gaps"></div>
-        <div class="rail-subheading">Drift</div>
-        <div id="tasks-drift" class="tasks-drift"></div>
+        <div class="rail-scroll">
+          <div id="tasks-links" class="cards"></div>
+          <h2 class="rail-subheading">Coverage gaps</h2>
+          <div id="tasks-gaps" class="cards"></div>
+          <h2 class="rail-subheading">Drift</h2>
+          <div id="tasks-drift" class="cards"></div>
+        </div>
+      </div>
+
+      <div id="panel-build" class="rail-panel" role="tabpanel" hidden>
+        <div class="rail-scroll">
+          <div id="build-notes-list" class="cards"></div>
+        </div>
+      </div>
+
+      <div id="panel-diffs" class="rail-panel" role="tabpanel" hidden>
+        <div class="filterbar">
+          <div class="rev-picker" id="rev-picker-rail"></div>
+          <button type="button" class="sort-btn" id="btn-open-diffview">Open Diff View</button>
+        </div>
+        <div class="rail-scroll">
+          <div id="diffs-list" class="cards"></div>
+        </div>
       </div>
     </aside>
   </div>
 
-  <button id="comment-fab" type="button" class="comment-fab" hidden>Comment</button>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <button id="comment-fab" type="button" class="comment-fab" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+    Comment <kbd>c</kbd>
+  </button>
 
   <div id="comment-dialog" class="dialog-backdrop" hidden>
     <form id="comment-form" class="dialog" novalidate>
@@ -89,6 +204,7 @@
   <div id="approve-dialog" class="dialog-backdrop" hidden>
     <form id="approve-form" class="dialog" novalidate>
       <h2>Approve / ready to build</h2>
+      <p class="dialog-sub" id="approve-sub"></p>
       <label class="field">
         <span>Approval note</span>
         <textarea id="approve-note" name="note" rows="3"></textarea>
@@ -106,7 +222,7 @@
     </form>
   </div>
 
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
 </div>
 
 <script src="/assets/vendor/mermaid.min.js"></script>
