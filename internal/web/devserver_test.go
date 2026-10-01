@@ -256,7 +256,7 @@ func (s *devServer) createNote(w http.ResponseWriter, r *http.Request) {
 		notes, _ := s.doc["notes"].([]any)
 		for _, raw := range notes {
 			n, _ := raw.(map[string]any)
-			if id, ok := n["id"].(float64); ok && int64(id) == *req.ParentID {
+			if numID(n["id"]) == *req.ParentID {
 				section, _ = n["section"].(string)
 				anchor, _ = n["anchor"].(string)
 				break
@@ -306,7 +306,7 @@ func (s *devServer) resolveNote(w http.ResponseWriter, r *http.Request, idStr st
 	notes, _ := s.doc["notes"].([]any)
 	for _, raw := range notes {
 		n, _ := raw.(map[string]any)
-		if nid, ok := n["id"].(float64); ok && int64(nid) == id {
+		if numID(n["id"]) == id {
 			if n["resolved_at"] == nil {
 				n["resolved_at"] = time.Now().UTC().Format(time.RFC3339)
 				n["resolved_by"] = s.actor()
@@ -475,4 +475,16 @@ func devJSON(w http.ResponseWriter, status int, v any) {
 
 func devErr(w http.ResponseWriter, status int, token, message string) {
 	devJSON(w, status, map[string]any{"error": token, "message": message})
+}
+
+// numID reads a note id whether it came from the fixture (JSON float64) or
+// was minted in this session (int64).
+func numID(v any) int64 {
+	switch n := v.(type) {
+	case float64:
+		return int64(n)
+	case int64:
+		return n
+	}
+	return -1
 }

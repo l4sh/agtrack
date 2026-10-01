@@ -23,6 +23,9 @@ type fake struct {
 	diffs    [][2]int // SpecDiff calls (from, to)
 	head     int64    // head revision; default 4
 	approved int64    // approved revision; 0 = none
+	// emptyAbove: SpecDiff from a revision above this reports no changes
+	// (pin-only revisions); 0 = never.
+	emptyAbove int
 }
 
 func (f *fake) SpecModel(id int64) (*row.Row, error) {
@@ -41,6 +44,9 @@ func (f *fake) SpecDiff(id int64, from, to int) ([]*row.Row, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.diffs = append(f.diffs, [2]int{from, to})
+	if f.emptyAbove > 0 && from > f.emptyAbove {
+		return []*row.Row{}, nil // pin-only revisions
+	}
 	if from > 9 || to > 9 {
 		return nil, errs.NotFound("spec", "auth", "no such revision: auth@%d", max(from, to))
 	}
@@ -270,19 +276,21 @@ func TestDiffDefaults(t *testing.T) {
 	cases := []struct {
 		name             string
 		head, approved   int64
+		emptyAbove       int
 		query            string
 		wantFrom, wantTo int
 		wantCall         bool
 	}{
-		{"head-1 without approval", 4, 0, "", 3, 4, true},
-		{"from the approved revision", 4, 2, "", 2, 4, true},
-		{"approval at head falls back to head-1", 4, 4, "", 3, 4, true},
-		{"explicit range", 4, 0, "?from=1&to=2", 1, 2, true},
-		{"single revision: nothing to compare", 1, 0, "", 0, 1, false},
+		{"head-1 without approval", 4, 0, 0, "", 3, 4, true},
+		{"from the approved revision", 4, 2, 0, "", 2, 4, true},
+		{"approval at head falls back to head-1", 4, 4, 0, "", 3, 4, true},
+		{"explicit range", 4, 0, 0, "?from=1&to=2", 1, 2, true},
+		{"single revision: nothing to compare", 1, 0, 0, "", 0, 1, false},
+		{"steps back past pin-only revisions", 5, 0, 2, "", 2, 5, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			base, f, cancel, _ := startWith(t, &fake{head: c.head, approved: c.approved}, time.Hour)
+			base, f, cancel, _ := startWith(t, &fake{head: c.head, approved: c.approved, emptyAbove: c.emptyAbove}, time.Hour)
 			defer cancel()
 			code, body := do(t, "GET", base+"/api/spec/orbiter:api%2Fauth/diff"+c.query, "", "tok", "", "")
 			if code != 200 {
@@ -299,10 +307,10 @@ func TestDiffDefaults(t *testing.T) {
 			if got.From != c.wantFrom || got.To != c.wantTo || got.Head != int(c.head) || len(got.Versions) != 2 {
 				t.Fatalf("got %+v", got)
 			}
-			if c.wantCall != (len(f.diffs) == 1) {
+			if c.wantCall != (len(f.diffs) >= 1) {
 				t.Fatalf("SpecDiff calls %v", f.diffs)
 			}
-			if c.wantCall && (f.diffs[0] != [2]int{c.wantFrom, c.wantTo} || len(got.Changes) != 1) {
+			if c.wantCall && (f.diffs[len(f.diffs)-1] != [2]int{c.wantFrom, c.wantTo} || len(got.Changes) != 1) {
 				t.Fatalf("calls %v changes %v", f.diffs, got.Changes)
 			}
 			if !c.wantCall && got.Changes == nil {

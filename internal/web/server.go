@@ -470,8 +470,10 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
 }
 
 // diff compares two revisions for the page. to defaults to the head; from to
-// the approved revision when it is older than to, else to-1. A spec with a
-// single revision has nothing to compare and returns no changes.
+// the approved revision when it is older than to, else to-1 — stepping further
+// back past revisions that change no section (a lazy pin adds a revision that
+// only writes an id comment), so the default shows the last real edit. A spec
+// with a single revision has nothing to compare and returns no changes.
 func (s *Server) diff(id int64, from, to int) (any, error) {
 	model, err := s.o.Store.SpecModel(id)
 	if err != nil {
@@ -493,10 +495,13 @@ func (s *Server) diff(id int64, from, to int) (any, error) {
 	if to == 0 {
 		to = head
 	}
+	stepBack := false
 	if from == 0 {
 		from = to - 1
 		if approved > 0 && approved < to {
 			from = approved
+		} else {
+			stepBack = true
 		}
 	}
 	vs := make([]*row.Row, 0, len(versions))
@@ -512,6 +517,13 @@ func (s *Server) diff(id int64, from, to int) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	for stepBack && len(changes) == 0 && from > 1 {
+		if changes, err = s.o.Store.SpecDiff(id, from-1, to); err != nil {
+			return nil, err
+		}
+		from--
+	}
+	out.Set("from", int64(from))
 	if changes == nil {
 		changes = []*row.Row{}
 	}
