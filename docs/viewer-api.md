@@ -20,6 +20,9 @@ http://127.0.0.1:<port>/s/<spec>?t=<token>
   requests (`font-src 'self'`).
 - `style-src` allows inline styles only because Mermaid's SVG output embeds a `<style>`
   block; scripts stay `'self'` only.
+- The first `GET /s/{spec}?t=` sets `agtrack_session=<token>` (HttpOnly, SameSite=Strict,
+  Path=/), so a reload after the page stripped `?t=` still works; page, SSE and API requests
+  accept that cookie as an alternative to `?t=` / the header.
 - Every request: `Host` must be `127.0.0.1:<port>` or `localhost:<port>`, else 403.
 - Every mutating request: `Content-Type: application/json`, else 415.
 - The server exits after an idle timeout (default 30m without requests or SSE clients).

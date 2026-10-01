@@ -228,7 +228,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/assets/"):
 		s.serveAsset(w, r, strings.TrimPrefix(r.URL.Path, "/assets/"))
 	case strings.HasPrefix(path, "/s/"):
-		if !s.authQuery(r) {
+		if s.authQuery(r) {
+			// The page strips ?t= from the address bar; a strict, HttpOnly
+			// session cookie lets a reload (or a second tab) keep working.
+			http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: s.token, Path: "/",
+				HttpOnly: true, SameSite: http.SameSiteStrictMode})
+		} else if !s.authCookie(r) {
 			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
 			return
 		}
@@ -238,13 +243,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		s.serveAsset(w, r, "index.html")
 	case path == "/api/events":
-		if !s.authQuery(r) && !s.authHeader(r) {
+		if !s.authQuery(r) && !s.authHeader(r) && !s.authCookie(r) {
 			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
 			return
 		}
 		s.events(w, r)
 	case strings.HasPrefix(path, "/api/spec/"):
-		if !s.authHeader(r) {
+		// Header or the SameSite=Strict cookie. Cross-site requests carry
+		// neither, and POSTs must also be application/json (no simple form CSRF).
+		if !s.authHeader(r) && !s.authCookie(r) {
 			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
 			return
 		}
@@ -261,6 +268,14 @@ func (s *Server) tokenOK(got string) bool {
 func (s *Server) authQuery(r *http.Request) bool { return s.tokenOK(r.URL.Query().Get("t")) }
 
 func (s *Server) authHeader(r *http.Request) bool { return s.tokenOK(r.Header.Get("X-Agtrack-Token")) }
+
+// sessionCookie carries the capability token after the first tokened load.
+const sessionCookie = "agtrack_session"
+
+func (s *Server) authCookie(r *http.Request) bool {
+	c, err := r.Cookie(sessionCookie)
+	return err == nil && s.tokenOK(c.Value)
+}
 
 func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string) {
 	if name == "" || strings.Contains(name, "..") || strings.HasPrefix(name, "dev/") {

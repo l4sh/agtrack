@@ -319,3 +319,41 @@ func TestDiffDefaults(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionCookieSurvivesReload(t *testing.T) {
+	base, _, cancel, _ := start(t, time.Hour)
+	defer cancel()
+	resp, err := http.Get(base + "/s/auth?t=tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	var cookie *http.Cookie
+	for _, c := range resp.Cookies() {
+		if c.Name == "agtrack_session" {
+			cookie = c
+		}
+	}
+	if cookie == nil || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("session cookie missing or weak: %+v", cookie)
+	}
+	for _, u := range []string{base + "/s/auth", base + "/api/spec/orbiter:api%2Fauth"} {
+		req, _ := http.NewRequest("GET", u, nil)
+		req.AddCookie(cookie)
+		r, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Body.Close()
+		if r.StatusCode != 200 {
+			t.Fatalf("%s with cookie: %d", u, r.StatusCode)
+		}
+	}
+	req, _ := http.NewRequest("GET", base+"/s/auth", nil)
+	req.AddCookie(&http.Cookie{Name: "agtrack_session", Value: "wrong"})
+	r, _ := http.DefaultClient.Do(req)
+	r.Body.Close()
+	if r.StatusCode != 403 {
+		t.Fatalf("wrong cookie accepted: %d", r.StatusCode)
+	}
+}

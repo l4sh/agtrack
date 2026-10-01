@@ -74,7 +74,9 @@ async function busy(form, fn) {
  * @param {{method?: string, body?: unknown}} [opts]
  */
 async function api(path, opts = {}) {
-  const headers = { "X-Agtrack-Token": session.token };
+  // After a reload the token is gone from the URL; the session cookie the
+  // server set on first load authenticates instead.
+  const headers = session.token ? { "X-Agtrack-Token": session.token } : {};
   let body;
   if (opts.body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -2029,8 +2031,7 @@ function connectEvents() {
     cursor +
     "&spec=" +
     encodeURIComponent(session.specRef) +
-    "&t=" +
-    encodeURIComponent(session.token);
+    (session.token ? "&t=" + encodeURIComponent(session.token) : "");
   const es = new EventSource(url);
   state.es = es;
 
