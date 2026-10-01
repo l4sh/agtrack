@@ -44,6 +44,7 @@ Deleting a list deletes its items.
 | delete item | no        |
 | delete list | yes       |
 
+<!-- agtrack:id sync -->
 ## Sync
 
 ```mermaid
@@ -52,3 +53,42 @@ flowchart LR
 ```
 
 Clients sync every 30s; last write wins.
+
+## Architecture
+
+Three parts, all written in TypeScript, with SQLite as the storage engine on both
+sides of the sync.
+
+```mermaid
+flowchart LR
+    subgraph Client["Client (web / mobile)"]
+        UI[UI] --> Store[Local store<br/>SQLite]
+        Store --> Syncer[Sync worker]
+    end
+    Syncer -->|HTTPS JSON| API[API server<br/>Node.js]
+    API --> DB[(SQLite<br/>server database)]
+```
+
+### Stack
+
+| Layer | Choice |
+|---|---|
+| Language | TypeScript (strict mode) everywhere: clients, API, shared types |
+| Web client | TypeScript SPA; local store is SQLite compiled to WebAssembly, persisted in the browser (OPFS) |
+| Mobile client | TypeScript app with the platform's native SQLite |
+| API server | Node.js (LTS) HTTP server in TypeScript |
+| Server database | SQLite in WAL mode, one file per deployment |
+| Shared code | One package of TypeScript types and validators (item, list, sync payloads) used by clients and API |
+
+### Data flow
+
+Every change is written to the client's local SQLite store first, so the UI never waits
+on the network. The sync worker sends changed rows to the API every 30s (and on app
+start), and pulls rows changed on the server since its last sync. Each row carries an
+`updated_at` timestamp; the newer write wins.
+
+### Server storage
+
+The server keeps one SQLite database with `lists` and `items` tables mirroring the model
+above. A single API process owns the file and serialises writes; there is no
+multi-server deployment in scope.
