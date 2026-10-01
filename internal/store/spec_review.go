@@ -249,6 +249,14 @@ func (s *Store) ReleasedBy(specID, eventID int64) (out []*row.Row, err error) {
 }
 
 // SpecNote is one note of a spec in the viewer shape, or nil.
+// ReleaseEventOf names the event that released a note: the note's own
+// spec-note event in auto mode, the spec-released batch in manual mode, 0 if
+// it is unreleased (or was released before batches were recorded).
+func (s *Store) ReleaseEventOf(noteID int64) (id int64, err error) {
+	defer guard(&err)
+	return s.count("SELECT COALESCE(release_event, 0) FROM notes WHERE id = ?", noteID), nil
+}
+
 func (s *Store) SpecNote(specID, noteID int64) (r *row.Row, err error) {
 	defer guard(&err)
 	sp := s.specByID(specID)

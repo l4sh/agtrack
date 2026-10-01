@@ -1366,6 +1366,15 @@ func (sw *specWaiter) deliver(eventID int64, n *row.Row) {
 	}
 }
 
+// deliverRelease delivers every comment one release event sent.
+func (sw *specWaiter) deliverRelease(eventID, releaseID int64) {
+	notes, _ := sw.c.S.ReleasedBy(sw.sp.Int("id"), releaseID)
+	for _, n := range notes {
+		sw.deliver(eventID, n)
+	}
+	sw.released = true
+}
+
 func (sw *specWaiter) emit(e *row.Row) {
 	c, id := sw.c, sw.sp.Int("id")
 	action := e.Str("action")
@@ -1377,10 +1386,20 @@ func (sw *specWaiter) emit(e *row.Row) {
 		}
 		switch action {
 		case "spec-note":
-			if n.Get("released") == true {
+			if n.Get("released") != true {
+				return // held until released (manual mode)
+			}
+			// The event list and this note are read in separate snapshots: a
+			// release that committed in between makes the note read as
+			// released before its spec-released event is listed. A release
+			// is all or nothing, so deliver its whole batch now; otherwise an
+			// await could end on this one comment and drop the rest.
+			if rel, _ := c.S.ReleaseEventOf(n.Int("id")); rel != 0 && rel != e.Int("id") {
+				sw.deliverRelease(e.Int("id"), rel)
+			} else {
 				sw.deliver(e.Int("id"), n)
 			}
-			return // held until released (manual mode)
+			return
 		case "spec-approved":
 			// Only an approval of the current content counts (§9.4): one for
 			// a revision that has since changed is shown, not honoured.
@@ -1400,11 +1419,7 @@ func (sw *specWaiter) emit(e *row.Row) {
 			return
 		}
 		if action == "spec-released" {
-			notes, _ := c.S.ReleasedBy(id, e.Int("id"))
-			for _, n := range notes {
-				sw.deliver(e.Int("id"), n)
-			}
-			sw.released = true
+			sw.deliverRelease(e.Int("id"), e.Int("id"))
 		}
 	default:
 		return

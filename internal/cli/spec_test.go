@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -11,6 +12,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/l4sh/agtrack/internal/db"
+	"github.com/l4sh/agtrack/internal/row"
+	"github.com/l4sh/agtrack/internal/store"
 )
 
 // specEnv is an agtrack database plus a real git repository holding
@@ -675,4 +680,42 @@ func TestSpecGC(t *testing.T) {
 	}
 	e.fails(3, "spec", "show", "auth@1#sessions")
 	e.ok("spec", "show", "auth@7#sessions")
+}
+
+// A waiter reads the event list and the notes in separate snapshots. When a
+// release commits between the two, a comment's own spec-note event already
+// reads as released while the spec-released event is not yet in the list:
+// the waiter must still deliver the whole release batch, not just that one
+// comment, or it ends on a partial result and the rest are never shown.
+func TestSpecAwaitReleaseBetweenSnapshots(t *testing.T) {
+	e := newSpecEnv(t)
+	e.ok("spec", "add", e.file)
+	cursor, _ := strconv.ParseInt(e.cursor(), 10, 64)
+	e.ok("spec", "note", "auth#tokens__rotation", "first thought")
+	e.ok("spec", "note", "auth#tokens__rotation", "second thought")
+
+	d, err := db.Open(e.db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	c := &Ctx{S: store.New(d, ""), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, V: map[string]any{}}
+	sp, err := c.S.ResolveSpec("auth", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw := &specWaiter{c: c, sp: sp, startRev: int(sp.Int("revision")), await: true, until: "comments"}
+	sw.w = &watchLoop{c: c, after: cursor}
+	// The poll's snapshot: both notes, no release yet.
+	events, _, err := c.S.ListEvents(store.EventFilter{AfterID: cursor, ByID: true, Project: row.Of("id", sp.Int("project_id")), Direct: true,
+		Actions: []string{"spec-note", "spec-released"}})
+	if err != nil || len(events) != 2 {
+		t.Fatalf("events %v %v", events, err)
+	}
+	sw.emit(events[0]) // first thought: held
+	e.ok("spec", "release", "auth")
+	sw.emit(events[1]) // second thought: now reads as released
+	if state, _, _ := sw.tick(); state != "comments" || len(sw.comments) != 2 {
+		t.Fatalf("tick %q delivered %d comment(s), want both", state, len(sw.comments))
+	}
 }
