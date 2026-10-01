@@ -27,14 +27,17 @@ Empty titles are rejected. Duplicate titles are allowed; creating one shows a
 non-blocking warning ("an item with this title already exists") and the item is
 still created.
 
+<!-- agtrack:id items-deletion -->
 ### Deletion
 
 Deleting an item is permanent; there is no trash.
 
+<!-- agtrack:id lists -->
 ## Lists
 
 Items belong to exactly one list. A new user gets a list called "Inbox".
 
+<!-- agtrack:id lists-deletion -->
 ### Deletion
 
 Deleting a list deletes its items.
@@ -54,6 +57,7 @@ flowchart LR
 
 Clients sync every 30s; last write wins.
 
+<!-- agtrack:id architecture -->
 ## Architecture
 
 Three parts, all written in TypeScript, with SQLite as the storage engine on both
@@ -69,6 +73,7 @@ flowchart LR
     API --> DB[(SQLite<br/>server database)]
 ```
 
+<!-- agtrack:id stack -->
 ### Stack
 
 | Layer | Choice |
@@ -80,6 +85,7 @@ flowchart LR
 | Server database | SQLite in WAL mode, one file per deployment |
 | Shared code | One package of TypeScript types and validators (item, list, sync payloads) used by clients and API |
 
+<!-- agtrack:id data-flow -->
 ### Data flow
 
 Every change is written to the client's local SQLite store first, so the UI never waits
@@ -87,6 +93,7 @@ on the network. The sync worker sends changed rows to the API every 30s (and on 
 start), and pulls rows changed on the server since its last sync. Each row carries an
 `updated_at` timestamp; the newer write wins.
 
+<!-- agtrack:id server-storage -->
 ### Server storage
 
 The server keeps one SQLite database with `lists` and `items` tables mirroring the model
