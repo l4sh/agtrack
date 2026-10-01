@@ -48,6 +48,30 @@ go install github.com/l4sh/agtrack/cmd/agtrack@latest
 scripts/build-release.sh 2.0.0
 ```
 
+### The agent skill
+
+agtrack ships an agent skill (`skills/agtrack/SKILL.md` plus reference files, in the
+open SKILL.md format) that teaches coding agents how to use it. The binary embeds the
+skill that matches its version:
+
+```sh
+agtrack skill install                 # every harness found under $HOME (Claude Code, Codex, Antigravity/Gemini CLI)
+agtrack skill install --agent claude  # just one (claude, codex, agy, all)
+agtrack skill install --dir .claude/skills   # any skills directory, e.g. a project's
+agtrack skill status                  # where it is installed, and whether it is current
+agtrack skill uninstall --agent codex
+agtrack skill print                   # SKILL.md to stdout, for harnesses without skill folders
+```
+
+Installs are copies with a marker file, so `skill status` reports outdated or locally
+edited copies, and an existing skill agtrack did not install (for example a symlink) is
+only replaced with `--force`. Re-run `agtrack skill install` after upgrading the binary.
+
+Harness skill directories: Claude Code `~/.claude/skills`, Codex `~/.codex/skills`,
+Antigravity/Gemini CLI `~/.gemini/config/skills`. For any other harness that reads
+SKILL.md skills, use `--dir`. Agents that use the `npx skills` installer can also pull the
+skill straight from this repository.
+
 On macOS an unsigned binary downloaded by a browser is quarantined; `xattr -d
 com.apple.quarantine ./agtrack` clears it (archives fetched with `curl` are not affected).
 

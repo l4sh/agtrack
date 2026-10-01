@@ -37,9 +37,10 @@ it is what `--actor-not self` filters on. Do not also tag items with your name.
 
 | `agtrack info` says | Meaning | Fix |
 |---|---|---|
-| `command not found` | not installed | install the release binary (see the repo README) |
+| `command not found` | not installed | install the release binary (see the repo README), then `agtrack skill install` |
 | exit 5, database error | cannot reach the database | sandboxed agents cannot write `~/.local/share/agtrack` (WAL needs the directory); pass `--db <path inside your workspace>` and say so |
 | `newer than this agtrack` | old binary | upgrade; never downgrade the database |
+| `agtrack skill status` says outdated | skill older than the binary | `agtrack skill install` |
 
 **Testing a development build of agtrack itself:** put `--db <scratch path>` on every
 command line. Do not rely on `export AGTRACK_DB=...`: in `export X=... && (...) &` the
