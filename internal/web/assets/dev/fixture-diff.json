@@ -1,0 +1,73 @@
+{
+  "from": 5,
+  "to": 6,
+  "head": 6,
+  "approved_revision": 5,
+  "versions": [
+    {
+      "n": 1,
+      "imported_at": "2026-09-24T11:00:00Z",
+      "actor": "codex"
+    },
+    {
+      "n": 2,
+      "imported_at": "2026-09-25T12:00:00Z",
+      "actor": "codex"
+    },
+    {
+      "n": 3,
+      "imported_at": "2026-09-26T13:00:00Z",
+      "actor": "codex"
+    },
+    {
+      "n": 4,
+      "imported_at": "2026-09-27T14:00:00Z",
+      "actor": "codex"
+    },
+    {
+      "n": 5,
+      "imported_at": "2026-09-28T15:00:00Z",
+      "actor": "codex"
+    },
+    {
+      "n": 6,
+      "imported_at": "2026-09-29T16:00:00Z",
+      "actor": "codex"
+    }
+  ],
+  "changes": [
+    {
+      "change": "changed",
+      "slug": "overview",
+      "prior_slug": "overview",
+      "heading": "Overview",
+      "prior_heading": "Overview",
+      "number": "1",
+      "prior_number": "1",
+      "tier": "pin",
+      "diff": "--- v5\n+++ v6\n@@ -1 +1 @@\n-Clients authenticate with access tokens only.\n+Clients authenticate with short-lived access tokens backed by longer-lived refresh tokens.\n"
+    },
+    {
+      "change": "renamed",
+      "slug": "tokens__rotation",
+      "prior_slug": "tokens__refresh",
+      "heading": "Rotation",
+      "prior_heading": "Refresh",
+      "number": "2.1",
+      "prior_number": "2.1",
+      "tier": "pin",
+      "diff": "--- v5\n+++ v6\n@@ -1 +1 @@\n-On refresh, the old refresh token is revoked immediately.\n+On refresh, the old refresh token stays valid for a grace window of 60s to absorb in-flight requests, then is revoked.\n"
+    },
+    {
+      "change": "new",
+      "slug": "sessions__idle_timeout",
+      "heading": "Idle timeout",
+      "number": "3.2"
+    },
+    {
+      "change": "removed",
+      "slug": "sessions__legacy_cookies",
+      "heading": "Legacy cookies"
+    }
+  ]
+}

@@ -12,10 +12,10 @@
       "id": 50,
       "by": "alex",
       "at": "2026-09-29T14:08:11Z",
-      "revision": 6,
+      "revision": 5,
       "note": "ship it, keep the grace window configurable"
     },
-    "approval_stale": false,
+    "approval_stale": true,
     "pending_comments": 2
   },
   "front_matter": {"title": "Authentication v2", "owner": "alex"},
@@ -32,7 +32,7 @@
       "level": 1, "kind": "heading", "path": "Overview",
       "html": "<p>Clients authenticate with short-lived access tokens backed by longer-lived refresh tokens.</p>",
       "has_mermaid": false, "line_start": 7, "line_end": 11,
-      "open_notes": 0, "tasks": []
+      "open_notes": 1, "tasks": []
     },
     {
       "ordinal": 2, "slug": "tokens", "pin": null, "number": "2", "heading": "Tokens",
@@ -86,6 +86,20 @@
       "resolved_at": null, "resolved_by": null, "released": false
     },
     {
+      "id": 45, "section": "tokens", "anchor": "tokens",
+      "kind": "decision", "body": "access tokens stay at 15m; refresh at 30d.",
+      "actor": "alex", "created_at": "2026-09-28T09:00:00Z",
+      "quote": "access (15m)", "quote_ok": true, "parent_id": null,
+      "resolved_at": "2026-09-28T09:30:00Z", "resolved_by": "alex", "released": true
+    },
+    {
+      "id": 46, "section": "overview", "anchor": "overview",
+      "kind": "note", "body": "Reworded: short-lived access tokens are now backed by refresh tokens (revision 6). Resolve if that matches the intent.",
+      "actor": "codex", "created_at": "2026-09-29T16:02:00Z",
+      "quote": "Clients authenticate with access tokens only.", "quote_ok": false, "parent_id": null,
+      "resolved_at": null, "resolved_by": null, "released": true
+    },
+    {
       "id": 39, "section": null, "anchor": "legacy-cookie-flag",
       "kind": "decision", "body": "dropped the legacy cookie fallback; browser clients use the same bearer flow as native.",
       "actor": "alex", "created_at": "2026-09-27T10:12:00Z",
@@ -96,5 +110,6 @@
   "build_notes": [
     {"id": 44, "body": "don't touch the billing migration in this pass", "actor": "alex", "created_at": "2026-09-29T14:08:11Z"}
   ],
+  "viewer": {"actor": "alex"},
   "cursor": 2074
 }

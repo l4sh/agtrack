@@ -1635,5 +1635,5 @@ func (c *Ctx) serveOptions(sp *row.Row, idle time.Duration) (web.Options, error)
 	ws := store.New(c.S.DB, as)
 	ws.CwdRepo = c.S.CwdRepo
 	return web.Options{Store: ws, SpecID: sp.Int("id"), SpecRef: c.Str("spec"),
-		Addr: fmt.Sprintf("127.0.0.1:%d", c.Int("port")), Idle: idle, Out: c.Out, Open: c.Bool("open"), RepoRoot: cwdRoot()}, nil
+		Addr: fmt.Sprintf("127.0.0.1:%d", c.Int("port")), Idle: idle, Out: c.Out, Open: c.Bool("open"), RepoRoot: cwdRoot(), Viewer: as}, nil
 }

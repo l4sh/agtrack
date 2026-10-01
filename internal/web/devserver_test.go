@@ -31,8 +31,10 @@ import (
 func TestDevServer(t *testing.T) {
 	doc := mustReadJSONObject(t, "assets/dev/fixture.json")
 	tasks := mustReadJSONObject(t, "assets/dev/fixture-tasks.json")
+	diff := mustReadJSONObject(t, "assets/dev/fixture-diff.json")
 
 	srv := newDevServer(doc, tasks)
+	srv.diff = diff
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/s/", srv.handleIndex)
@@ -73,6 +75,8 @@ type devServer struct {
 	mu       sync.Mutex
 	doc      map[string]any
 	tasks    map[string]any
+	diff     map[string]any
+	viewer   string
 	nextNote int64
 	cursor   int64
 
@@ -95,11 +99,22 @@ func newDevServer(doc, tasks map[string]any) *devServer {
 		subs:  map[chan sseEvent]struct{}{},
 	}
 	s.nextNote = 1000
+	s.viewer = "web:dev"
+	if v, ok := doc["viewer"].(map[string]any); ok {
+		if a, _ := v["actor"].(string); a != "" {
+			s.viewer = a
+		}
+	}
 	if c, ok := doc["cursor"].(float64); ok {
 		s.cursor = int64(c)
 	}
 	return s
 }
+
+// actor is the fixture's viewer, so notes posted from the page read as the
+// reviewer's own (as `spec serve --as` does for real).
+// Read once at start: handlers mutate s.doc under s.mu, the SSE loop does not hold it.
+func (s *devServer) actor() string { return s.viewer }
 
 func (s *devServer) checkToken(r *http.Request) bool {
 	if t := r.URL.Query().Get("t"); t != "" {
@@ -135,14 +150,14 @@ func (s *devServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 func (s *devServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 	if !s.checkToken(r) {
-		writeErr(w, http.StatusForbidden, "forbidden", "bad token")
+		devErr(w, http.StatusForbidden, "forbidden", "bad token")
 		return
 	}
-	// /api/spec/{spec}[/tasks|/note|/note/{id}/resolve|/release|/approve]
+	// /api/spec/{spec}[/tasks|/diff|/note|/note/{id}/resolve|/release|/approve]
 	rest := strings.TrimPrefix(r.URL.Path, "/api/spec/")
 	parts := strings.Split(rest, "/")
 	if len(parts) == 0 || parts[0] == "" {
-		writeErr(w, http.StatusNotFound, "not_found", "spec not found")
+		devErr(w, http.StatusNotFound, "not_found", "spec not found")
 		return
 	}
 	sub := ""
@@ -154,11 +169,26 @@ func (s *devServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 	case sub == "" && r.Method == http.MethodGet:
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		writeJSON(w, http.StatusOK, s.doc)
+		devJSON(w, http.StatusOK, s.doc)
 	case sub == "tasks" && r.Method == http.MethodGet:
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		writeJSON(w, http.StatusOK, s.tasks)
+		devJSON(w, http.StatusOK, s.tasks)
+	case sub == "diff" && r.Method == http.MethodGet:
+		// The fixture holds one comparison; from/to are echoed so the
+		// revision picker round-trips, the changes stay the same.
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		out := map[string]any{}
+		for k, v := range s.diff {
+			out[k] = v
+		}
+		for _, k := range []string{"from", "to"} {
+			if v, err := strconv.Atoi(r.URL.Query().Get(k)); err == nil {
+				out[k] = v
+			}
+		}
+		devJSON(w, http.StatusOK, out)
 	case sub == "note" && r.Method == http.MethodPost:
 		s.createNote(w, r)
 	case strings.HasSuffix(sub, "/resolve") && r.Method == http.MethodPost:
@@ -169,7 +199,7 @@ func (s *devServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 	case sub == "approve" && r.Method == http.MethodPost:
 		s.approve(w, r)
 	default:
-		writeErr(w, http.StatusNotFound, "not_found", "no such endpoint")
+		devErr(w, http.StatusNotFound, "not_found", "no such endpoint")
 	}
 }
 
@@ -185,16 +215,16 @@ type noteRequest struct {
 
 func (s *devServer) createNote(w http.ResponseWriter, r *http.Request) {
 	if ct := r.Header.Get("Content-Type"); ct != "" && !strings.HasPrefix(ct, "application/json") {
-		writeErr(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "expected application/json")
+		devErr(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "expected application/json")
 		return
 	}
 	var req noteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid_argument", err.Error())
+		devErr(w, http.StatusBadRequest, "invalid_argument", err.Error())
 		return
 	}
 	if req.Body == "" {
-		writeErr(w, http.StatusBadRequest, "invalid_argument", "body is required")
+		devErr(w, http.StatusBadRequest, "invalid_argument", "body is required")
 		return
 	}
 	if req.Kind == "" {
@@ -242,7 +272,7 @@ func (s *devServer) createNote(w http.ResponseWriter, r *http.Request) {
 	}
 	note := map[string]any{
 		"id": id, "section": nullableString(section), "anchor": anchor,
-		"kind": req.Kind, "body": req.Body, "actor": "web:dev",
+		"kind": req.Kind, "body": req.Body, "actor": s.actor(),
 		"created_at": time.Now().UTC().Format(time.RFC3339),
 		"quote":      nullableString(req.Quote), "quote_ok": true,
 		"parent_id": parentID, "resolved_at": nil, "resolved_by": nil,
@@ -257,13 +287,13 @@ func (s *devServer) createNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.publish("spec-note", section, req.Body)
-	writeJSON(w, http.StatusCreated, map[string]any{"note": note, "pinned": pinned, "file_modified": true})
+	devJSON(w, http.StatusCreated, map[string]any{"note": note, "pinned": pinned, "file_modified": true})
 }
 
 func (s *devServer) resolveNote(w http.ResponseWriter, r *http.Request, idStr string) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid_argument", "bad note id")
+		devErr(w, http.StatusBadRequest, "invalid_argument", "bad note id")
 		return
 	}
 	var req struct {
@@ -279,14 +309,14 @@ func (s *devServer) resolveNote(w http.ResponseWriter, r *http.Request, idStr st
 		if nid, ok := n["id"].(float64); ok && int64(nid) == id {
 			if n["resolved_at"] == nil {
 				n["resolved_at"] = time.Now().UTC().Format(time.RFC3339)
-				n["resolved_by"] = "web:dev"
+				n["resolved_by"] = s.actor()
 				s.publish("spec-note-resolved", fmt.Sprint(n["section"]), req.Note)
 			}
-			writeJSON(w, http.StatusOK, map[string]any{"note": n})
+			devJSON(w, http.StatusOK, map[string]any{"note": n})
 			return
 		}
 	}
-	writeErr(w, http.StatusNotFound, "not_found", "note not found")
+	devErr(w, http.StatusNotFound, "not_found", "note not found")
 }
 
 func (s *devServer) release(w http.ResponseWriter, r *http.Request) {
@@ -307,7 +337,7 @@ func (s *devServer) release(w http.ResponseWriter, r *http.Request) {
 	if released > 0 {
 		s.publish("spec-released", "", fmt.Sprintf("%d comment(s)", released))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"released": released, "cursor": s.cursor})
+	devJSON(w, http.StatusOK, map[string]any{"released": released, "cursor": s.cursor})
 }
 
 func (s *devServer) approve(w http.ResponseWriter, r *http.Request) {
@@ -316,7 +346,7 @@ func (s *devServer) approve(w http.ResponseWriter, r *http.Request) {
 		BuildNotes []string `json:"build_notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid_argument", err.Error())
+		devErr(w, http.StatusBadRequest, "invalid_argument", err.Error())
 		return
 	}
 
@@ -325,7 +355,7 @@ func (s *devServer) approve(w http.ResponseWriter, r *http.Request) {
 	spec, _ := s.doc["spec"].(map[string]any)
 	revision, _ := spec["revision"].(float64)
 	approval := map[string]any{
-		"id": s.nextNote, "by": "web:dev", "at": time.Now().UTC().Format(time.RFC3339),
+		"id": s.nextNote, "by": s.actor(), "at": time.Now().UTC().Format(time.RFC3339),
 		"revision": revision, "note": req.Note,
 	}
 	s.nextNote++
@@ -336,7 +366,7 @@ func (s *devServer) approve(w http.ResponseWriter, r *http.Request) {
 	var added []map[string]any
 	for _, body := range req.BuildNotes {
 		bn := map[string]any{
-			"id": s.nextNote, "body": body, "actor": "web:dev",
+			"id": s.nextNote, "body": body, "actor": s.actor(),
 			"created_at": time.Now().UTC().Format(time.RFC3339),
 		}
 		s.nextNote++
@@ -346,7 +376,7 @@ func (s *devServer) approve(w http.ResponseWriter, r *http.Request) {
 	s.doc["build_notes"] = buildNotes
 
 	s.publish("spec-approved", "", req.Note)
-	writeJSON(w, http.StatusOK, map[string]any{"approval": approval, "build_notes": added})
+	devJSON(w, http.StatusOK, map[string]any{"approval": approval, "build_notes": added})
 }
 
 func (s *devServer) publish(action, target, detail string) {
@@ -364,7 +394,7 @@ func (s *devServer) publish(action, target, detail string) {
 
 func (s *devServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 	if !s.checkToken(r) {
-		writeErr(w, http.StatusForbidden, "forbidden", "bad token")
+		devErr(w, http.StatusForbidden, "forbidden", "bad token")
 		return
 	}
 	flusher, ok := w.(http.Flusher)
@@ -395,7 +425,7 @@ func (s *devServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		case ev := <-ch:
 			payload, _ := json.Marshal(map[string]any{
-				"id": ev.id, "action": ev.action, "actor": "web:dev",
+				"id": ev.id, "action": ev.action, "actor": s.actor(),
 				"target": ev.target, "detail": ev.detail,
 			})
 			fmt.Fprintf(w, "id: %d\nevent: agtrack\ndata: %s\n\n", ev.id, payload)
@@ -437,12 +467,12 @@ func nullableString(s string) any {
 	return s
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+func devJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeErr(w http.ResponseWriter, status int, token, message string) {
-	writeJSON(w, status, map[string]any{"error": token, "message": message})
+func devErr(w http.ResponseWriter, status int, token, message string) {
+	devJSON(w, status, map[string]any{"error": token, "message": message})
 }

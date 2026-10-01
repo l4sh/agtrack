@@ -3,6 +3,7 @@ package web
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -16,13 +17,37 @@ import (
 )
 
 type fake struct {
-	mu     sync.Mutex
-	notes  []store.SpecNoteInput
-	events []*row.Row
+	mu       sync.Mutex
+	notes    []store.SpecNoteInput
+	events   []*row.Row
+	diffs    [][2]int // SpecDiff calls (from, to)
+	head     int64    // head revision; default 4
+	approved int64    // approved revision; 0 = none
 }
 
 func (f *fake) SpecModel(id int64) (*row.Row, error) {
-	return row.Of("spec", row.Of("slug", "auth"), "sections", []*row.Row{}, "notes", []*row.Row{}, "cursor", int64(0)), nil
+	head := f.head
+	if head == 0 {
+		head = 4
+	}
+	var approval any
+	if f.approved > 0 {
+		approval = row.Of("id", int64(50), "by", "alex", "revision", f.approved)
+	}
+	return row.Of("spec", row.Of("slug", "auth", "revision", head, "approval", approval), "sections", []*row.Row{},
+		"notes", []*row.Row{}, "cursor", int64(0)), nil
+}
+func (f *fake) SpecDiff(id int64, from, to int) ([]*row.Row, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.diffs = append(f.diffs, [2]int{from, to})
+	if from > 9 || to > 9 {
+		return nil, errs.NotFound("spec", "auth", "no such revision: auth@%d", max(from, to))
+	}
+	return []*row.Row{row.Of("change", "changed", "slug", "tokens__rotation", "diff", "-a\n+b\n")}, nil
+}
+func (f *fake) SpecVersions(id int64) ([]*row.Row, error) {
+	return []*row.Row{row.Of("id", int64(1), "n", int64(1)), row.Of("id", int64(2), "n", int64(2))}, nil
 }
 func (f *fake) SpecTasks(id int64) (*row.Row, error) { return row.Of("links", []*row.Row{}), nil }
 func (f *fake) SpecAddNote(id int64, in store.SpecNoteInput) (*row.Row, string, bool, error) {
@@ -57,12 +82,16 @@ func (f *fake) ResolveNote(id int64, r string, reopen bool) (*row.Row, bool, err
 
 func start(t *testing.T, idle time.Duration) (string, *fake, context.CancelFunc, chan error) {
 	t.Helper()
-	f := &fake{}
+	return startWith(t, &fake{}, idle)
+}
+
+func startWith(t *testing.T, f *fake, idle time.Duration) (string, *fake, context.CancelFunc, chan error) {
+	t.Helper()
 	ready := make(chan string, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- Serve(ctx, Options{Store: f, SpecID: 1, SpecRef: "orbiter:api/auth", Token: "tok", Idle: idle,
+		done <- Serve(ctx, Options{Store: f, SpecID: 1, SpecRef: "orbiter:api/auth", Token: "tok", Idle: idle, Viewer: "alex",
 			Ready: func(u string) { ready <- u }})
 	}()
 	select {
@@ -118,6 +147,11 @@ func TestSecurityGates(t *testing.T) {
 		{"post note bad kind", "POST", spec + "/note", "", "tok", "application/json", `{"section":"x","body":"hi","kind":"approval"}`, 400},
 		{"post note missing section", "POST", spec + "/note", "", "tok", "application/json", `{"section":"missing","body":"hi"}`, 404},
 		{"resolve foreign note", "POST", spec + "/note/7/resolve", "", "tok", "application/json", `{}`, 404},
+		{"diff", "GET", spec + "/diff", "", "tok", "", "", 200},
+		{"diff without token", "GET", spec + "/diff", "", "", "", "", 403},
+		{"diff bad revision", "GET", spec + "/diff?from=x", "", "tok", "", "", 400},
+		{"diff unknown revision", "GET", spec + "/diff?from=1&to=12", "", "tok", "", "", 404},
+		{"font asset", "GET", base + "/assets/vendor/fonts/inter-latin-wght-normal.woff2", "", "", "", "", 200},
 		{"approve", "POST", spec + "/approve", "", "tok", "application/json", `{"note":"ship it"}`, 200},
 		{"asset", "GET", base + "/assets/app.js", "", "", "", "", 200},
 		{"dev fixtures are not served", "GET", base + "/assets/dev/fixture.json", "", "", "", "", 404},
@@ -220,5 +254,60 @@ func TestExtensionlessAssetAndIdleWithOpenStream(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("an open event stream kept the server alive past its idle timeout")
+	}
+}
+
+func TestModelCarriesViewer(t *testing.T) {
+	base, _, cancel, _ := start(t, time.Hour)
+	defer cancel()
+	code, body := do(t, "GET", base+"/api/spec/orbiter:api%2Fauth", "", "tok", "", "")
+	if code != 200 || !strings.Contains(body, `"viewer":{"actor":"alex"}`) {
+		t.Fatalf("%d %s", code, body)
+	}
+}
+
+func TestDiffDefaults(t *testing.T) {
+	cases := []struct {
+		name             string
+		head, approved   int64
+		query            string
+		wantFrom, wantTo int
+		wantCall         bool
+	}{
+		{"head-1 without approval", 4, 0, "", 3, 4, true},
+		{"from the approved revision", 4, 2, "", 2, 4, true},
+		{"approval at head falls back to head-1", 4, 4, "", 3, 4, true},
+		{"explicit range", 4, 0, "?from=1&to=2", 1, 2, true},
+		{"single revision: nothing to compare", 1, 0, "", 0, 1, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			base, f, cancel, _ := startWith(t, &fake{head: c.head, approved: c.approved}, time.Hour)
+			defer cancel()
+			code, body := do(t, "GET", base+"/api/spec/orbiter:api%2Fauth/diff"+c.query, "", "tok", "", "")
+			if code != 200 {
+				t.Fatalf("%d %s", code, body)
+			}
+			var got struct {
+				From, To, Head int
+				Versions       []map[string]any
+				Changes        []map[string]any
+			}
+			if err := json.Unmarshal([]byte(body), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.From != c.wantFrom || got.To != c.wantTo || got.Head != int(c.head) || len(got.Versions) != 2 {
+				t.Fatalf("got %+v", got)
+			}
+			if c.wantCall != (len(f.diffs) == 1) {
+				t.Fatalf("SpecDiff calls %v", f.diffs)
+			}
+			if c.wantCall && (f.diffs[0] != [2]int{c.wantFrom, c.wantTo} || len(got.Changes) != 1) {
+				t.Fatalf("calls %v changes %v", f.diffs, got.Changes)
+			}
+			if !c.wantCall && got.Changes == nil {
+				t.Fatal("changes must be [] not null")
+			}
+		})
 	}
 }

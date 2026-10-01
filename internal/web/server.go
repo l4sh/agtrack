@@ -55,6 +55,8 @@ type Backend interface {
 	SpecEventsAfter(specID, after int64, limit int) ([]*row.Row, error)
 	SpecNoteBelongs(specID, noteID int64) (bool, error)
 	ResolveNote(id int64, rationale string, reopen bool) (*row.Row, bool, error)
+	SpecDiff(specID int64, from, to int) ([]*row.Row, error)
+	SpecVersions(specID int64) ([]*row.Row, error)
 }
 
 // Options configure one serving session.
@@ -68,6 +70,9 @@ type Options struct {
 	Open     bool          // try to open a browser
 	RepoRoot string        // for pin write-back
 	Token    string        // tests only; default: fresh random
+	// Viewer is the actor browser actions are attributed to (`spec serve
+	// --as`); the page uses it to tell the reviewer's notes from agents'.
+	Viewer string
 	// Ready, if set, receives the base URL once listening (tests).
 	Ready func(url string)
 }
@@ -268,6 +273,9 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 		return
 	}
 	ct := mime.TypeByExtension(path.Ext(name))
+	if path.Ext(name) == ".woff2" {
+		ct = "font/woff2" // not in Go's built-in table; system tables vary
+	}
 	if ct == "" {
 		ct = "text/plain; charset=utf-8"
 	}
@@ -306,7 +314,7 @@ func storeErr(w http.ResponseWriter, err error) {
 
 // --- API -------------------------------------------------------------------------------
 
-// api routes /api/spec/{spec}[/tasks|/note|/note/{id}/resolve|/release|/approve].
+// api routes /api/spec/{spec}[/tasks|/diff|/note|/note/{id}/resolve|/release|/approve].
 // The server is bound to one spec; {spec} must name it.
 func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
 	specPart, tail, _ := strings.Cut(rest, "/")
@@ -325,9 +333,32 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
 	id := s.o.SpecID
 	switch {
 	case tail == "" && r.Method == http.MethodGet:
-		s.locked(w, func() (any, error) { return s.o.Store.SpecModel(id) })
+		s.locked(w, func() (any, error) {
+			m, err := s.o.Store.SpecModel(id)
+			if err != nil {
+				return nil, err
+			}
+			return m.Set("viewer", row.Of("actor", s.o.Viewer)), nil
+		})
 	case tail == "tasks" && r.Method == http.MethodGet:
 		s.locked(w, func() (any, error) { return s.o.Store.SpecTasks(id) })
+	case tail == "diff" && r.Method == http.MethodGet:
+		q := r.URL.Query()
+		from, to := 0, 0
+		for _, p := range []struct {
+			name string
+			dst  *int
+		}{{"from", &from}, {"to", &to}} {
+			if v := q.Get(p.name); v != "" {
+				n, err := strconv.Atoi(v)
+				if err != nil || n < 1 {
+					writeErr(w, http.StatusBadRequest, errs.TokInvalidArgument, p.name+" must be a revision number ≥ 1")
+					return
+				}
+				*p.dst = n
+			}
+		}
+		s.locked(w, func() (any, error) { return s.diff(id, from, to) })
 	case tail == "note" && r.Method == http.MethodPost:
 		var in struct {
 			Section, Quote, Prefix, Suffix, Kind, Body string
@@ -436,6 +467,62 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
 	default:
 		writeErr(w, http.StatusNotFound, "not_found", "no such endpoint")
 	}
+}
+
+// diff compares two revisions for the page. to defaults to the head; from to
+// the approved revision when it is older than to, else to-1. A spec with a
+// single revision has nothing to compare and returns no changes.
+func (s *Server) diff(id int64, from, to int) (any, error) {
+	model, err := s.o.Store.SpecModel(id)
+	if err != nil {
+		return nil, err
+	}
+	versions, err := s.o.Store.SpecVersions(id)
+	if err != nil {
+		return nil, err
+	}
+	sp, _ := model.Get("spec").(*row.Row)
+	head := 0
+	approved := 0
+	if sp != nil {
+		head = int(sp.Int("revision"))
+		if a, ok := sp.Get("approval").(*row.Row); ok && a != nil {
+			approved = int(a.Int("revision"))
+		}
+	}
+	if to == 0 {
+		to = head
+	}
+	if from == 0 {
+		from = to - 1
+		if approved > 0 && approved < to {
+			from = approved
+		}
+	}
+	vs := make([]*row.Row, 0, len(versions))
+	for _, v := range versions {
+		vs = append(vs, row.Of("n", v.Int("n"), "imported_at", v.Get("imported_at"), "actor", v.Get("actor")))
+	}
+	out := row.Of("from", int64(from), "to", int64(to), "head", int64(head), "approved_revision", nilIfZero(approved),
+		"versions", vs, "changes", []*row.Row{})
+	if from < 1 || from == to {
+		return out.Set("from", int64(max(from, 0))), nil
+	}
+	changes, err := s.o.Store.SpecDiff(id, from, to)
+	if err != nil {
+		return nil, err
+	}
+	if changes == nil {
+		changes = []*row.Row{}
+	}
+	return out.Set("changes", changes), nil
+}
+
+func nilIfZero(n int) any {
+	if n == 0 {
+		return nil
+	}
+	return int64(n)
 }
 
 func asRows(v any) []*row.Row {

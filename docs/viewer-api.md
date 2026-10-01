@@ -69,9 +69,13 @@ connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-
   ],
   "build_notes": [{"id": 44, "body": "don't touch billing", "actor": "alex",
                    "created_at": "…"}],
+  "viewer": {"actor": "alex"},
   "cursor": 2074
 }
 ```
+
+- `viewer.actor` is the name browser actions are attributed to (`spec serve --as`, default
+  `human`). The page uses it to tell the reviewer's own notes from other actors' (agents).
 
 - `html` is server-rendered by goldmark **without** `html.WithUnsafe()` and sanitised; raw HTML
   in the spec is escaped. The heading itself is not part of `html` — the page renders it
@@ -100,6 +104,34 @@ connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-
              "head_revision": 6}]
 }
 ```
+
+## GET /api/spec/{spec}/diff?from=N&to=M
+
+Section-level comparison of two revisions (the store's `SpecDiff`, as `agtrack spec diff`
+prints it). Both parameters are optional revision numbers ≥ 1 (else `400 invalid_argument`):
+`to` defaults to the head; `from` defaults to the approved revision when one exists and is
+older than `to`, else `to - 1`. An unknown revision is `404 not_found`. A spec with a single
+revision returns `"from": 0` and no changes.
+
+```json
+{
+  "from": 5, "to": 6, "head": 6, "approved_revision": 5,
+  "versions": [{"n": 5, "imported_at": "…", "actor": "codex"}, {"n": 6, "…": "…"}],
+  "changes": [
+    {"change": "renamed", "slug": "tokens__rotation", "prior_slug": "tokens__refresh",
+     "heading": "Rotation", "prior_heading": "Refresh", "number": "2.1", "prior_number": "2.1",
+     "tier": "pin", "diff": "--- v5\n+++ v6\n@@ -1 +1 @@\n-…\n+…\n"},
+    {"change": "new", "slug": "sessions__idle_timeout", "heading": "Idle timeout", "number": "3.2"},
+    {"change": "removed", "slug": "sessions__legacy", "heading": "Legacy cookies"},
+    {"change": "orphaned", "slug": "…", "anchor": "legacy-cookie-flag", "revision": 6}
+  ]
+}
+```
+
+- `change` ∈ `new|removed|orphaned|moved|renamed|changed`. `diff` (a unified diff of the
+  section body, raw markdown) is present when the body changed; it is untrusted text and the
+  page renders it with `textContent` only. `confidence` appears on fuzzy (`similar`) matches.
+- `approved_revision` is null when the spec has never been approved.
 
 ## POST /api/spec/{spec}/note
 
