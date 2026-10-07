@@ -501,18 +501,20 @@
     return css;
   }
 
-  /** Mermaid's SVG text for the source, rendered without foreignObject (pure SVG text). */
+  /**
+   * Mermaid's SVG text for the source, rendered without foreignObject (pure SVG text).
+   * The setting rides on an init directive in front of the source, so Mermaid's global
+   * config is never touched and a live refresh rendering at the same time is unaffected.
+   */
   async function renderPlain(w) {
     const m = window.mermaid;
-    if (!m || !m.mermaidAPI) throw new Error("Mermaid is not available");
-    const prev = m.mermaidAPI.getConfig();
+    if (!m) throw new Error("Mermaid is not available");
     const id = "dgw-export-" + ++seq;
+    const plain = '%%{init: {"htmlLabels": false, "flowchart": {"htmlLabels": false}}}%%\n' + w.source;
     try {
-      m.initialize({ ...prev, htmlLabels: false, flowchart: { ...prev.flowchart, htmlLabels: false } });
-      const { svg } = await m.render(id, w.source);
+      const { svg } = await m.render(id, plain);
       return svg;
     } finally {
-      m.initialize(prev);
       const stray = document.getElementById("d" + id);
       if (stray) stray.remove();
     }
