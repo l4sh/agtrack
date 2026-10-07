@@ -305,15 +305,27 @@ func noteResolve(c *Ctx) error {
 	if err != nil {
 		return err
 	}
-	n, changed, err := c.S.ResolveNote(id, c.Str("note"), false)
+	wasOpen := false
+	if n, err := c.S.GetNote(id); err == nil {
+		wasOpen = n.IsNull("resolved_at")
+	}
+	n, changed, cascaded, err := c.S.ResolveNoteThread(id, c.Str("note"), false)
 	if err != nil {
 		return err
 	}
 	text := fmt.Sprintf("note %d resolved", id)
-	if !changed {
+	if !wasOpen {
 		text = fmt.Sprintf("note %d was already resolved", id)
 	}
-	return c.mutated(text, row.Of("id", id, "resolved_at", n.Get("resolved_at"), "resolved_by", n.Get("resolved_by"), "changed", changed))
+	switch cascaded {
+	case 0:
+	case 1:
+		text += "; 1 reply resolved with it"
+	default:
+		text += fmt.Sprintf("; %d replies resolved with it", cascaded)
+	}
+	return c.mutated(text, row.Of("id", id, "resolved_at", n.Get("resolved_at"), "resolved_by", n.Get("resolved_by"), "changed", changed,
+		"replies_resolved", int64(cascaded)))
 }
 
 func noteReopen(c *Ctx) error {

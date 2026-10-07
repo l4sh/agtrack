@@ -289,6 +289,17 @@ func (s *Store) DeleteNote(id int64) (err error) {
 // ResolveNote marks a note resolved (idempotent: resolving a resolved note
 // changes nothing). changed reports whether anything was written.
 func (s *Store) ResolveNote(id int64, rationale string, reopen bool) (r *row.Row, changed bool, err error) {
+	r, changed, _, err = s.ResolveNoteThread(id, rationale, reopen)
+	return r, changed, err
+}
+
+// ResolveNoteThread is ResolveNote that also reports how many replies were
+// resolved with the note. Resolving a spec note resolves every unresolved
+// descendant in the same transaction, each with its own note-resolved event
+// (web-browse spec §3); replies resolved earlier keep their own resolution.
+// It also sweeps the open replies of a spec note that is already resolved.
+// Reopening touches the note alone, and task/project notes never cascade.
+func (s *Store) ResolveNoteThread(id int64, rationale string, reopen bool) (r *row.Row, changed bool, cascaded int, err error) {
 	defer guard(&err)
 	s.tx(func() {
 		n := s.one("SELECT * FROM notes WHERE id = ?", id)
@@ -305,20 +316,34 @@ func (s *Store) ResolveNote(id int64, rationale string, reopen bool) (r *row.Row
 			changed = true
 			return
 		}
-		if !n.IsNull("resolved_at") {
+		now := refs.NowISO()
+		if n.IsNull("resolved_at") {
+			s.exec("UPDATE notes SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE id = ?",
+				now, nullable(s.Actor), nullable(rationale), id)
+			detail := firstLine(n.Str("body"))
+			if rationale != "" {
+				detail = firstLine(rationale)
+			}
+			s.event("note", id, "note-resolved", detail, taskID, projectID, "")
+			changed = true
+		}
+		if n.Str("target_type") != "spec_anchor" {
 			return
 		}
-		s.exec("UPDATE notes SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE id = ?",
-			refs.NowISO(), nullable(s.Actor), nullable(rationale), id)
-		detail := firstLine(n.Str("body"))
-		if rationale != "" {
-			detail = firstLine(rationale)
+		for _, c := range s.q(`WITH RECURSIVE thread(id) AS (
+  SELECT id FROM notes WHERE parent_id = ?
+  UNION ALL SELECT n.id FROM notes n JOIN thread t ON n.parent_id = t.id)
+SELECT id FROM notes WHERE id IN (SELECT id FROM thread) AND resolved_at IS NULL ORDER BY id`, id) {
+			s.exec("UPDATE notes SET resolved_at = ?, resolved_by = ? WHERE id = ?", now, nullable(s.Actor), c.Int("id"))
+			s.event("note", c.Int("id"), "note-resolved", fmt.Sprintf("resolved with #%d", id), taskID, projectID, "")
+			cascaded++
 		}
-		s.event("note", id, "note-resolved", detail, taskID, projectID, "")
-		changed = true
+		if cascaded > 0 {
+			changed = true
+		}
 	})
 	r = s.one("SELECT * FROM notes WHERE id = ?", id)
-	return r, changed, nil
+	return r, changed, cascaded, nil
 }
 
 // noteScope finds the task/project a note belongs to, for event scoping.
