@@ -1,7 +1,16 @@
-# Spec viewer — HTTP contract
+# Spec viewer and browse app — HTTP contract
 
-The contract between `internal/web` (server) and `internal/web/assets` (the embedded page).
+The contract between `internal/web` (server) and `internal/web/assets` (the embedded pages).
 Security rules are not optional; see the checklist at the end.
+
+One server, two modes:
+
+- **spec** — `agtrack spec serve <spec>`: bound to one spec. Every `/api/spec/{spec}` and
+  `/api/events?spec=` call must name it (anything else is `404`). There is no `/` page and no
+  `/api/browse/`.
+- **browse** — `agtrack serve`: the browse app at `/`, any spec at `/s/{spec}` (resolved per
+  request through the CLI's resolver), the browse API under `/api/browse/`, and an event
+  stream of every event. See [agtrack serve](#agtrack-serve-browse-mode) below.
 
 ## Session
 
@@ -25,7 +34,8 @@ http://127.0.0.1:<port>/s/<spec>?t=<token>
   accept that cookie as an alternative to `?t=` / the header.
 - Every request: `Host` must be `127.0.0.1:<port>` or `localhost:<port>`, else 403.
 - Every mutating request: `Content-Type: application/json`, else 415.
-- The server exits after an idle timeout (default 30m without requests or SSE clients).
+- The server exits after an idle timeout (default 30m for `spec serve`, 2h for `agtrack serve`,
+  where `--idle 0` disables it). An open event stream alone does not count as activity.
 
 `<spec>` in URLs is the spec ref as typed on the CLI (`auth`, or `orbiter:api/auth`,
 URL-escaped).
@@ -199,6 +209,106 @@ data: {"id":2081,"action":"spec-note","actor":"alex","target":"tokens__rotation"
 Plus `event: ping` every 15s. The page re-fetches `/api/spec/{spec}` (and `/tasks`) on any
 `agtrack` event, debounced.
 
+## agtrack serve (browse mode)
+
+```
+agtrack serve [--as NAME] [--port N] [--idle DURATION] [--open] [-c CONTEXT]
+```
+
+prints `serving agtrack at http://127.0.0.1:<port>/?t=<token>`. The session rules above are
+unchanged: the first `GET /?t=` sets the `agtrack_session` cookie, API calls carry the
+`X-Agtrack-Token` header or the cookie, the `Host` check, CSP and 127.0.0.1-only bind apply,
+and every `POST` must be `application/json` (else `415`).
+
+### Pages
+
+- `GET /?t=TOKEN` — the browse app (`browse.html` + `browse.js` + `browse.css`, with the
+  shared tokens in `base.css`). Views are hash routes: `#/`, `#/c/{ctx}`,
+  `#/p/{ctx}/{project[:sub]}[?tab=tasks|specs|notes|prs|log&…filters]`, `#/t/{id}`,
+  `#/notes?context=&project=&kind=`, `#/log?context=&project=&actor=&action=&since=&until=`.
+- `GET /s/{spec}` — the spec viewer, unchanged. `{spec}` is any context-qualified spec ref,
+  URL-escaped (`acme%2Forbiter%2Fauth`). `GET /api/spec/{spec}` then also carries
+  `"serve": {"project": "acme/orbiter"}`; the viewer shows its "← agtrack" link only when
+  that key is present. `/s/{spec}#{section-slug}` scrolls to the section.
+
+### Attribution
+
+Every browser write is attributed to `--as` (default `human`) through a second store on the
+same connection; `serve` refuses to start when `--as` equals the serving actor. Writes run
+the CLI's own verb handlers in-process (`task add`, `task set`, `task tag`, `task start`, …)
+with `-f json`, so validation, events, idempotency receipts and error tokens are the CLI's,
+and each write response is the JSON that verb prints. Reads return the rows `-f json`
+prints for the corresponding verb.
+
+### GET /api/events?after=N (no spec=)
+
+In browse mode, omitting `spec=` streams **every** event row after `N`, each with
+`task_id` and `project_id` added to the data shown above. `spec=REF` still narrows the stream
+to one spec. The page re-fetches its current view on any `agtrack` event, debounced by
+300 ms, and holds the refresh while a form has unsaved input.
+
+### Read endpoints
+
+All are `GET`, JSON. `{ctx}` is a context name; `{project}` is a context-qualified project
+ref, URL-escaped as one segment (`acme%2Forbiter%3Aapi`); `{id}` is a task id.
+
+| Endpoint | Returns |
+|---|---|
+| `contexts` | `{"start", "viewer", "cursor", "contexts": [ctx ls --archived rows + "counts"], "log": [log --all-contexts -n 15], "notes": [open handoffs and blockers, all contexts]}`. `start` is the context the app opens on (`-c`, else the serving actor's current context); `cursor` is the newest event id. |
+| `contexts/{ctx}` | `{"context": ctx show, "projects": project ls --archived, "specs": [spec summary]}` |
+| `projects/{project}` | `{"project": project show, "path", "context", "short", "parents": [{kind, ref, name}], "pinned_by": [actor, …]}` |
+| `projects/{project}/tasks?…` | `{"project", "tasks": [task ls rows + "blocked": bool]}`. Filters, named as `task ls` flags: `status` (default `open`), `tag` (repeatable), `grep`, `since`, `order`, `limit`, `ready=1`, `blocked=1`, `unclaimed=1`, `direct=1` (exclude subprojects), `tags_all=1`; plus `claimed_by`, applied to the rows. |
+| `projects/{project}/specs` | `[spec summary]` |
+| `projects/{project}/notes?kind=` | `{"open": [open notes in the project and its subprojects], "notes": project notes (all, threaded by parent_id)}` |
+| `projects/{project}/prs` | `[pr ls rows + "task_title"]` for the project's tasks |
+| `tasks/{id}` | `{"task": task show -x (steps, notes, PRs, events), "project_path", "context", "deps": task deps, "artifacts": task artifact ls, "specs": [{section, kind, state, open_notes, spec, slug}]}` — `spec` is the context-qualified spec ref and `slug` the section to link to. |
+| `notes?context=&project=&kind=` | Open notes across every context, or one context, or one project with its subprojects; `kind` is a comma list. Each note adds where it lives: `context`, `project`, `task_id`, `task_title`, `step`, `spec`, `spec_slug`, `anchor`. |
+| `log?context=&project=&actor=&action=&since=&until=&task=&limit=` | `{"events": [log rows, newest first], "total"}`. Without `context` or `project` it covers every context. `limit` defaults to 50; the page pages by raising it (**Load older**). |
+
+A spec summary is `{"slug", "ref", "qualified_ref", "title", "status", "source_path",
+"revision", "project", "approval": "approved"|"stale"|"none", "approval_revision",
+"open_notes", "pending_comments"}`.
+
+### Write endpoints
+
+All are `POST` with `Content-Type: application/json`; each answers `200` with the JSON the
+CLI verb prints. `idem` is a client-generated key (one per form, reused on retry): a
+replay with the same key writes nothing and returns the first result.
+
+| Endpoint | Body | CLI verb |
+|---|---|---|
+| `projects/{project}/tasks` | `{"title", "tags": [], "note", "steps": [], "idem"}` | `task add -p … --tag … --note … --step …` |
+| `projects/{project}/notes` | `{"kind", "body", "idem"}` | `project note --kind` |
+| `projects/{project}/log` | `{"body", "idem"}` | `log add -p` |
+| `tasks/{id}/title` | `{"title", "expected"}` | `task set --title` |
+| `tasks/{id}/tags` | `{"add": [], "remove": []}` | `task tag` / `task untag` (returns `task show`) |
+| `tasks/{id}/status` | `{"status": "todo"\|"in-progress"\|"done"\|"cancelled", "note"}` | `task reopen` / `start` / `done` / `cancel` |
+| `tasks/{id}/release` | `{}` | `task release --force` |
+| `tasks/{id}/block` | `{"on": "12"}` | `task block --on 12 --kind blocks` |
+| `tasks/{id}/unblock` | `{"on": "12"}` | `task unblock --on 12` |
+| `tasks/{id}/steps` | `{"steps": [], "idem"}` | `sub add` |
+| `tasks/{id}/notes` | `{"kind", "body", "idem"}` | `task note --kind` |
+| `tasks/{id}/log` | `{"body", "idem"}` | `log add -t` |
+| `steps/{ref}/title` | `{"title", "expected"}` | `sub set --title` (`{ref}` is `12.3` or a subtask id) |
+| `steps/{ref}/status` | `{"status", "note"}` | `sub reopen` / `start` / `done` / `cancel` |
+| `notes/{id}/reply` | `{"body", "idem"}` | `note reply` |
+| `notes/{id}/resolve` | `{"rationale"}` | `note resolve --note` |
+| `notes/{id}/reopen` | `{}` | `note reopen` |
+
+`kind` ∈ `note|decision|handoff|blocker|question` (default `note`). There are no delete
+endpoints, no claim-taking endpoint, and no project or context edits.
+
+**Compare-and-set titles.** `expected` is the title the page last saw. When the stored title
+differs, nothing is written and the answer is `409`:
+
+```json
+{"error": "conflict", "message": "the task's title changed since the page loaded it",
+ "current": "Rotate refresh tokens", "yours": "Rotate tokens on use"}
+```
+
+The page shows both and lets the human re-apply theirs (sending `expected: current`) or keep
+the stored one.
+
 ## Errors
 
 Non-2xx responses carry `{"error": "<token>", "message": "…"}` — the same tokens as the CLI's
@@ -211,7 +321,11 @@ structured errors (`not_found`, `invalid_argument`, `conflict`, …), plus `forb
   `subtle.ConstantTimeCompare`; Host header validated; no CORS headers; CSP above; goldmark
   without unsafe HTML + sanitised output; Mermaid pinned and `securityLevel: 'strict'`;
   idle-timeout exit; every mutation through the same store, transactions, idempotency and
-  attribution: browser actions are recorded as `spec serve --as NAME` (default `human`),
-  through a second store on the same connection — never as the `--actor`/`AGTRACK_ACTOR` of
-  the agent running `serve`, which would hide them from its `--actor-not self` watch.
-  `serve` refuses to start when `--as` equals the serving actor.
+  attribution: browser actions are recorded as `spec serve --as NAME` / `agtrack serve --as
+  NAME` (default `human`), through a second store on the same connection — never as the
+  `--actor`/`AGTRACK_ACTOR` of the agent running the server, which would hide them from its
+  `--actor-not self` watch. Both refuse to start when `--as` equals the serving actor.
+- browse mode: every `/api/browse/` call needs the token header or the session cookie;
+  every write is a JSON `POST` built into a CLI verb from typed fields only (user text is
+  passed as `--flag=value` or after `--`, never where it could parse as a flag); stored text
+  is rendered with `textContent` and only `http(s)` URLs become links.

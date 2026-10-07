@@ -187,6 +187,28 @@ The viewer binds `127.0.0.1` only, requires the capability token in the link, va
 `securityLevel: 'strict'` from an embedded, pinned copy, and exits after 30 idle minutes.
 Every browser action goes through the same store, transactions and attribution as the CLI.
 
+### Browsing and editing everything: `agtrack serve`
+
+```sh
+agtrack serve                      # prints http://127.0.0.1:<port>/?t=<token>
+agtrack serve -c work --as alex --idle 0 --open
+```
+
+A local web app over the whole store: contexts, the project tree, tasks with their steps,
+dependencies, claims, notes, artifacts and PRs, open notes across a scope, and the worklog.
+Every spec opens in the spec viewer above, with the full review flow. From the browser a
+human can create tasks, retitle and tag them, change task and step status, release a claim
+(after a confirm), add and remove dependencies, add steps, write notes of any kind, reply,
+resolve and reopen them, and add worklog entries. There are no deletes, and claims are never
+taken from the browser.
+
+Edits run the CLI's own verbs, so they are ordinary events attributed to `--as` (default
+`human`, which must differ from the serving actor). An agent sees them with
+`agtrack watch -p <project> --actor-not self`, and in `resume` the next time it starts;
+spec comments reach `spec watch|await` exactly as under `spec serve`. Agents never need the
+URL. The same security rules as `spec serve` apply; the idle timeout defaults to 2h
+(`--idle 0` = never).
+
 ### Waiting for a human (or another agent)
 
 | Harness | Use |

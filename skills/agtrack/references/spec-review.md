@@ -21,6 +21,8 @@ agtrack spec serve <spec> --as <human-name> --idle 2h
 - A new `serve` means a new port and token: always hand over the new link.
 - Rebuilt the binary or changed the UI? Stop the old server and start a new one; a running
   server keeps serving the assets it was built with.
+- The human may be reviewing in their own `agtrack serve` instead of a `spec serve` you
+  started; the watch below is the same either way, because the signal is the database row.
 
 ## 2. Receive
 
