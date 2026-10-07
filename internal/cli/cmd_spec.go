@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -95,7 +96,8 @@ func specTree() *argp.Command {
 				Flags: []argp.Flag{{Long: "--port", Kind: argp.Int, Default: 0, Help: "port (default: random)"},
 					{Long: "--idle", Metavar: "DURATION", Default: "30m", Help: "exit after this long without requests"},
 					{Long: "--open", Kind: argp.Bool, Help: "open the page in a browser"},
-					{Long: "--as", Metavar: "NAME", Default: "human", Help: "actor for comments and approvals made in the browser (default human; must differ from yours)"}}},
+					{Long: "--as", Metavar: "NAME", Default: "human", Help: "actor for comments and approvals made in the browser (default human; must differ from yours)"},
+					{Long: "--new", Kind: argp.Bool, Help: "start a viewer for this spec even if agtrack serve is running"}}},
 		}}
 }
 
@@ -1631,6 +1633,26 @@ func specServe(c *Ctx) error {
 	o, err := c.serveOptions(sp, idle)
 	if err != nil {
 		return err
+	}
+	// A running `agtrack serve` with the same --as serves every spec: hand
+	// out its link instead of starting a second server. The review signal is
+	// the database row, so watch/await work the same either way.
+	if rec := liveServeRecord(serveRecordPath(c.DBPath)); rec != nil && rec.As == o.Viewer && !c.Bool("new") {
+		p, err := c.S.GetProject(sp.Int("project_id"))
+		if err != nil {
+			return err
+		}
+		path, err := c.S.ProjectPath(p)
+		if err != nil {
+			return err
+		}
+		link := fmt.Sprintf("%s/s/%s?t=%s", rec.base(), url.PathEscape(path+"/"+sp.Str("slug")), rec.Token)
+		fmt.Fprintf(c.Out, "serving %s at %s\n", o.SpecRef, link)
+		fmt.Fprintf(c.Out, "reusing agtrack serve (pid %d); comments reach agents via `agtrack spec watch|await %s`\n", rec.PID, o.SpecRef)
+		if c.Bool("open") {
+			web.OpenBrowser(link)
+		}
+		return nil
 	}
 	return web.Serve(context.Background(), o)
 }

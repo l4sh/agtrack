@@ -212,8 +212,26 @@ Plus `event: ping` every 15s. The page re-fetches `/api/spec/{spec}` (and `/task
 ## agtrack serve (browse mode)
 
 ```
-agtrack serve [--as NAME] [--port N] [--idle DURATION] [--open] [-c CONTEXT]
+agtrack serve [--as NAME] [--port N] [--idle DURATION] [--open] [--new|--restart] [-c CONTEXT]
 ```
+
+### Reuse: `<db>.serve.json` and GET /api/ping
+
+A running `agtrack serve` writes `<db path>.serve.json` (mode 0600) once it listens and
+removes it on exit (idle timeout, SIGINT, SIGTERM):
+
+```json
+{"pid": 4242, "port": 41077, "token": "…", "as": "human",
+ "build": "2.0.0-dev+23948826-1791345600", "db": "/home/u/.local/share/agtrack/agtrack.db",
+ "started_at": "2026-10-07T04:14:01Z"}
+```
+
+`GET /api/ping` (both modes; token in `X-Agtrack-Token` only) answers
+`{"pid": 4242, "mode": "browse", "viewer": "human", "build": "…"}`. A later `agtrack serve` or
+`spec serve` trusts the record only when that pid is alive and the ping returns the same pid;
+anything else deletes the record as stale. `agtrack serve` with the same `--as` then prints the
+running server's link and exits; `spec serve` prints `/s/<ctx/project/slug>?t=` on it. `--new`
+skips reuse; `serve --restart` stops the recorded server first.
 
 prints `serving agtrack at http://127.0.0.1:<port>/?t=<token>`. The session rules above are
 unchanged: the first `GET /?t=` sets the `agtrack_session` cookie, API calls carry the

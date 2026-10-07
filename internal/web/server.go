@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"path"
 	"runtime"
@@ -94,6 +95,13 @@ type Options struct {
 	Viewer string
 	// Ready, if set, receives the base URL once listening (tests).
 	Ready func(url string)
+	// OnListen, if set, runs once listening, before the URL is printed, with
+	// the bound port and the session token (`agtrack serve` records them so a
+	// later `serve` or `spec serve` reuses this server).
+	OnListen func(port int, token string) error
+	// Build identifies the running binary; GET /api/ping reports it so a
+	// reuser can tell when the server predates a rebuild.
+	Build string
 }
 
 // Server is one session.
@@ -160,6 +168,12 @@ func Serve(ctx context.Context, o Options) error {
 	s := &Server{o: o, token: tok, assets: sub, stop: make(chan struct{}),
 		hosts: map[string]bool{fmt.Sprintf("127.0.0.1:%d", port): true, fmt.Sprintf("localhost:%d", port): true},
 		last:  time.Now()}
+	if o.OnListen != nil {
+		if err := o.OnListen(port, tok); err != nil {
+			ln.Close()
+			return err
+		}
+	}
 	base := fmt.Sprintf("http://127.0.0.1:%d", port)
 	var link string
 	if o.Mode == ModeBrowse {
@@ -236,6 +250,9 @@ func (s *Server) idle() bool {
 	return !s.o.IdleNever && time.Since(s.last) > s.o.Idle
 }
 
+// OpenBrowser opens link in the desktop browser, best effort.
+func OpenBrowser(link string) { openBrowser(link) }
+
 func openBrowser(link string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -269,6 +286,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.servePage(w, r, "index.html")
 	case path == "/" && s.o.Mode == ModeBrowse:
 		s.servePage(w, r, "browse.html")
+	case path == "/api/ping":
+		// Liveness for `agtrack serve` reuse: token in the header only.
+		if !s.authHeader(r) {
+			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+			return
+		}
+		writeJSON(w, http.StatusOK, row.Of("pid", int64(os.Getpid()), "mode", s.o.Mode, "viewer", s.o.Viewer, "build", s.o.Build))
 	case path == "/api/events":
 		if !s.authQuery(r) && !s.authHeader(r) && !s.authCookie(r) {
 			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")

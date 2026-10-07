@@ -192,7 +192,13 @@ Every browser action goes through the same store, transactions and attribution a
 ```sh
 agtrack serve                      # prints http://127.0.0.1:<port>/?t=<token>
 agtrack serve -c work --as alex --idle 0 --open
+agtrack serve --restart            # replace the running server (e.g. after rebuilding)
 ```
+
+One server per database: a second `agtrack serve` (same `--as`) prints the running
+server's link instead of starting another, and `agtrack spec serve <spec>` links to the spec
+on it. The running server is recorded in `<db>.serve.json`, which is checked (process alive
+and answering with its token) before use and deleted when stale. `--new` opts out.
 
 A local web app over the whole store: contexts, the project tree, tasks with their steps,
 dependencies, claims, notes, artifacts and PRs, open notes across a scope, and the worklog.

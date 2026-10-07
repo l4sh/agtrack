@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/l4sh/agtrack/internal/db"
 	"github.com/l4sh/agtrack/internal/errs"
@@ -26,6 +28,47 @@ func cmdServe(c *Ctx) error {
 	o, err := c.browseOptions()
 	if err != nil {
 		return err
+	}
+	path := serveRecordPath(c.DBPath)
+	register := true
+	if rec := liveServeRecord(path); rec != nil && !c.Bool("new") {
+		switch {
+		case c.Bool("restart"):
+			if err := stopServer(rec); err != nil {
+				return err
+			}
+			os.Remove(path)
+		case rec.As == o.Viewer:
+			link := rec.base() + "/?t=" + rec.Token
+			fmt.Fprintf(c.Out, "agtrack serve is already running at %s\n", link)
+			fmt.Fprintf(c.Out, "pid %d, browser edits by %s, started %s\n", rec.PID, rec.As, rec.StartedAt)
+			if rec.Build != buildID() {
+				fmt.Fprintln(c.Out, "it predates this build of agtrack: `agtrack serve --restart` replaces it")
+			}
+			if c.Bool("open") {
+				web.OpenBrowser(link)
+			}
+			return nil
+		default:
+			// A different --as gets its own server; the recorded one stays
+			// the one others reuse.
+			fmt.Fprintf(c.Err, "agtrack: agtrack serve (pid %d) runs as %s; starting another for %s\n", rec.PID, rec.As, o.Viewer)
+			register = false
+		}
+	} else if rec != nil {
+		register = false
+	}
+	if register {
+		pid := os.Getpid()
+		o.Build = buildID()
+		o.OnListen = func(port int, token string) error {
+			return writeServeRecord(path, &serveRecord{PID: pid, Port: port, Token: token, As: o.Viewer,
+				Build: o.Build, DB: db.ResolvePath(c.DBPath), StartedAt: time.Now().UTC().Format(time.RFC3339)})
+		}
+		// Deferred for a normal return (idle timeout); the exit hook covers
+		// Ctrl+C and SIGTERM, where main exits without unwinding.
+		defer removeServeRecord(path, pid)
+		AtExit(func() { removeServeRecord(path, pid) })
 	}
 	return web.Serve(context.Background(), o)
 }

@@ -19,6 +19,7 @@ func main() {
 	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-interrupts
+		cli.RunExitHooks()
 		os.Exit(errs.ExitSIGINT)
 	}()
 	os.Exit(cli.Main())
