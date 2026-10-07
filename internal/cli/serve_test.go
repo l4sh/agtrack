@@ -294,6 +294,12 @@ func TestServeSpecPagesAndEvents(t *testing.T) {
 	if r := call(t, "GET", base+"/s/w%2Forbiter%2Fauth?t=tok", "", "", ""); r.code != 200 || !strings.Contains(r.body, "app.js") {
 		t.Errorf("viewer page: %d", r.code)
 	}
+	if r := call(t, "GET", base+"/?t=tok", "", "", ""); r.code != 200 || !strings.Contains(r.body, "browse.js") {
+		t.Errorf("browse page: %d", r.code)
+	}
+	if r := call(t, "GET", base+"/", "", "", ""); r.code != 403 {
+		t.Errorf("browse page without token: %d", r.code)
+	}
 
 	// SSE without spec= streams every event, browser writes included.
 	req, _ := http.NewRequest("GET", base+"/api/events?after=0&t=tok", nil)

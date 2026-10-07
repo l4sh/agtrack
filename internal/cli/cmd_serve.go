@@ -286,7 +286,12 @@ func (b *browser) home() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return row.Of("start", b.start, "viewer", b.as, "contexts", asList(ctxs), "log", asList(log), "notes", notes), nil
+	// The newest event id: where the page's event stream starts.
+	cursor, err := b.store("").MaxEventID()
+	if err != nil {
+		return nil, err
+	}
+	return row.Of("start", b.start, "viewer", b.as, "cursor", cursor, "contexts", asList(ctxs), "log", asList(log), "notes", notes), nil
 }
 
 func (b *browser) context(name string) (any, error) {

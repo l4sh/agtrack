@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agtrack</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/browse.css">
+</head>
+<body>
+<div id="app" class="b-app" aria-busy="true">
+
+  <header class="b-top">
+    <a class="b-brand" href="#/" title="All contexts">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>agtrack</span>
+    </a>
+    <nav class="b-nav" aria-label="Sections">
+      <a href="#/" data-nav="home">Contexts</a>
+      <a href="#/notes" data-nav="notes">Open notes</a>
+      <a href="#/log" data-nav="log">Worklog</a>
+    </nav>
+    <span class="b-spacer"></span>
+    <span id="viewer" class="b-viewer" title="Your edits are recorded as this actor"></span>
+    <span id="conn" class="b-conn" data-state="connecting" role="status" aria-live="polite">connecting</span>
+  </header>
+
+  <p id="stopped" class="b-stopped" hidden>
+    The server has stopped. Run <code>agtrack serve</code> again and open its new link.
+  </p>
+
+  <main id="view" class="b-main" tabindex="-1"></main>
+
+  <div id="dialog" class="b-backdrop" hidden></div>
+  <div id="toast" class="b-toast" role="status" hidden></div>
+</div>
+
+<script type="module" src="/assets/browse.js"></script>
+</body>
+</html>
