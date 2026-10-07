@@ -578,6 +578,18 @@ func (b *browser) task(ref string) (any, error) {
 		}
 		specs = append(specs, item)
 	}
+	// Notes on steps ride on each step as note_list, same shape as the task's.
+	for _, st := range asList(asRow(show).Get("subtask_list")) {
+		sr, ok := st.(*row.Row)
+		if !ok {
+			continue
+		}
+		ns, err := s.NotesFor("subtask", sr.Int("id"), store.NoteFilter{})
+		if err != nil {
+			return nil, err
+		}
+		sr.Set("note_list", ns)
+	}
 	return row.Of("task", show, "project_path", path, "context", contextOf(path), "deps", deps,
 		"artifacts", asList(arts), "specs", specs), nil
 }
@@ -822,6 +834,17 @@ func (b *browser) Write(req web.BrowseRequest) (any, error) {
 		}
 		argv := append([]string{noun, "note", "--kind=" + kind}, idemFlag(in)...)
 		return b.exec(append(argv, "--", target, in.Body)...)
+	case "step.note":
+		st, err := b.store("").GetSubtask(ref, true)
+		if err != nil {
+			return nil, err
+		}
+		kind := in.Kind
+		if kind == "" {
+			kind = "note"
+		}
+		argv := append([]string{"sub", "note", "--kind=" + kind}, idemFlag(in)...)
+		return b.exec(append(argv, "--", strconv.FormatInt(st.Int("id"), 10), in.Body)...)
 	case "task.log", "project.log":
 		argv := append([]string{"log", "add"}, idemFlag(in)...)
 		if req.Op == "task.log" {

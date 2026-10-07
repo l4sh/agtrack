@@ -1201,6 +1201,9 @@ function stepList(steps) {
       statusSel.setAttribute("aria-label", "Status of step " + s.ref);
       statusSel.addEventListener("change", () => write("steps/" + enc(s.ref) + "/status", { status: statusSel.value }, s.ref + " " + STATUS_LABEL[statusSel.value]).catch(() => render({ keepScroll: true, force: true })));
       const titleBox = h("span", { class: "b-step-body" }, box);
+      const notes = s.note_list || [];
+      const notesBox = h("div", { class: "b-step-notes", hidden: !notes.length }, notes.length ? noteThreads(notes, {}) : null);
+      if (hasDraft("note:steps/" + enc(s.ref) + "/notes")) openStepNote(notesBox, s, true);
       if (hasDraft("title:steps/" + enc(s.ref) + "/title")) editTitle(titleBox, "steps/" + enc(s.ref) + "/title", s.title, "step", true);
       return h(
         "li",
@@ -1209,10 +1212,22 @@ function stepList(steps) {
         statusSel,
         titleBox,
         h("button", { type: "button", class: "b-link-btn", on: { click: () => editTitle(titleBox, "steps/" + enc(s.ref) + "/title", s.title, "step") } }, "rename"),
-        copyBtn(s.ref, "")
+        h("button", { type: "button", class: "b-link-btn", on: { click: () => openStepNote(notesBox, s) } }, "note"),
+        copyBtn(s.ref, ""),
+        notesBox
       );
     })
   );
+}
+
+// openStepNote reveals the add-note form under a step (once).
+function openStepNote(notesBox, s, restoring) {
+  if (notesBox.querySelector(".b-step-note-form")) return;
+  const form = addNoteForm("steps/" + enc(s.ref) + "/notes");
+  form.classList.add("b-step-note-form");
+  notesBox.hidden = false;
+  notesBox.appendChild(form);
+  if (!restoring) form.querySelector("textarea").focus();
 }
 
 function addStepsForm(path) {

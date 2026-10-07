@@ -237,6 +237,8 @@ func TestServeWriteAPI(t *testing.T) {
 		{"tasks/1/release", `{}`},
 		{"tasks/3/notes", `{"kind":"question","body":"why?","idem":"n-1"}`},
 		{"projects/acme%2Forbiter/notes", `{"kind":"decision","body":"use rotation","idem":"n-2"}`},
+		{"steps/3.1/notes", `{"kind":"blocker","body":"step note","idem":"sn-1"}`},
+		{"steps/3.1/notes", `{"kind":"blocker","body":"step note","idem":"sn-1"}`},
 		{"notes/1/reply", `{"body":"on it","idem":"r-1"}`},
 		{"notes/1/resolve", `{"rationale":"handled"}`},
 		{"notes/1/reopen", `{}`},
@@ -265,6 +267,18 @@ func TestServeWriteAPI(t *testing.T) {
 	}
 	if human < 15 {
 		t.Fatalf("only %d events by human: %v", human, evs)
+	}
+	// A step's notes ride on the step; the idem replay wrote one.
+	steps := get(t, base+"tasks/3").json(t)["task"].(map[string]any)["subtask_list"].([]any)
+	sn := steps[0].(map[string]any)["note_list"].([]any)
+	if len(sn) != 1 || sn[0].(map[string]any)["kind"] != "blocker" || sn[0].(map[string]any)["actor"] != "human" {
+		t.Errorf("step notes: %v", sn)
+	}
+	if bad := post(t, base+"steps/3.1/notes", `{"kind":"bogus","body":"x"}`); bad.code != 400 {
+		t.Errorf("bad step note kind: %d", bad.code)
+	}
+	if bad := post(t, base+"steps/3.9/notes", `{"body":"x"}`); bad.code != 404 {
+		t.Errorf("missing step: %d", bad.code)
 	}
 	if out := e.ok("task", "show", "1"); strings.Contains(out, "claimed:") {
 		t.Errorf("claim not released:\n%s", out)

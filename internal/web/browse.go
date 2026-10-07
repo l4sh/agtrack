@@ -85,6 +85,7 @@ var browseRoutes = map[string]string{
 	"POST tasks/log":      "task.log",
 	"POST steps/title":    "step.title",
 	"POST steps/status":   "step.status",
+	"POST steps/notes":    "step.note",
 	"POST notes/reply":    "note.reply",
 	"POST notes/resolve":  "note.resolve",
 	"POST notes/reopen":   "note.reopen",

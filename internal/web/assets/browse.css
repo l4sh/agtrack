@@ -855,6 +855,13 @@ a:focus-visible {
   flex: 1;
   min-width: 160px;
 }
+.b-step-notes {
+  flex-basis: 100%;
+  padding-left: 48px;
+}
+.b-step-notes[hidden] {
+  display: none;
+}
 .b-step-title.is-closed {
   color: var(--text-muted);
 }
