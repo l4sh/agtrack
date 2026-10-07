@@ -816,3 +816,22 @@ func (s *Store) ProjectPinnedBy(projectID int64) (out []string, err error) {
 	}
 	return out, nil
 }
+
+// LastEventByTask returns each task's most recent event (actor, at), keyed
+// by task id, in one query. Tasks with no events are absent.
+func (s *Store) LastEventByTask(taskIDs []int64) (out map[int64]*row.Row, err error) {
+	defer guard(&err)
+	out = map[int64]*row.Row{}
+	if len(taskIDs) == 0 {
+		return out, nil
+	}
+	for len(taskIDs) > 0 {
+		n := min(len(taskIDs), 500)
+		for _, r := range s.q("SELECT e.task_id, e.actor, e.at FROM events e WHERE e.id IN"+
+			" (SELECT MAX(id) FROM events WHERE task_id IN ("+marks(n)+") GROUP BY task_id)", ids64(taskIDs[:n])...) {
+			out[r.Int("task_id")] = r
+		}
+		taskIDs = taskIDs[n:]
+	}
+	return out, nil
+}

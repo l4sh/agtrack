@@ -789,7 +789,7 @@ async function projectTasksTab(data, q) {
     const expired = t.claim_expires_at && parseTS(t.claim_expires_at) < new Date();
     return h(
       "tr",
-      { class: t.blocked ? "is-blocked" : "" },
+      { class: (t.blocked ? "is-blocked" : "") + (isMine(t.last_actor) ? " is-mine" : "") },
       h("td", null, h("a", { href: hrefTask(t.id), class: "b-ref" }, "#" + t.id)),
       h("td", { class: "b-title-cell" }, h("a", { href: hrefTask(t.id) }, t.title), t.project && t.project !== data.short ? h("span", { class: "b-muted b-small" }, " · " + t.project) : null),
       h("td", null, statusBadge(t.status), t.blocked ? h("span", { class: "b-pill is-warn", title: "waits on an unmet blocker" }, "blocked") : null),
@@ -800,6 +800,7 @@ async function projectTasksTab(data, q) {
         t.claimed_by ? h("span", { class: expired ? "b-muted" : "" }, icon("lock"), " ", actorEl(t.claimed_by), " ", h("span", { class: "b-muted", title: fmtTS(t.claim_expires_at) }, t.claim_expires_at ? (expired ? "expired" : "until " + fmtTS(t.claim_expires_at).slice(11)) : "")) : null
       ),
       h("td", null, tagChips(t.tags)),
+      h("td", { class: "b-small", title: "actor of the latest change" }, t.last_actor ? [actorEl(t.last_actor), " ", t.last_event_at ? when(t.last_event_at) : null] : h("span", { class: "b-muted" }, "—")),
       h("td", { class: "b-small b-muted" }, when(t.created_at))
     );
   });
@@ -807,7 +808,7 @@ async function projectTasksTab(data, q) {
     ? h(
         "table",
         { class: "b-table" },
-        h("thead", null, h("tr", null, h("th", null, "ID"), h("th", null, "Title"), h("th", null, "Status"), h("th", null, "Steps"), h("th", null, "Claim"), h("th", null, "Tags"), h("th", null, "Age"))),
+        h("thead", null, h("tr", null, h("th", null, "ID"), h("th", null, "Title"), h("th", null, "Status"), h("th", null, "Steps"), h("th", null, "Claim"), h("th", null, "Tags"), h("th", null, "Last change"), h("th", null, "Age"))),
         h("tbody", null, rows)
       )
     : empty("No tasks match these filters.");

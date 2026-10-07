@@ -442,6 +442,15 @@ func (b *browser) projectTasks(ref string, q map[string][]string) (any, error) {
 			blocked[asRow(r).Int("id")] = true
 		}
 	}
+	// Who touched each task last: one aggregate query for the whole listing.
+	ids := []int64{}
+	for _, r := range asList(rows) {
+		ids = append(ids, asRow(r).Int("id"))
+	}
+	last, err := b.store("").LastEventByTask(ids)
+	if err != nil {
+		return nil, err
+	}
 	claimed := get("claimed_by")
 	out := []any{}
 	for _, r := range asList(rows) {
@@ -450,6 +459,10 @@ func (b *browser) projectTasks(ref string, q map[string][]string) (any, error) {
 			continue
 		}
 		t.Set("blocked", blocked[t.Int("id")])
+		if ev := last[t.Int("id")]; ev != nil {
+			t.Set("last_actor", ev.Get("actor"))
+			t.Set("last_event_at", ev.Get("at"))
+		}
 		out = append(out, t)
 	}
 	return row.Of("project", path, "tasks", out), nil

@@ -155,6 +155,12 @@ func TestServeReadAPI(t *testing.T) {
 			t.Errorf("task %v blocked=%v", tk["id"], tk["blocked"])
 		}
 	}
+	// Each row carries the actor of its latest event (one aggregate query).
+	for _, x := range tasks {
+		if tk := x.(map[string]any); tk["last_actor"] != "agent1" || tk["last_event_at"] == nil {
+			t.Errorf("task %v last_actor=%v last_event_at=%v", tk["id"], tk["last_actor"], tk["last_event_at"])
+		}
+	}
 	if r := get(t, base+"projects/acme%2Forbiter/tasks?claimed_by=agent1"); strings.Count(r.body, `"title"`) != 1 {
 		t.Errorf("claimed_by filter: %s", r.body)
 	}
@@ -225,6 +231,17 @@ func TestServeWriteAPI(t *testing.T) {
 	}
 	if r := post(t, base+"steps/3.1/title", `{"title":"eins","expected":"one"}`); r.code != 409 {
 		t.Fatalf("stale step title: %d %s", r.code, r.body)
+	}
+
+	// A browser write makes the viewer the row's latest actor.
+	if r := post(t, base+"tasks/2/notes", `{"body":"seen"}`); r.code != 200 {
+		t.Fatalf("note: %d %s", r.code, r.body)
+	}
+	for _, x := range get(t, base+"projects/acme%2Forbiter/tasks").json(t)["tasks"].([]any) {
+		tk := x.(map[string]any)
+		if want := map[float64]string{1: "agent1", 2: "human"}[tk["id"].(float64)]; want != "" && tk["last_actor"] != want {
+			t.Errorf("task %v last_actor=%v want %s", tk["id"], tk["last_actor"], want)
+		}
 	}
 
 	for _, w := range []struct{ path, body string }{

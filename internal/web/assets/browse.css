@@ -673,6 +673,9 @@ a:focus-visible {
 .b-table tr:hover td {
   background: var(--surface-2);
 }
+.b-table tr.is-mine td {
+  background: var(--indigo-soft);
+}
 .b-table tr.is-blocked td:first-child {
   box-shadow: inset 3px 0 0 var(--amber);
 }
