@@ -884,7 +884,10 @@ async function renderMermaid() {
     if (cached) host.innerHTML = cached;
     else todo.push({ block, host, source });
   }
-  if (!todo.length) return;
+  if (!todo.length) {
+    notifyDiagrams();
+    return;
+  }
   // Measure labels with the vendored font, not a fallback that swaps in later.
   if (document.fonts && document.fonts.ready) {
     try {
@@ -907,6 +910,18 @@ async function renderMermaid() {
       if (stray) stray.remove();
     }
   }
+  notifyDiagrams();
+}
+
+// Hand the freshly rendered diagrams to the floating diagram window (assets/diagram.js).
+function notifyDiagrams() {
+  if (!window.AgtrackDiagram) return;
+  window.AgtrackDiagram.update({
+    root: el.doc,
+    specSlug: (state.doc && state.doc.spec && state.doc.spec.slug) || session.specRef,
+    h,
+    toast: showToast,
+  });
 }
 
 // --- Diff view ----------------------------------------------------------------------

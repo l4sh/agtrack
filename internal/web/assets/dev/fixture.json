@@ -61,6 +61,13 @@
       "html": "<p>Sessions idle out after 14 days of inactivity.</p>\n<pre class=\"mermaid-src\" data-mermaid=\"1\"><code>sequenceDiagram\n  participant C as Client\n  participant S as Server\n  C-&gt;&gt;S: request (idle 14d)\n  S--&gt;&gt;C: 401 session_expired\n</code></pre>",
       "has_mermaid": true, "line_start": 35, "line_end": 48,
       "open_notes": 1, "tasks": []
+    },
+    {
+      "ordinal": 6, "slug": "rollout", "pin": null, "number": "4",
+      "heading": "Rollout", "level": 1, "kind": "heading", "path": "Rollout",
+      "html": "<p>The token store moves in three stages. Each stage ships behind a flag and can be rolled back.</p>\n<pre class=\"mermaid-src\" data-mermaid=\"1\"><code>flowchart TD\n  A[Issue token&lt;br/&gt;from the &lt;b&gt;auth service&lt;/b&gt;] --&gt; B{Store ready?}\n  B --&gt;|yes| C[Write to new store]\n  B --&gt;|no| D[Write to legacy store]\n  C --&gt; E[Verify read-back]\n  D --&gt; E\n</code></pre>\n<p>A failed stage returns to the previous one:</p>\n<pre class=\"mermaid-src\" data-mermaid=\"2\"><code>stateDiagram-v2\n  [*] --&gt; Legacy\n  Legacy --&gt; Dual: enable dual write\n  Dual --&gt; Primary: promote\n  Primary --&gt; Dual: roll back\n  Dual --&gt; Legacy: roll back\n</code></pre>",
+      "has_mermaid": true, "line_start": 49, "line_end": 70,
+      "open_notes": 0, "tasks": []
     }
   ],
   "notes": [
