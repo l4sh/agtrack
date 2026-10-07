@@ -2447,3 +2447,6 @@ mark.hl.is-flash {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.dgw-tool[hidden] {
+  display: none;
+}

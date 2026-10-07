@@ -447,6 +447,175 @@
   }
 
   // ------------------------------------------------------------------------------------
+  // Save as PNG
+  // ------------------------------------------------------------------------------------
+  //
+  // serialise the SVG with the vendored fonts inlined as data: URLs, load it as a
+  // data:image/svg+xml image, draw it on a canvas at 2x, toBlob. A foreignObject (Mermaid's
+  // HTML labels) taints the canvas, so such a diagram is re-rendered off-screen with
+  // htmlLabels:false first. All of it is allowed by the existing CSP (img-src data:,
+  // connect-src 'self', font-src 'self').
+
+  const EXPORT_SCALE = 2;
+  const MAX_CANVAS_SIDE = 16384;
+  const FONTS = [
+    { family: "Inter Variable", weight: "100 900", url: "/assets/vendor/fonts/inter-latin-wght-normal.woff2" },
+    { family: "JetBrains Mono Variable", weight: "100 800", url: "/assets/vendor/fonts/jetbrains-mono-latin-wght-normal.woff2" },
+  ];
+  const fontData = new Map(); // url → Promise<data: URL>
+
+  function bufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+
+  function loadFont(f) {
+    if (!fontData.has(f.url)) {
+      fontData.set(
+        f.url,
+        fetch(f.url)
+          .then((r) => {
+            if (!r.ok) throw new Error("font " + f.url + ": HTTP " + r.status);
+            return r.arrayBuffer();
+          })
+          .then((buf) => "data:font/woff2;base64," + bufferToBase64(buf))
+          .catch((err) => {
+            fontData.delete(f.url);
+            throw err;
+          })
+      );
+    }
+    return fontData.get(f.url);
+  }
+
+  async function fontCss(markup) {
+    let css = "";
+    for (const f of FONTS) {
+      if (!markup.includes(f.family.replace(" Variable", ""))) continue;
+      const data = await loadFont(f);
+      css += '@font-face{font-family:"' + f.family + '";font-style:normal;font-weight:' + f.weight +
+        ";src:url(" + data + ') format("woff2");}';
+    }
+    return css;
+  }
+
+  /** Mermaid's SVG text for the source, rendered without foreignObject (pure SVG text). */
+  async function renderPlain(w) {
+    const m = window.mermaid;
+    if (!m || !m.mermaidAPI) throw new Error("Mermaid is not available");
+    const prev = m.mermaidAPI.getConfig();
+    const id = "dgw-export-" + ++seq;
+    try {
+      m.initialize({ ...prev, htmlLabels: false, flowchart: { ...prev.flowchart, htmlLabels: false } });
+      const { svg } = await m.render(id, w.source);
+      return svg;
+    } finally {
+      m.initialize(prev);
+      const stray = document.getElementById("d" + id);
+      if (stray) stray.remove();
+    }
+  }
+
+  /** The export SVG as {xml, w, h}: pure SVG, intrinsic size, fonts inlined. */
+  async function exportSvg(w) {
+    let svg = w.svgNode.cloneNode(true);
+    if (svg.querySelector("foreignObject")) {
+      const markup = await renderPlain(w);
+      // Parsed into a detached document: nothing from it is ever attached to the page.
+      const doc = new DOMParser().parseFromString(markup, "text/html");
+      svg = doc.body.querySelector("svg");
+      if (!svg) throw new Error("Mermaid returned no SVG");
+      if (svg.querySelector("foreignObject")) throw new Error("diagram still uses HTML labels");
+    }
+    const size = prepareSvg(svg);
+    svg = size.node;
+    svg.removeAttribute("style");
+    svg.setAttribute("xmlns", SVG_NS);
+    const css = await fontCss(new XMLSerializer().serializeToString(svg));
+    if (css) {
+      const style = document.createElementNS(SVG_NS, "style");
+      style.textContent = css;
+      svg.insertBefore(style, svg.firstChild);
+    }
+    return { xml: new XMLSerializer().serializeToString(svg), w: size.w, h: size.h };
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("the browser could not load the SVG as an image"));
+      img.src = src;
+    });
+  }
+
+  /** PNG blob of the whole diagram at 2x its intrinsic size on the page background. */
+  async function renderPng(w) {
+    const out = await exportSvg(w);
+    w.lastSvg = out.xml;
+    const img = await loadImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(out.xml));
+    if (img.decode) await img.decode().catch(() => {});
+    const k = Math.min(EXPORT_SCALE, MAX_CANVAS_SIDE / Math.max(out.w, out.h));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(out.w * k));
+    canvas.height = Math.max(1, Math.round(out.h * k));
+    const g = canvas.getContext("2d");
+    g.fillStyle = getComputedStyle(document.body).backgroundColor || "#ffffff";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve, reject) => {
+      try {
+        canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("the canvas produced no image"))), "image/png");
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function exportName(w, ext) {
+    const safe = (v) => String(v).replace(/[^\w.-]+/g, "-");
+    return safe(ctx.specSlug) + "-" + safe(w.slug) + "-diagram-" + w.idx + "." + ext;
+  }
+
+  function download(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = h("a", { href: url, download: name });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+
+  async function savePng(w) {
+    if (w.exporting) return;
+    w.exporting = true;
+    w.btnPng.disabled = true;
+    try {
+      const blob = await renderPng(w);
+      const name = exportName(w, "png");
+      download(blob, name);
+      ctx.toast("Saved " + name);
+      w.btnSvg.hidden = true;
+    } catch (err) {
+      console.error("diagram PNG export failed", err);
+      ctx.toast("Could not save PNG (" + (err && err.message ? err.message.replace(/\.$/, "") : String(err)) + "). Use Save SVG instead.", true);
+      w.btnSvg.hidden = !w.lastSvg;
+    } finally {
+      w.exporting = false;
+      w.btnPng.disabled = false;
+    }
+  }
+
+  function saveSvg(w) {
+    if (!w.lastSvg) return;
+    const name = exportName(w, "svg");
+    download(new Blob([w.lastSvg], { type: "image/svg+xml" }), name);
+    ctx.toast("Saved " + name);
+  }
+
+  // ------------------------------------------------------------------------------------
   // Window construction
   // ------------------------------------------------------------------------------------
 
@@ -480,6 +649,8 @@
       max: false,
       minimised: false,
       sourceView: false,
+      exporting: false,
+      lastSvg: "",
       fitted: true,
       scale: 1,
       tx: 0,
@@ -510,8 +681,10 @@
     w.btnFit = h("button", { type: "button", class: "dgw-tool", title: "Fit to window (0)", text: "Fit", on: { click: () => fit(w) } });
     w.btnSource = h("button", { type: "button", class: "dgw-tool", "aria-pressed": "false", title: "Show Mermaid source", text: "Source", on: { click: () => setSourceView(w, !w.sourceView) } });
     const btnCopy = h("button", { type: "button", class: "dgw-tool", title: "Copy Mermaid source", text: "Copy", on: { click: () => copySource(w) } });
+    w.btnPng = h("button", { type: "button", class: "dgw-tool", title: "Save as PNG (2x)", text: "Save PNG", on: { click: () => savePng(w) } });
+    w.btnSvg = h("button", { type: "button", class: "dgw-tool", title: "PNG export failed; save the SVG instead", text: "Save SVG", hidden: true, on: { click: () => saveSvg(w) } });
     w.tools = h("div", { class: "dgw-tools", role: "toolbar", "aria-label": "Diagram tools" },
-      w.btnOut, w.btnPct, w.btnIn, w.btnFit, h("span", { class: "dgw-sep" }), w.btnSource, btnCopy);
+      w.btnOut, w.btnPct, w.btnIn, w.btnFit, h("span", { class: "dgw-sep" }), w.btnSource, btnCopy, w.btnPng, w.btnSvg);
 
     w.stage = h("div", { class: "dgw-stage" });
     w.stage.style.width = w.iw + "px";
@@ -638,6 +811,8 @@
       w.stage.style.height = w.ih + "px";
       w.stage.replaceChildren(prepared.node);
       w.sourceEl.textContent = w.source;
+      w.lastSvg = "";
+      w.btnSvg.hidden = true;
       w.fitted = true;
       if (!w.minimised && !w.sourceView) fit(w);
       flag(w, "updated", "is-updated");
