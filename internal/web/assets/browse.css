@@ -241,6 +241,7 @@ svg {
   box-shadow: var(--shadow-sheet);
   padding: 14px 16px;
   min-width: 0;
+  overflow-x: auto;
 }
 .b-card > * + * {
   margin-top: 10px;
