@@ -227,6 +227,7 @@ const state = {
   es: null,
   sseTimer: null,
   pending: false,
+  drafts: new Map(), // route|form key → unsent text, kept across re-renders
   renderSeq: 0,
   stopped: false,
 };
@@ -310,6 +311,30 @@ function trackDirty(form) {
   return form;
 }
 
+// Drafts: text typed into a form survives every re-render (a write elsewhere on the page,
+// a live refresh, a cancel of another form). A control opts in through keep(); a draft is
+// dropped only when its own form submits successfully or is cancelled.
+function routePath() {
+  return location.hash.replace(/\?.*/, "");
+}
+
+function keep(key, control) {
+  const k = routePath() + "|" + key;
+  control.dataset.dkey = k;
+  if (state.drafts.has(k)) control.value = state.drafts.get(k);
+  control.addEventListener("input", () => state.drafts.set(k, control.value));
+  return control;
+}
+
+function hasDraft(key) {
+  return !!state.drafts.get(routePath() + "|" + key);
+}
+
+function clearDrafts(form) {
+  for (const c of form.querySelectorAll("[data-dkey]")) state.drafts.delete(c.dataset.dkey);
+  delete form.dataset.dirty;
+}
+
 async function busy(form, fn) {
   if (form.dataset.busy === "1") return;
   form.dataset.busy = "1";
@@ -324,9 +349,10 @@ async function busy(form, fn) {
 }
 
 // write posts, toasts the outcome and re-renders the view.
-async function write(path, body, okText) {
+async function write(path, body, okText, form) {
   try {
     const res = await post(path, body);
+    if (form) clearDrafts(form);
     if (okText) showToast(okText);
     await render({ keepScroll: true, force: true });
     return res;
@@ -450,6 +476,7 @@ function hasDirtyForm() {
   const v = document.getElementById("view");
   if (!document.getElementById("dialog").hidden) return true;
   if (v.querySelector("form[data-dirty]")) return true;
+  for (const c of v.querySelectorAll("[data-dkey]")) if (state.drafts.get(c.dataset.dkey)) return true;
   const a = document.activeElement;
   return !!(a && v.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest("form"));
 }
@@ -478,9 +505,22 @@ async function render(opts = {}) {
     );
   }
   if (seq !== state.renderSeq) return;
+  const a = document.activeElement;
+  const focus = a && view.contains(a) && a.dataset && a.dataset.dkey ? { key: a.dataset.dkey, start: a.selectionStart, end: a.selectionEnd } : null;
   view.replaceChildren(node);
+  if (focus) {
+    const c = Array.from(view.querySelectorAll("[data-dkey]")).find((x) => x.dataset.dkey === focus.key);
+    if (c) {
+      c.focus({ preventScroll: true });
+      try {
+        c.setSelectionRange(focus.start, focus.end);
+      } catch {
+        /* not a text control */
+      }
+    }
+  }
   window.scrollTo(0, scroll);
-  if (!opts.keepScroll) view.focus({ preventScroll: true });
+  if (!opts.keepScroll && !focus) view.focus({ preventScroll: true });
 }
 
 window.addEventListener("hashchange", () => render({ force: true }));
@@ -869,6 +909,8 @@ async function viewTask(route) {
   const titleNode = h("h1", { class: "b-task-title" }, t.title);
   const titleBox = h("div", { class: "b-title-box" }, titleNode, h("button", { type: "button", class: "b-btn b-btn-sm", on: { click: () => editTitle(titleBox, base + "/title", t.title, "task") } }, "Edit"));
 
+  if (hasDraft("title:" + base + "/title")) editTitle(titleBox, base + "/title", t.title, "task", true);
+
   const main = h(
     "div",
     { class: "b-task-main" },
@@ -906,8 +948,8 @@ async function viewTask(route) {
 
 // editTitle swaps a title for an inline editor. It sends the title the page last
 // saw; a 409 means someone changed it meanwhile, and both versions are shown.
-function editTitle(box, path, seen, noun) {
-  const input = h("input", { name: "title", value: seen, class: "b-title-input", "aria-label": noun + " title" });
+function editTitle(box, path, seen, noun, restoring) {
+  const input = keep("title:" + path, h("input", { name: "title", value: seen, class: "b-title-input", "aria-label": noun + " title" }));
   const conflict = h("div", { class: "b-conflict", hidden: true });
   const form = trackDirty(
     h(
@@ -915,7 +957,20 @@ function editTitle(box, path, seen, noun) {
       { class: "b-inline-form" },
       input,
       h("button", { type: "submit", class: "b-btn b-btn-primary b-btn-sm" }, "Save"),
-      h("button", { type: "button", class: "b-btn b-btn-sm", on: { click: () => render({ keepScroll: true, force: true }) } }, "Cancel"),
+      h(
+        "button",
+        {
+          type: "button",
+          class: "b-btn b-btn-sm",
+          on: {
+            click: () => {
+              clearDrafts(form);
+              render({ keepScroll: true, force: true });
+            },
+          },
+        },
+        "Cancel"
+      ),
       conflict
     )
   );
@@ -926,7 +981,7 @@ function editTitle(box, path, seen, noun) {
       const title = input.value.trim();
       if (!title) return showToast("A title cannot be empty.", true);
       try {
-        await write(path, { title, expected }, "Title saved");
+        await write(path, { title, expected }, "Title saved", form);
       } catch (err) {
         if (err.status !== 409 || !err.payload) return;
         const p = err.payload;
@@ -952,7 +1007,20 @@ function editTitle(box, path, seen, noun) {
               },
               "Apply mine over it"
             ),
-            h("button", { type: "button", class: "b-btn b-btn-sm", on: { click: () => render({ keepScroll: true, force: true }) } }, "Keep the stored title")
+            h(
+              "button",
+              {
+                type: "button",
+                class: "b-btn b-btn-sm",
+                on: {
+                  click: () => {
+                    clearDrafts(form);
+                    render({ keepScroll: true, force: true });
+                  },
+                },
+              },
+              "Keep the stored title"
+            )
           ),
         ]);
         conflict.hidden = false;
@@ -960,12 +1028,14 @@ function editTitle(box, path, seen, noun) {
     });
   });
   box.replaceChildren(form);
-  input.focus();
-  input.select();
+  if (!restoring) {
+    input.focus();
+    input.select();
+  }
 }
 
 function statusControls(t, base) {
-  const note = h("input", { name: "note", placeholder: "Note (optional)", autocomplete: "off" });
+  const note = keep("status:" + base, h("input", { name: "note", placeholder: "Note (optional)", autocomplete: "off" }));
   const form = trackDirty(h("form", { class: "b-status-form", on: { submit: (e) => e.preventDefault() } }));
   const verbs = { todo: "Reopen", "in-progress": "Start", done: "Done", cancelled: "Cancel" };
   const buttons = STATUSES.filter((s) => s !== t.status).map((s) =>
@@ -974,7 +1044,7 @@ function statusControls(t, base) {
       {
         type: "button",
         class: "b-btn b-btn-sm" + (s === "done" ? " b-btn-primary" : ""),
-        on: { click: () => busy(form, () => write(base + "/status", { status: s, note: note.value.trim() }, `#${t.id} ${STATUS_LABEL[s]}`).catch(() => {})) },
+        on: { click: () => busy(form, () => write(base + "/status", { status: s, note: note.value.trim() }, `#${t.id} ${STATUS_LABEL[s]}`, form).catch(() => {})) },
       },
       verbs[s]
     )
@@ -1035,13 +1105,13 @@ function tagEditor(t, base) {
       h("button", { type: "button", class: "b-tag-x", "aria-label": "Remove tag " + tag, title: "Remove tag", on: { click: () => write(base + "/tags", { remove: [tag] }, "Tag removed").catch(() => {}) } }, "×")
     )
   );
-  const input = h("input", { name: "tags", placeholder: "add tags, comma separated", autocomplete: "off" });
+  const input = keep("tags:" + base, h("input", { name: "tags", placeholder: "add tags, comma separated", autocomplete: "off" }));
   const form = trackDirty(h("form", { class: "b-inline-form" }, input, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add")));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const add = splitList(input.value, ",");
     if (!add.length) return;
-    busy(form, () => write(base + "/tags", { add }, "Tags added").catch(() => {}));
+    busy(form, () => write(base + "/tags", { add }, "Tags added", form).catch(() => {}));
   });
   return h("div", null, chips.length ? h("div", { class: "b-chips" }, chips) : empty("No tags."), form);
 }
@@ -1062,13 +1132,13 @@ function depsBox(deps, base) {
     )
   );
   const blocks = (deps.dependents || []).map((d) => h("li", null, taskLink(d.task_id, d.title), " ", statusBadge(d.status)));
-  const input = h("input", { name: "on", placeholder: "task id", inputmode: "numeric", size: 8, autocomplete: "off" });
+  const input = keep("dep:" + base, h("input", { name: "on", placeholder: "task id", inputmode: "numeric", size: 8, autocomplete: "off" }));
   const form = trackDirty(h("form", { class: "b-inline-form" }, h("span", { class: "b-small" }, "Waits on #"), input, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add")));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const on = input.value.trim().replace(/^#/, "");
     if (!/^\d+$/.test(on)) return showToast("Enter a task id.", true);
-    busy(form, () => write(base + "/block", { on }, "Dependency added").catch(() => {}));
+    busy(form, () => write(base + "/block", { on }, "Dependency added", form).catch(() => {}));
   });
   return h(
     "div",
@@ -1131,6 +1201,7 @@ function stepList(steps) {
       statusSel.setAttribute("aria-label", "Status of step " + s.ref);
       statusSel.addEventListener("change", () => write("steps/" + enc(s.ref) + "/status", { status: statusSel.value }, s.ref + " " + STATUS_LABEL[statusSel.value]).catch(() => render({ keepScroll: true, force: true })));
       const titleBox = h("span", { class: "b-step-body" }, box);
+      if (hasDraft("title:steps/" + enc(s.ref) + "/title")) editTitle(titleBox, "steps/" + enc(s.ref) + "/title", s.title, "step", true);
       return h(
         "li",
         { class: "b-step", data: { status: s.status } },
@@ -1145,7 +1216,7 @@ function stepList(steps) {
 }
 
 function addStepsForm(path) {
-  const ta = h("textarea", { name: "steps", rows: 2, placeholder: "New steps, one per line" });
+  const ta = keep("steps:" + path, h("textarea", { name: "steps", rows: 2, placeholder: "New steps, one per line" }));
   let idem = newIdem();
   const form = trackDirty(h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add steps"))));
   form.addEventListener("submit", (e) => {
@@ -1154,7 +1225,7 @@ function addStepsForm(path) {
     if (!steps.length) return;
     busy(form, async () => {
       try {
-        await write(path, { steps, idem }, steps.length === 1 ? "Step added" : steps.length + " steps added");
+        await write(path, { steps, idem }, steps.length === 1 ? "Step added" : steps.length + " steps added", form);
         idem = newIdem();
       } catch {
         /* toasted; the same key makes a retry safe */
@@ -1165,7 +1236,7 @@ function addStepsForm(path) {
 }
 
 function logForm(path) {
-  const ta = h("textarea", { name: "body", rows: 2, placeholder: "What happened" });
+  const ta = keep("log:" + path, h("textarea", { name: "body", rows: 2, placeholder: "What happened" }));
   let idem = newIdem();
   const form = trackDirty(h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add to worklog"))));
   form.addEventListener("submit", (e) => {
@@ -1174,7 +1245,7 @@ function logForm(path) {
     if (!body) return;
     busy(form, async () => {
       try {
-        await write(path, { body, idem }, "Logged");
+        await write(path, { body, idem }, "Logged", form);
         idem = newIdem();
       } catch {
         /* toasted */
@@ -1189,7 +1260,7 @@ function logForm(path) {
 function addNoteForm(path) {
   const kind = selectEl("kind", NOTE_KINDS, "note");
   kind.setAttribute("aria-label", "Note kind");
-  const ta = h("textarea", { name: "body", rows: 3, placeholder: "Add a note: a handoff, a blocker, a question, a decision…" });
+  const ta = keep("note:" + path, h("textarea", { name: "body", rows: 3, placeholder: "Add a note: a handoff, a blocker, a question, a decision…" }));
   let idem = newIdem();
   const form = trackDirty(h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, kind, h("button", { type: "submit", class: "b-btn b-btn-sm b-btn-primary" }, "Add note"))));
   form.addEventListener("submit", (e) => {
@@ -1198,7 +1269,7 @@ function addNoteForm(path) {
     if (!body) return;
     busy(form, async () => {
       try {
-        await write(path, { kind: kind.value, body, idem }, "Note added");
+        await write(path, { kind: kind.value, body, idem }, "Note added", form);
         idem = newIdem();
       } catch {
         /* toasted */
@@ -1223,7 +1294,11 @@ function noteThreads(notes, opts) {
   return h(
     "div",
     { class: "b-threads" },
-    roots.map((n) => h("div", { class: "b-thread" }, noteItem(n, opts, true), h("div", { class: "b-replies" }, (replies.get(n.id) || []).map((r) => noteItem(r, opts, false)))))
+    roots.map((n) => {
+      const thread = h("div", { class: "b-thread" }, noteItem(n, opts, true), h("div", { class: "b-replies" }, (replies.get(n.id) || []).map((r) => noteItem(r, opts, false))));
+      if (!opts.readOnly && hasDraft("reply:" + n.id)) replyForm(thread, n, true);
+      return thread;
+    })
   );
 }
 
@@ -1276,9 +1351,9 @@ function noteItem(n, opts, isRoot) {
   );
 }
 
-function replyForm(thread, n) {
+function replyForm(thread, n, restoring) {
   if (!thread || thread.querySelector(".b-reply-form")) return;
-  const ta = h("textarea", { name: "body", rows: 2, placeholder: "Reply to note " + n.id });
+  const ta = keep("reply:" + n.id, h("textarea", { name: "body", rows: 2, placeholder: "Reply to note " + n.id }));
   const idem = newIdem();
   const form = trackDirty(
     h(
@@ -1289,7 +1364,20 @@ function replyForm(thread, n) {
         "div",
         { class: "b-row" },
         h("button", { type: "submit", class: "b-btn b-btn-sm b-btn-primary" }, "Reply"),
-        h("button", { type: "button", class: "b-btn b-btn-sm", on: { click: () => render({ keepScroll: true, force: true }) } }, "Cancel")
+        h(
+          "button",
+          {
+            type: "button",
+            class: "b-btn b-btn-sm",
+            on: {
+              click: () => {
+                clearDrafts(form);
+                render({ keepScroll: true, force: true });
+              },
+            },
+          },
+          "Cancel"
+        )
       )
     )
   );
@@ -1297,10 +1385,10 @@ function replyForm(thread, n) {
     e.preventDefault();
     const body = ta.value.trim();
     if (!body) return;
-    busy(form, () => write("notes/" + n.id + "/reply", { body, idem }, "Reply added").catch(() => {}));
+    busy(form, () => write("notes/" + n.id + "/reply", { body, idem }, "Reply added", form).catch(() => {}));
   });
   thread.appendChild(form);
-  ta.focus();
+  if (!restoring) ta.focus();
 }
 
 // noteList is a flat list of open notes across targets, each with where it lives.
