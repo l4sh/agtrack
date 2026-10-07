@@ -162,6 +162,10 @@ func TestSecurityGates(t *testing.T) {
 		{"asset", "GET", base + "/assets/app.js", "", "", "", "", 200},
 		{"dev fixtures are not served", "GET", base + "/assets/dev/fixture.json", "", "", "", "", 404},
 		{"traversal", "GET", base + "/assets/../server.go", "", "", "", "", 404},
+		// spec serve has no browse app: / and /api/browse/ do not exist.
+		{"no browse page in spec mode", "GET", base + "/?t=tok", "", "", "", "", 404},
+		{"no browse api in spec mode", "GET", base + "/api/browse/contexts", "", "tok", "", "", 404},
+		{"events for another spec", "GET", base + "/api/events?spec=other&t=tok", "", "", "", "", 404},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

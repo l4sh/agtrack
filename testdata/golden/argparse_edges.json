@@ -274,7 +274,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:14:00Z",
-   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME]\n               [-f {table,plain,tsv,json,jsonl,yaml}] [--fields A,B] [-x]\n               [--no-header] [--color] [--no-color] [-q] [--actor NAME]\n               [--max-bytes N] [--idem KEY] [-V]\n               \u003ccommand\u003e ...\nagtrack: error: argument \u003ccommand\u003e: invalid choice: 'bogus-noun' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'note', 'notes', 'spec', 'specs', 'skill', 'skills', 'next', 'resume', 'summary', 'here', 'watch', 'dump', 'info', 'grammar', 'describe', 'config')\n",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME]\n               [-f {table,plain,tsv,json,jsonl,yaml}] [--fields A,B] [-x]\n               [--no-header] [--color] [--no-color] [-q] [--actor NAME]\n               [--max-bytes N] [--idem KEY] [-V]\n               \u003ccommand\u003e ...\nagtrack: error: argument \u003ccommand\u003e: invalid choice: 'bogus-noun' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'note', 'notes', 'spec', 'specs', 'skill', 'skills', 'next', 'resume', 'summary', 'here', 'watch', 'serve', 'dump', 'info', 'grammar', 'describe', 'config')\n",
    "stdin": "",
    "stdout": "",
    "tags": [

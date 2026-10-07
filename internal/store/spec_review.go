@@ -382,6 +382,17 @@ func (s *Store) SpecTasks(specID int64) (out *row.Row, err error) {
 // without being told to look (design §5.6).
 func (s *Store) SpecChecksForTask(taskID int64, complete bool) (out []*row.Row, err error) {
 	defer guard(&err)
+	return s.specChecks(taskID, complete, false), nil
+}
+
+// SpecLinksForTask is SpecChecksForTask plus, on each row, the spec's ref
+// (`project/slug`) and the section slug, so a page can link to the section.
+func (s *Store) SpecLinksForTask(taskID int64) (out []*row.Row, err error) {
+	defer guard(&err)
+	return s.specChecks(taskID, false, true), nil
+}
+
+func (s *Store) specChecks(taskID int64, complete, withRef bool) (out []*row.Row) {
 	out = []*row.Row{}
 	for _, l := range s.q(`SELECT l.*, a.key, a.state, a.spec_id FROM spec_task_links l JOIN spec_anchors a ON a.id = l.anchor_id
  WHERE l.task_id = ? ORDER BY a.spec_id, l.id`, taskID) {
@@ -417,12 +428,18 @@ func (s *Store) SpecChecksForTask(taskID int64, complete bool) (out []*row.Row, 
 			state = strings.Join(parts, "; ")
 		}
 		r := row.Of("section", label, "kind", l.Str("kind"), "state", state, "open_notes", int64(len(open)))
+		if withRef {
+			r.Set("spec", s.specRef(sp))
+			if sec != nil {
+				r.Set("slug", sec.Str("path_slug"))
+			}
+		}
 		if complete && sec != nil {
 			r.Set("body", sec.Str("body"))
 		}
 		out = append(out, r)
 	}
-	return out, nil
+	return out
 }
 
 func strOrDash(v string) string {

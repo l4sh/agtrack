@@ -1640,15 +1640,10 @@ func specServe(c *Ctx) error {
 // never to the agent that started the server, whose `--actor-not self`
 // would otherwise hide every human comment and approval.
 func (c *Ctx) serveOptions(sp *row.Row, idle time.Duration) (web.Options, error) {
-	as := strings.TrimSpace(c.Str("as"))
-	if as == "" {
-		as = "human"
+	ws, as, err := c.browserStore()
+	if err != nil {
+		return web.Options{}, err
 	}
-	if as == c.Actor {
-		return web.Options{}, errs.New("--as %s is also the serving actor: browser comments would be attributed to it (and hidden by its --actor-not self); pick another name", as)
-	}
-	ws := store.New(c.S.DB, as)
-	ws.CwdRepo = c.S.CwdRepo
 	return web.Options{Store: ws, SpecID: sp.Int("id"), SpecRef: c.Str("spec"),
 		Addr: fmt.Sprintf("127.0.0.1:%d", c.Int("port")), Idle: idle, Out: c.Out, Open: c.Bool("open"), RepoRoot: cwdRoot(), Viewer: as}, nil
 }

@@ -742,3 +742,77 @@ func (s *Store) GetPR(id int64) (r *row.Row, err error) {
 	}
 	return pick(r, prCols...), nil
 }
+
+// NoteWhere says where a note lives, for listings that span targets (the
+// browse app's notes view): its context, context-qualified project, task,
+// and spec section, as far as each applies.
+func (s *Store) NoteWhere(n *row.Row) (r *row.Row, err error) {
+	defer guard(&err)
+	r = row.New()
+	id := n.Int("target_id")
+	var projectID, taskID int64
+	switch n.Str("target_type") {
+	case "context":
+		if c := s.one("SELECT name FROM contexts WHERE id = ?", id); c != nil {
+			r.Set("context", c.Str("name"))
+		}
+	case "project":
+		projectID = id
+	case "task":
+		taskID = id
+	case "subtask":
+		if st := s.one("SELECT task_id, position FROM subtasks WHERE id = ?", id); st != nil {
+			taskID = st.Int("task_id")
+			r.Set("step", fmt.Sprintf("%d.%d", taskID, st.Int("position")))
+		}
+	case "spec", "spec_anchor":
+		specID := id
+		if n.Str("target_type") == "spec_anchor" {
+			a := s.one("SELECT spec_id, key FROM spec_anchors WHERE id = ?", id)
+			if a == nil {
+				break
+			}
+			specID = a.Int("spec_id")
+			r.Set("anchor", a.Str("key"))
+		}
+		if sp := s.one("SELECT * FROM specs WHERE id = ?", specID); sp != nil {
+			projectID = sp.Int("project_id")
+			r.Set("spec_slug", sp.Str("slug"))
+		}
+	}
+	if taskID != 0 {
+		if t := s.one("SELECT id, title, project_id FROM tasks WHERE id = ?", taskID); t != nil {
+			r.Set("task_id", t.Int("id"))
+			r.Set("task_title", t.Str("title"))
+			projectID = t.Int("project_id")
+		}
+	}
+	if projectID != 0 {
+		if p := s.getProject(projectID); p != nil {
+			path := s.projectPath(p)
+			ctx, _, _ := strings.Cut(path, "/")
+			r.Set("context", ctx)
+			r.Set("project", path)
+			if slug := r.Str("spec_slug"); slug != "" {
+				r.Set("spec", path+"/"+slug)
+			}
+		}
+	}
+	return r, nil
+}
+
+// ProjectPinnedBy names the actors whose project pin points at a project
+// ("" is the global pin, shown as "(global)").
+func (s *Store) ProjectPinnedBy(projectID int64) (out []string, err error) {
+	defer guard(&err)
+	out = []string{}
+	for _, m := range s.q("SELECT key FROM meta WHERE (key = 'current_project' OR key LIKE 'current_project:%') AND value = ? ORDER BY key",
+		fmt.Sprint(projectID)) {
+		if actor, ok := strings.CutPrefix(m.Str("key"), "current_project:"); ok {
+			out = append(out, actor)
+		} else {
+			out = append(out, "(global)")
+		}
+	}
+	return out, nil
+}
