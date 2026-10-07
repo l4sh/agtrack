@@ -408,6 +408,12 @@ function renderHeader(doc) {
   const title = spec.title || spec.slug;
   el.specTitle.textContent = title;
   el.specTitle.title = title;
+  // Under `agtrack serve` the model names the spec's project: link back to the browse app.
+  const back = $("back-link");
+  if (back) {
+    back.hidden = !doc.serve;
+    if (doc.serve) back.href = "/#/p/" + doc.serve.project.split("/").map(encodeURIComponent).join("/");
+  }
   document.title = title + " — agtrack review";
   el.specRef.textContent = spec.ref;
   el.specRev.textContent = `rev ${spec.revision} • ${spec.release_mode}`;
@@ -2074,6 +2080,8 @@ async function main() {
   }
   await refreshAll();
   el.app.removeAttribute("aria-busy");
+  // The browse app links to a section as /s/{spec}#{section slug}.
+  if (location.hash.length > 1) jumpToSection(decodeURIComponent(location.hash.slice(1)));
   connectEvents();
   // The Diffs tab count is useful at a glance; fetch it once the page is up.
   if (!state.diff) loadDiff(true);
