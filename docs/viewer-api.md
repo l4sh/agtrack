@@ -90,6 +90,10 @@ connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-
   `<pre class="mermaid-src" data-mermaid="1"><code>…escaped source…</code></pre>`. The page
   renders them client-side with the bundled Mermaid at `securityLevel: 'strict'`, passing the
   element's `textContent` (never `innerHTML`).
+  Clicking a rendered diagram opens it in a floating window (`assets/diagram.js`), which shows
+  a clone of Mermaid's SVG and the source via `textContent`. Save PNG re-renders the source
+  off-screen with `htmlLabels: false` and draws it on a canvas from a `data:` image; it needs
+  no CSP change (`img-src data:`, `connect-src 'self'` for the bundled fonts).
 - Sections of an orphaned pin are not in `sections`; their notes carry `"section": null` and
   `"anchor": "<key>"`, and the page lists them under "Orphaned".
 - `notes` holds every note on the spec's anchors (open and resolved); replies have `parent_id`.
