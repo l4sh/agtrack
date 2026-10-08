@@ -47,16 +47,18 @@ func TestDevServer(t *testing.T) {
 //	AGTRACK_CHROME=<chromium or chrome-headless-shell executable, optional> \
 //	go test -tags devui -run TestDiagramWindowBrowser -v ./internal/web
 func TestDiagramWindowBrowser(t *testing.T) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("node not found")
-	}
 	pwDir := os.Getenv("AGTRACK_PW_DIR")
 	if pwDir == "" {
 		t.Skip("AGTRACK_PW_DIR not set (directory whose node_modules holds playwright)")
 	}
+	// AGTRACK_PW_DIR asks for the run (CI sets it): a broken setup fails
+	// rather than skipping, so the browser checks cannot go quietly missing.
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Fatal("AGTRACK_PW_DIR is set but node was not found")
+	}
 	if _, err := os.Stat(filepath.Join(pwDir, "node_modules", "playwright")); err != nil {
-		t.Skipf("playwright not installed in %s", pwDir)
+		t.Fatalf("AGTRACK_PW_DIR is set but playwright is not installed in %s", pwDir)
 	}
 	url := startDevServer(t)
 	cmd := exec.Command(node, filepath.Join("testdata", "diagram-window.js"), url)
