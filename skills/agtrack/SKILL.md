@@ -93,6 +93,17 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
 - **Break the work into steps before writing code.** `sub add 12 "a" "b" "c"` adds many.
 - Starting or finishing a step pulls a `todo` task into `in-progress`. Finishing every
   step does **not** close the task - that is your explicit call.
+- **Closing:** `sub done 12.3 --close-parent` closes the task too if that was its last open
+  step; without it you get `all steps closed; task 12 still in-progress` and a `→ agtrack
+  task done 12` hint (`"hint"` under `-f json`). `sub next 12 [--close-parent]` closes the
+  in-progress step and starts the next in one call. `task done`/`sub done` take
+  `--evidence commit:SHA|branch:|pr:|test:CMD=EXIT|file:|url:|note:` (repeatable; shown by
+  `task show`). Any mutation may carry a `hint`: one command, run it if it fits.
+- **Hygiene:** `next` marks stale tasks `!` (all steps done, idle >7d - `config set
+  next.stale_days N` - or claim expired) and lists them last; `next --stale` shows only
+  those, `task done-check [--apply --yes]` lists/closes the finished ones. Park a task with
+  `task snooze 97 --until 3d|2026-10-20 --note why` (hidden from `next`; `next --parked`
+  lists them; `task unsnooze 97`).
 - **Status verbs are idempotent**: repeating `task done 12 --note x` writes nothing, not
   even a second note. **Multi-ref verbs are atomic**: `task done 4 999` writes nothing if
   999 is bad.

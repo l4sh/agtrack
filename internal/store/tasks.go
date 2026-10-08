@@ -20,6 +20,10 @@ func taskRow(r *row.Row) *row.Row {
 		out.Set("claimed_at", r.Get("claimed_at"))
 		out.Set("claim_expires_at", r.Get("claim_expires_at"))
 	}
+	if r.Has("snoozed_until") && !r.IsNull("snoozed_until") {
+		out.Set("snoozed_until", r.Get("snoozed_until"))
+		out.Set("snooze_note", r.Get("snooze_note"))
+	}
 	return out
 }
 
@@ -257,6 +261,9 @@ type TaskFilter struct {
 	Ready       bool // no unmet `blocks` prerequisite
 	Blocked     bool // only tasks with an unmet prerequisite
 	ClaimedBy   string
+	// ExcludeSnoozed hides parked tasks (snoozed_until in the future);
+	// OnlySnoozed shows only them (A5).
+	ExcludeSnoozed, OnlySnoozed bool
 }
 
 // ListTasks lists tasks as flat listing rows. total is the number of matches
@@ -340,6 +347,14 @@ func (s *Store) listTasks(f TaskFilter) ([]*row.Row, int) {
 	if f.ClaimedBy != "" {
 		where = append(where, "t.claimed_by = ? AND (t.claim_expires_at IS NULL OR t.claim_expires_at > ?)")
 		args = append(args, f.ClaimedBy, now)
+	}
+	if f.ExcludeSnoozed {
+		where = append(where, "(t.snoozed_until IS NULL OR t.snoozed_until <= ?)")
+		args = append(args, now)
+	}
+	if f.OnlySnoozed {
+		where = append(where, "t.snoozed_until > ?")
+		args = append(args, now)
 	}
 	const unmet = "EXISTS (SELECT 1 FROM task_deps d JOIN tasks b ON b.id = d.depends_on_id WHERE d.task_id = t.id AND d.kind = 'blocks' AND b.status <> 'done')"
 	if f.Ready {

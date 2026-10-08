@@ -157,7 +157,7 @@
    "now": "2026-09-01T12:07:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "task: #3 [x] bf3\nstatus: done\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nclosed: 2026-08-05 00:00\n",
+   "stdout": "task: #3 [x] bf3\nstatus: done\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nclosed: 2026-08-05 00:00\nevidence:\n  none\n",
    "tags": [
     "parity"
    ]

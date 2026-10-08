@@ -97,6 +97,13 @@ func statusVerbs(group string, set func(*Ctx, string) error, cascade bool) []*ar
 		if cascade {
 			flags = append(flags, argp.Flag{Long: "--no-cascade", Kind: argp.Bool, Help: "do not pull the parent task into in-progress"})
 		}
+		if v.verb == "done" {
+			flags = append(flags, argp.Flag{Long: "--evidence", Kind: argp.Append, Metavar: "KIND:VALUE",
+				Help: "proof of completion: commit|branch|pr|test|file|url|note:VALUE; repeatable"})
+			if cascade {
+				flags = append(flags, argp.Flag{Long: "--close-parent", Kind: argp.Bool, Help: "also close the task if this was its last open step"})
+			}
+		}
 		refHelp := "task id"
 		if group == "sub" {
 			refHelp = "subtask id or task.position"
@@ -208,6 +215,14 @@ func Tree() *argp.Command {
 			Flags: []argp.Flag{{Long: "--title", Kind: argp.NArgsPlus}, {Long: "--move", Metavar: "REF", Help: "move to another project"}}},
 		&argp.Command{Name: "rm", Aliases: []string{"delete"}, Help: "delete tasks", Run: Handler(taskRm), Args: []argp.Arg{{Name: "ref", NArgs: "+"}},
 			Flags: []argp.Flag{{Long: "--force", Kind: argp.Bool, Help: "delete its steps, notes and PR links too"}}},
+		&argp.Command{Name: "snooze", Help: "park a task until a date or duration (hidden from next)", Run: Handler(taskSnooze), Args: []argp.Arg{{Name: "ref"}},
+			Flags: []argp.Flag{{Long: "--until", Metavar: "DATE|DURATION", Help: "2026-10-20, 3d, 12h, 2w"}, {Long: "--note"}}},
+		&argp.Command{Name: "unsnooze", Help: "clear a task's park", Run: Handler(taskUnsnooze), Args: []argp.Arg{{Name: "ref"}}},
+		&argp.Command{Name: "done-check", Help: "in-progress tasks that look finished or stale, with the command for each", Run: Handler(taskDoneCheck),
+			Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--all-contexts", Kind: argp.Bool},
+				{Long: "--stale-after", Metavar: "Nd", Help: "idle threshold in days (default config next.stale_days, 7)"},
+				{Long: "--apply", Kind: argp.Bool, Help: "close the all-steps-done candidates (needs a terminal confirmation, or --yes)"},
+				{Long: "--yes", Kind: argp.Bool, Help: "confirm --apply without a terminal"}}, listFlags()...)},
 		&argp.Command{Name: "claim", Help: "take an advisory, expiring claim on a task", Run: Handler(taskClaim), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "claim lifetime: 45m, 2h, 1d; 0 = no expiry (default 2h)"},
 				{Long: "--steal", Kind: argp.Bool, Help: "take over another actor's live claim"}}},
@@ -242,6 +257,10 @@ func Tree() *argp.Command {
 		{Name: "show", Help: "subtask detail", Run: Handler(subtaskShow), Args: []argp.Arg{{Name: "ref"}}},
 	}
 	subSubs = append(subSubs, statusVerbs("sub", subtaskStatus, true)...)
+	subSubs = append(subSubs, &argp.Command{Name: "next", Help: "close the in-progress step and start the next one", Run: Handler(subtaskNext),
+		Args: []argp.Arg{{Name: "task", Help: "task id"}},
+		Flags: []argp.Flag{{Long: "--close-parent", Kind: argp.Bool, Help: "close the task when no step is left"}, {Long: "--note", Help: "note on the closed step (and the task when it closes)"},
+			{Long: "--evidence", Kind: argp.Append, Metavar: "KIND:VALUE"}}})
 	subSubs = append(subSubs,
 		&argp.Command{Name: "set", Help: "retitle a step", Run: Handler(subtaskSet), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--title", Kind: argp.NArgsPlus}}},
@@ -313,7 +332,10 @@ func Tree() *argp.Command {
 					{Long: "--limit", Short: "-n", Kind: argp.PositiveInt}, {Long: "--all-contexts", Kind: argp.Bool},
 					{Long: "--claim", Kind: argp.Bool, Help: "claim the first unclaimed, unblocked task (implies --todo)"},
 					{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "claim lifetime with --claim"},
-					{Long: "--blocked", Kind: argp.Bool, Help: "include tasks waiting on an unmet blocker"}}},
+					{Long: "--blocked", Kind: argp.Bool, Help: "include tasks waiting on an unmet blocker"},
+					{Long: "--stale", Kind: argp.Bool, Help: "only stale tasks (all steps done, idle, claim expired)"},
+					{Long: "--stale-after", Metavar: "Nd", Help: "idle threshold in days; implies --stale (default config next.stale_days, 7)"},
+					{Long: "--parked", Kind: argp.Bool, Help: "list parked (snoozed) tasks instead"}}},
 			{Name: "resume", Help: "the working-state packet a cold agent reads first", Run: Handler(cmdResume),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
 					{Long: "--complete", Kind: argp.Bool, Help: "everything in scope, uncapped, including linked spec text"}}},

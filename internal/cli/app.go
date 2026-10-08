@@ -143,7 +143,11 @@ func Run(argv []string, st Streams) (code int) {
 			c.receipt = rc
 		}
 	}
-	return finish(st, format, h(c), c.DBPath, p, argv)
+	err = h(c)
+	if err == nil {
+		c.FlushHint()
+	}
+	return finish(st, format, err, c.DBPath, p, argv)
 }
 
 // needsNoDB are commands that explain syntax without opening a database

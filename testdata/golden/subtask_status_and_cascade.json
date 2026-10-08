@@ -165,7 +165,7 @@
    "now": "2026-09-01T12:08:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "1.2 [x] s2\n",
+   "stdout": "1.2 [x] s2\nall steps closed; task 1 still in-progress\n→ agtrack task done 1\n",
    "tags": [
     "parity"
    ]
@@ -260,7 +260,7 @@
    "now": "2026-09-01T12:13:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "2.1 [x] x1\n",
+   "stdout": "2.1 [x] x1\nall steps closed; task 2 still todo\n→ agtrack task done 2\n",
    "tags": [
     "parity"
    ]

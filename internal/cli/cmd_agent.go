@@ -60,6 +60,9 @@ func taskClaim(c *Ctx) error {
 	if res.Stolen != "" {
 		text += " (taken from " + res.Stolen + ")"
 	}
+	if exp := t.Str("claim_expires_at"); exp != "" && exp <= refs.ToUTCISO(refs.Now().Add(10*time.Minute)) {
+		c.Hint(fmt.Sprintf("agtrack task claim %d --ttl 1h", t.Int("id")))
+	}
 	obj, _ := c.S.TaskDict(t)
 	obj.Set("stolen_from", nilIfEmpty(res.Stolen))
 	obj.Set("renewed", res.Renewed)

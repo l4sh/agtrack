@@ -115,6 +115,12 @@ agtrack log add -t 12 "milestone or blocker, and why"
 agtrack task done 12                                    # releases the claim
 ```
 
+- **Closure and hygiene**: `sub done 12.3 --close-parent` closes the task with its last
+  step (otherwise a hint says so); `sub next 12` closes the current step and starts the
+  next; `--evidence commit:SHA` on `task done`/`sub done`; `next` flags stale tasks with `!`
+  (`next --stale`, `task done-check [--apply --yes]`, `config set next.stale_days N`);
+  `task snooze 97 --until 3d` / `task unsnooze` / `next --parked`. Mutations may return a
+  `hint` (JSON) or a final `→ command` line.
 - **Pins are per actor.** `project use` pins for the current `AGTRACK_ACTOR` only; `ctx use`
   drops a project pin that lies in another context; an unqualified write with no
   resolvable project fails instead of guessing. `-p .` resolves the project linked to the

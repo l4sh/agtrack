@@ -138,12 +138,38 @@ func cmdNext(c *Ctx) error {
 	}
 	f := store.TaskFilter{Context: c.Context, Project: project, Statuses: statuses,
 		AllContexts: c.Bool("all_contexts"), Order: "status", Limit: c.Int("limit"), Ready: !c.Bool("blocked")}
+	f.ExcludeSnoozed = !c.Bool("parked")
+	f.OnlySnoozed = c.Bool("parked")
 	if c.Bool("claim") {
 		return nextClaim(c, f)
 	}
+	limit := f.Limit
+	f.Limit = 0
 	tasks, _, err := c.S.ListTasks(f)
 	if err != nil {
 		return err
+	}
+	days, err := c.staleDays()
+	if err != nil {
+		return err
+	}
+	if tasks, err = c.staleRows(tasks, days); err != nil {
+		return err
+	}
+	var fresh, stale []*row.Row
+	for _, t := range tasks {
+		if t.Str("stale_reason") != "" {
+			stale = append(stale, t)
+		} else {
+			fresh = append(fresh, t)
+		}
+	}
+	if c.Bool("stale") || c.Has("stale_after") {
+		fresh = nil
+	}
+	tasks = append(fresh, stale...)
+	if limit > 0 && len(tasks) > limit {
+		tasks = tasks[:limit]
 	}
 	payload := []*row.Row{}
 	for _, t := range tasks {
@@ -175,6 +201,12 @@ func cmdNext(c *Ctx) error {
 	}
 	for _, item := range payload {
 		line := fmt.Sprintf("#%d %s %s  %s", item.Int("id"), item.Str("mark"), item.Str("project"), item.Str("title"))
+		if r := item.Str("stale_reason"); r != "" {
+			line = fmt.Sprintf("#%d %s ! %s  %s  (%s)", item.Int("id"), item.Str("mark"), item.Str("project"), item.Str("title"), r)
+		}
+		if p := parkedNote(item); p != "" {
+			line += "  (" + p + ")"
+		}
 		if item.Str("tags") != "" {
 			line += "  [" + item.Str("tags") + "]"
 		}
