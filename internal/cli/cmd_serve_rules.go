@@ -47,7 +47,7 @@ func (b *browser) rules(q map[string][]string) (any, error) {
 	}
 	out := row.Of("scope", scope, "ref", get("ref"), "viewer", b.as, "approver", s.IsApprover(b.as), "proposed_total", int64(n))
 	if scope == "proposed" {
-		rs, err := s.ProposedRules()
+		rs, err := s.ProposedRuleRows()
 		if err != nil {
 			return nil, err
 		}

@@ -2,9 +2,9 @@ package store
 
 import "github.com/l4sh/agtrack/internal/row"
 
-// ProposedRules lists every rule waiting for an approver, in any scope,
+// ProposedRuleRows lists every rule waiting for an approver, in any scope,
 // oldest first (the browse app's "proposed" list behind the top-bar badge).
-func (s *Store) ProposedRules() (out []*row.Row, err error) {
+func (s *Store) ProposedRuleRows() (out []*row.Row, err error) {
 	defer guard(&err)
 	cache := map[string]string{}
 	out = []*row.Row{}
