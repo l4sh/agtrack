@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -326,6 +327,157 @@ func TestServeWriteAPI(t *testing.T) {
 		if !strings.Contains(show, want) {
 			t.Errorf("task 3 lacks %q:\n%s", want, show)
 		}
+	}
+}
+
+// T6: the browse-mode gates: Host on the page and the API, no ?t= on the
+// API, and the session cookie from the first /?t= load working on its own.
+func TestServeBrowseGates(t *testing.T) {
+	e := newEnv(t)
+	seedBrowse(e)
+	base := browseServer(t, e)
+	withHost := func(method, url, host, token string) int {
+		req, _ := http.NewRequest(method, url, nil)
+		req.Host = host
+		if token != "" {
+			req.Header.Set("X-Agtrack-Token", token)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	if c := withHost("GET", base+"/?t=tok", "evil.example:80", ""); c != 403 {
+		t.Errorf("bad Host on /: %d", c)
+	}
+	if c := withHost("GET", base+"/api/browse/contexts", "evil.example:80", "tok"); c != 403 {
+		t.Errorf("bad Host on /api/browse/: %d", c)
+	}
+	if r := call(t, "GET", base+"/api/browse/contexts?t=tok", "", "", ""); r.code != 403 {
+		t.Errorf("?t= on /api/browse/: %d", r.code)
+	}
+
+	// The first load sets the cookie; afterwards it alone opens the page and the API.
+	resp, err := http.Get(base + "/?t=tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	var cookie *http.Cookie
+	for _, c := range resp.Cookies() {
+		if c.Name == "agtrack_session" {
+			cookie = c
+		}
+	}
+	if resp.StatusCode != 200 || cookie == nil || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("first load: %d cookie %+v", resp.StatusCode, cookie)
+	}
+	withCookie := func(method, url, ctype, body string) int {
+		req, _ := http.NewRequest(method, url, strings.NewReader(body))
+		req.AddCookie(cookie)
+		if ctype != "" {
+			req.Header.Set("Content-Type", ctype)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	if c := withCookie("GET", base+"/", "", ""); c != 200 {
+		t.Errorf("page with the cookie alone: %d", c)
+	}
+	if c := withCookie("GET", base+"/api/browse/contexts", "", ""); c != 200 {
+		t.Errorf("API read with the cookie alone: %d", c)
+	}
+	if c := withCookie("POST", base+"/api/browse/tasks/1/notes", "application/json", `{"body":"by cookie"}`); c != 200 {
+		t.Errorf("API write with the cookie alone: %d", c)
+	}
+	if c := withCookie("POST", base+"/api/browse/tasks/1/notes", "text/plain", `{"body":"x"}`); c != 415 {
+		t.Errorf("cookie write without JSON: %d", c)
+	}
+}
+
+// T1: browser text that looks like a flag is data. It is stored verbatim on
+// the target the URL names (tags as their slug, as the CLI stores any tag),
+// and never redirects the write or changes how it runs.
+func TestServeFlagLikeInput(t *testing.T) {
+	e := newEnv(t)
+	seedBrowse(e)
+	e.ok("project", "add", "decoy")
+	base := browseServer(t, e) + "/api/browse/"
+	const flagA, flagB = "--project=acme/decoy", "-n"
+	enc := func(s string) string { b, _ := json.Marshal(s); return string(b) }
+
+	add := post(t, base+"projects/acme%2Forbiter/tasks", `{"title":`+enc(flagA)+`,"tags":[`+enc(flagB)+`,`+enc(flagA)+`],"note":`+enc(flagB)+`,"steps":[`+enc(flagA)+`,`+enc(flagB)+`]}`)
+	if add.code != 200 {
+		t.Fatalf("add: %d %s", add.code, add.body)
+	}
+	id := fmt.Sprint(int(add.json(t)["id"].(float64)))
+	for _, w := range []struct{ path, body string }{
+		{"tasks/" + id + "/steps", `{"steps":[` + enc("--status=done") + `]}`},
+		{"tasks/" + id + "/notes", `{"kind":"question","body":` + enc(flagA) + `}`},
+		{"tasks/" + id + "/log", `{"body":` + enc(flagB) + `}`},
+		{"projects/acme%2Forbiter/log", `{"body":` + enc("--task=1") + `}`},
+		{"projects/acme%2Forbiter/notes", `{"body":` + enc("--context=home") + `}`},
+		{"steps/" + id + ".1/notes", `{"body":` + enc("--kind=blocker") + `}`},
+		{"tasks/" + id + "/tags", `{"add":[` + enc("--force") + `]}`},
+	} {
+		if r := post(t, base+w.path, w.body); r.code != 200 {
+			t.Fatalf("%s: %d %s", w.path, r.code, r.body)
+		}
+	}
+	if r := post(t, base+"steps/"+id+".2/title", `{"title":`+enc("--title=x")+`,"expected":`+enc(flagB)+`}`); r.code != 200 {
+		t.Fatalf("step title: %d %s", r.code, r.body)
+	}
+
+	task := e.json("task", "show", id, "-x").(map[string]any)
+	if task["title"] != flagA || task["project"] != "orbiter" {
+		t.Errorf("task: title %q project %v", task["title"], task["project"])
+	}
+	var tags []string
+	for _, x := range task["tag_list"].([]any) {
+		tags = append(tags, x.(string))
+	}
+	if strings.Join(tags, ",") != "force,n,project-acme-decoy" {
+		t.Errorf("tags: %v", tags)
+	}
+	var steps []string
+	for _, x := range task["subtask_list"].([]any) {
+		st := x.(map[string]any)
+		steps = append(steps, st["title"].(string)+"|"+st["status"].(string))
+	}
+	if want := []string{flagA + "|todo", "--title=x|todo", "--status=done|todo"}; strings.Join(steps, ";") != strings.Join(want, ";") {
+		t.Errorf("steps: %q", steps)
+	}
+	var bodies []string
+	for _, x := range task["note_list"].([]any) {
+		n := x.(map[string]any)
+		kind, _ := n["kind"].(string) // a plain note has no kind
+		if kind == "" {
+			kind = "note"
+		}
+		bodies = append(bodies, kind+":"+n["body"].(string))
+	}
+	if strings.Join(bodies, ";") != "note:"+flagB+";question:"+flagA {
+		t.Errorf("task notes: %q", bodies)
+	}
+	sn := e.json("sub", "show", id+".1").(map[string]any)["note_list"].([]any)
+	if len(sn) != 1 || sn[0].(map[string]any)["body"] != "--kind=blocker" || sn[0].(map[string]any)["kind"] == "blocker" {
+		t.Errorf("step note: %v", sn)
+	}
+	logs := e.ok("log", "-p", "orbiter", "--action", "log", "-f", "json")
+	if !strings.Contains(logs, `"`+flagB+`"`) || !strings.Contains(logs, `"--task=1"`) {
+		t.Errorf("log entries:\n%s", logs)
+	}
+	if n := strings.TrimSpace(e.ok("task", "ls", "-p", "decoy", "--status", "all", "--count")); n != "0" {
+		t.Errorf("the decoy project got %s tasks", n)
+	}
+	if out := e.ok("project", "show", "orbiter", "-f", "json"); !strings.Contains(out, `"--context=home"`) {
+		t.Errorf("project note:\n%s", out)
 	}
 }
 
