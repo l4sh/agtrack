@@ -66,3 +66,22 @@ func TestInfoSession(t *testing.T) {
 		t.Errorf("info session %v from %v", m["session"], m["session_source"])
 	}
 }
+
+// resume's `stale` key carries the A2 staleness of the current task.
+func TestResumeStaleFromClosure(t *testing.T) {
+	e := newEnv(t)
+	e.actor = "bot"
+	e.ok("ctx", "add", "w")
+	e.ok("project", "add", "p")
+	e.ok("task", "add", "work", "-p", "p", "--step", "only")
+	e.ok("task", "claim", "1")
+	e.ok("sub", "done", "1.1")
+	st, ok := obj(e.json("resume", "-p", "p"))["stale"].(map[string]any)
+	if !ok || st["stale_reason"] != "all-steps-done" {
+		t.Errorf("resume stale = %v", obj(e.json("resume", "-p", "p"))["stale"])
+	}
+	e.ok("task", "done", "1")
+	if s := obj(e.json("resume", "-p", "p"))["stale"]; s != nil {
+		t.Errorf("closed task still stale: %v", s)
+	}
+}

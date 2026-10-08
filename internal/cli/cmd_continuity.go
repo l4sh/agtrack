@@ -179,11 +179,17 @@ func showCheckpoint(c *Ctx, cp *row.Row) error {
 
 // --- stale (A2 seam) -----------------------------------------------------------------
 
-// resumeStale is the `stale` key of resume: why the task looks stale, or
-// nil. The closure feature (A2, `next` staleness) supplies the reason; until
-// then a task is never reported stale.
+// resumeStale is the `stale` key of resume: the A2 staleness of the current
+// task (reason, age, last event, open steps) when it is stale, else nil.
 func resumeStale(c *Ctx, task *row.Row) (any, error) {
-	return nil, nil
+	if task == nil {
+		return nil, nil
+	}
+	st, err := c.S.TaskStaleness(task.Int("id"), 0)
+	if err != nil || st == nil || st.Str("stale_reason") == "" {
+		return nil, err
+	}
+	return st, nil
 }
 
 // --- git context (B5) ----------------------------------------------------------------
