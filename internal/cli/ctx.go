@@ -37,8 +37,8 @@ type Ctx struct {
 	// Session is the harness session writes are stamped with (B1);
 	// SessionSource names where it came from, for `info`.
 	Session, SessionSource string
-	MaxBytes int
-	Noun     string // for shared note/tag verbs: the noun in play
+	MaxBytes               int
+	Noun                   string // for shared note/tag verbs: the noun in play
 	idem
 }
 
@@ -211,7 +211,8 @@ var fieldsFor = map[string][2][]string{
 	"tag":      {{"name", "projects", "tasks", "subtasks", "notes"}, {"created_at"}},
 	"pr":       {{"id", "state", "repo", "number", "task_id", "task_title"}, {"url", "created"}},
 	"event":    {{"when", "actor", "target", "action", "detail"}, {"task", "target_type", "recorded"}},
-	"note":     {{"id", "created", "actor", "body"}, {"kind", "resolved_at"}},
+	"note":     {{"id", "created", "actor", "body"}, {"kind", "resolved_at", "acknowledged_at"}},
+	"claim":    {{"id", "holder", "session", "age", "last_seen", "last_event", "title"}, {"project", "claimed_at", "claim_expires_at", "quiet"}},
 	"spec":     {{"slug", "revision", "status", "source_path", "title"}, {"project", "sha", "updated_at"}},
 	"dep":      {{"task_id", "depends_on_id", "kind", "status", "title"}, {"reason", "created_at"}},
 	"artifact": {{"id", "kind", "value", "label"}, {"actor", "created_at"}},

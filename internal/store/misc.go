@@ -213,7 +213,7 @@ func (s *Store) noteRow(r *row.Row) *row.Row {
 	if k := r.Str("kind"); k != "" && k != "note" {
 		out.Set("kind", k)
 	}
-	for _, k := range []string{"parent_id", "resolved_at", "resolved_by", "resolution", "quote", "quote_ok"} {
+	for _, k := range []string{"parent_id", "resolved_at", "resolved_by", "resolution", "acknowledged_at", "acknowledged_by", "quote", "quote_ok"} {
 		if r.Has(k) && !r.IsNull(k) {
 			out.Set(k, r.Get(k))
 		}

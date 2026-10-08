@@ -53,8 +53,13 @@ func noteVerbs(noun, refHelp string, taggable bool) []*argp.Command {
 			Args: []argp.Arg{{Name: "ref", Help: refHelp}},
 			Flags: append([]argp.Flag{
 				{Long: "--open", Kind: argp.Bool, Help: "unresolved only"},
+				{Long: "--unacked", Kind: argp.Bool, Help: "handoffs, blockers and questions nobody has acknowledged"},
 				{Long: "--kind", Help: "only this kind"},
 			}, listFlags()...)},
+	}
+	if noun == "task" {
+		cmds[0].Flags = append(cmds[0].Flags, argp.Flag{Long: "--close", Metavar: "REF",
+			Help: "with --kind handoff: also finish this step (12.3) or the task itself, in one transaction"})
 	}
 	if taggable {
 		cmds = append(cmds,
@@ -206,6 +211,10 @@ func Tree() *argp.Command {
 		&argp.Command{Name: "claim", Help: "take an advisory, expiring claim on a task", Run: Handler(taskClaim), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "claim lifetime: 45m, 2h, 1d; 0 = no expiry (default 2h)"},
 				{Long: "--steal", Kind: argp.Bool, Help: "take over another actor's live claim"}}},
+		&argp.Command{Name: "transfer", Help: "hand a task to another actor: release, claim for them and a handoff note, atomically", Run: Handler(taskTransfer), Args: []argp.Arg{{Name: "ref"}},
+			Flags: []argp.Flag{{Long: "--to", Metavar: "ACTOR", Help: "receiving actor (required)"}, {Long: "--note", Help: "the handoff note (default: who handed over to whom)"},
+				{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "the new claim's lifetime"},
+				{Long: "--force", Kind: argp.Bool, Help: "transfer someone else's live claim"}}},
 		&argp.Command{Name: "release", Help: "drop your claim on a task", Run: Handler(taskRelease), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--force", Kind: argp.Bool, Help: "release someone else's claim"}}},
 		&argp.Command{Name: "block", Help: "record that a task waits on another", Run: Handler(taskBlock), Args: []argp.Arg{{Name: "ref"}},
@@ -277,11 +286,19 @@ func Tree() *argp.Command {
 			{Name: "rm", Aliases: []string{"delete"}, Help: "delete a note", Run: Handler(noteRm), Args: []argp.Arg{{Name: "id"}}},
 			{Name: "reply", Help: "reply to a note thread", Run: Handler(noteReply), Args: []argp.Arg{{Name: "id"}, {Name: "body", NArgs: "+"}}},
 			{Name: "show", Help: "a note with its thread", Run: Handler(noteShow), Args: []argp.Arg{{Name: "id"}}},
+			{Name: "ack", Help: "acknowledge handoffs, blockers or questions (not the same as resolving them)", Run: Handler(noteAck),
+				Args:  []argp.Arg{{Name: "id", NArgs: "+"}},
+				Flags: []argp.Flag{{Long: "--note", Help: "reply recorded with the acknowledgement"}}},
 		}}
 
 	notes := &argp.Command{Name: "notes", Help: "unresolved notes across a project (handoffs, blockers, questions, spec comments)", Run: Handler(notesOpen),
 		Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
-			{Long: "--kind", Metavar: "LIST", Help: "comma separated kinds"}, {Long: "--open", Kind: argp.Bool, Help: "unresolved only (the default; kept for symmetry)"}}, listFlags()...)}
+			{Long: "--kind", Metavar: "LIST", Help: "comma separated kinds"}, {Long: "--open", Kind: argp.Bool, Help: "unresolved only (the default; kept for symmetry)"},
+			{Long: "--unacked", Kind: argp.Bool, Help: "handoffs, blockers and questions nobody has acknowledged"}}, listFlags()...)}
+
+	claims := &argp.Command{Name: "claims", Help: "live claims: holder, session, age, last seen, last event", Run: Handler(claimsLs),
+		Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
+			{Long: "--stale", Metavar: "DURATION", Help: "only holders quiet for longer than this (15m, 2h)"}}, listFlags()...)}
 
 	config := &argp.Command{Name: "config", Help: "preferences stored in the database", SubRequired: true,
 		Subs: []*argp.Command{
@@ -290,7 +307,7 @@ func Tree() *argp.Command {
 		}}
 
 	root := &argp.Command{Name: "agtrack", Help: "Context / project / task / subtask tracker for agents and humans.", Epilog: Epilog, SubRequired: true,
-		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, specTree(), skillTree(),
+		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, claims, specTree(), skillTree(),
 			{Name: "next", Help: "what is in progress, with its open steps", Run: Handler(cmdNext),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--todo", Kind: argp.Bool, Help: "include todo tasks"},
 					{Long: "--limit", Short: "-n", Kind: argp.PositiveInt}, {Long: "--all-contexts", Kind: argp.Bool},
@@ -307,7 +324,8 @@ func Tree() *argp.Command {
 					{Long: "--action", Metavar: "LIST"}, {Long: "--actor-not", Metavar: "NAME", Help: "suppress events by this actor; `self` = your actor"},
 					{Long: "--after", Kind: argp.Int, Metavar: "CURSOR", Help: "start after this event id (default: now)"},
 					{Long: "--timeout", Metavar: "DURATION", Default: "1h"}, {Long: "--interval", Metavar: "DURATION", Default: "1s"},
-					{Long: "--until", Metavar: "ACTIONS", Help: "exit 0 after an event with one of these actions"},
+					{Long: "--until", Metavar: "ACTIONS", Help: "exit 0 after an event with one of these actions; `stale` exits 14 when a claim goes quiet"},
+					{Long: "--stale", Metavar: "DURATION", Default: "15m", Help: "with --until stale: how long a claim holder may stay quiet"},
 					{Long: "--all-contexts", Kind: argp.Bool}}},
 			{Name: "serve", Help: "browse and edit the store in a browser (127.0.0.1 only)", Run: Handler(cmdServe),
 				Flags: []argp.Flag{{Long: "--port", Kind: argp.Int, Default: 0, Help: "port (default: random)"},

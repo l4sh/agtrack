@@ -101,6 +101,16 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
 - **Notes have kinds**: `note`, `decision`, `handoff`, `blocker`, `question`.
   `agtrack notes -p .` lists every unresolved one; `note resolve 7 --note why`,
   `note reopen`, `note reply`, `note rm`.
+- **Pick up a handoff by acknowledging it**: after `resume`, `note ack 7 [--note "on it"]`
+  on each handoff, blocker or question you take on. It is idempotent and not a resolve
+  (the final close stays `note resolve`). `notes --unacked` lists the ones nobody has taken.
+- **Hand off and finish in one write**: `task note 12 --kind handoff --close 12.3 "..."`
+  (a step of that task, or the task itself). To pass a whole task on:
+  `task transfer 12 --to codex --note "why"` releases your claim, claims it for them and
+  leaves a handoff for them to `ack`, atomically.
+- **Who is still alive**: `claims [-p .] [--stale 15m]` shows holder, session, age,
+  last_seen (refreshed by every write of the holder) and last event. An orchestrator can
+  sleep on `watch --until stale --stale 15m` (exit 14, `TERMINAL stale`).
 - **Artifacts** record where the work lives: `task artifact 12 branch feat/oauth`,
   `task artifact 12 file auth/tokens.ts --label "grace window"`. Store content that
   resumption needs, not paths under `/tmp`.
@@ -185,6 +195,7 @@ Errors under `-f json|yaml|jsonl` are one JSON object on **stderr**
 | 4 | conflict: exists already, children block a delete, live claim, reused `--idem` key |
 | 5 | database unreachable or busy (busy: retry; do not switch databases) |
 | 10 / 11 / 12 / 13 | `await`/`watch`: comments / timeout / spec changed / channel lost |
+| 14 | `watch --until stale`: a watched claim went quiet |
 
 ## 8. Rules
 

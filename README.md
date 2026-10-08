@@ -125,6 +125,11 @@ agtrack task done 12                                    # releases the claim
 - **Claims are advisory and expire** (`task claim 12 --ttl 45m`, `--steal`, `task release`,
   `task ls --unclaimed`). They never block a write; they tell `resume`, `next` and `task ls`
   who is on what. A claim cannot fence a git worktree: an expired holder may still be editing.
+  `claims [--stale 15m]` shows holders and who went quiet; `task transfer 12 --to X` hands a
+  task over with a handoff note; `watch --until stale` exits 14 when a claim goes quiet.
+- **Acknowledge handoffs**: `note ack 7` takes on a handoff, blocker or question (resolving
+  stays separate); `notes --unacked` lists the ones nobody took. `task note 12 --kind
+  handoff --close 12.3 "..."` hands off and finishes the step in one transaction.
 - **Dependencies** (`task block 14 --on 12`) keep blocked tasks out of `next`; `task ls
   --ready` lists the doable ones. Blocked-ness is not a status.
 - **Typed notes**: `--kind note|decision|handoff|blocker|question`; `notes -p .` lists every

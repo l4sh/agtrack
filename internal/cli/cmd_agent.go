@@ -422,6 +422,11 @@ func noteShow(c *Ctx) error {
 			state += ": " + n.Str("resolution")
 		}
 	}
+	if !n.IsNull("acknowledged_at") {
+		state += "; acknowledged by " + n.Str("acknowledged_by") + " " + refs.FmtTS(n.Str("acknowledged_at"), false, false)
+	} else if store.Ackable[n.Str("kind")] {
+		state += "; not acknowledged"
+	}
 	return c.detail(obj, "note", []render.Section{
 		{Label: "note", Value: fmt.Sprintf("%d [%s] on %s %d", id, n.Str("kind"), n.Str("target_type"), n.Int("target_id"))},
 		{Label: "by", Value: n.Str("actor")},
@@ -467,6 +472,9 @@ func notesOpen(c *Ctx) error {
 	rows, err := c.S.OpenNotes(projectIDs, taskID, kinds)
 	if err != nil {
 		return err
+	}
+	if c.Bool("unacked") {
+		rows = unackedOnly(rows)
 	}
 	return c.emit(rows, "note", len(rows))
 }
@@ -555,6 +563,7 @@ scope     project pin is per actor (AGTRACK_ACTOR); ` + "`ctx use`" + ` drops a 
           an unqualified write with no resolvable project fails, it never guesses
 exit      0 ok  1 error  2 usage  3 not found  4 conflict  5 database  130 interrupted
           spec await/watch: 0 approved  10 comments  11 timeout  12 spec changed  13 channel lost
+          watch --until stale: 14 a watched claim went quiet
 errors    under -f json|yaml|jsonl: one object on stderr {"error","code","message","ref",...}
 retries   --idem KEY on any create: a retry reprints the first result, never double-writes
 
@@ -565,6 +574,9 @@ the six commands an agent actually uses
   agtrack sub start 12.1 / sub done 12.1  move a step (pulls a todo task into in-progress)
   agtrack task note 12 --kind handoff "what the next agent needs"
   agtrack log add -t 12 "milestone or blocker, and why"
+  agtrack note ack 41                     take on a handoff (resolve closes it later); notes --unacked lists the waiting ones
+  agtrack task note 12 --kind handoff --close 12.3 "…"   hand off and finish the step in one write
+  agtrack claims --stale 15m              who holds what and who has gone quiet; task transfer 12 --to X hands one over
 
 waiting for a human or another agent (pick by harness)
   background notifications (Claude Code): run in the background, react per line

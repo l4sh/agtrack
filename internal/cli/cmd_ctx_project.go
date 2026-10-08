@@ -541,10 +541,26 @@ func noteAdd(c *Ctx) error {
 			return err
 		}
 	}
+	if c.Has("close") {
+		if kind == "" {
+			kind = "handoff"
+		}
+		if kind != "handoff" {
+			return errs.New("--close goes with --kind handoff")
+		}
+	}
 	ids, err := c.record("note", func() ([]int64, error) {
-		note, err := c.S.AddNote(store.NewNote{
+		in := store.NewNote{
 			TargetType: t.typ, TargetID: t.id, Body: c.Str("body"), TaskID: t.task, ProjectID: t.project, At: at, Kind: kind,
-		})
+		}
+		if c.Has("close") {
+			note, _, err := c.S.CloseWithNote(in, c.Str("close"))
+			if err != nil {
+				return nil, err
+			}
+			return []int64{note.Int("id")}, nil
+		}
+		note, err := c.S.AddNote(in)
 		if err != nil {
 			return nil, err
 		}
@@ -564,6 +580,9 @@ func noteLs(c *Ctx) error {
 	rows, err := c.S.NotesFor(t.typ, t.id, store.NoteFilter{OpenOnly: c.Bool("open"), Kind: c.Str("kind")})
 	if err != nil {
 		return err
+	}
+	if c.Bool("unacked") {
+		rows = unackedOnly(rows)
 	}
 	return c.emit(rows, "note", len(rows))
 }
