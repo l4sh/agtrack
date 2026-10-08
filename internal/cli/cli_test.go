@@ -25,6 +25,9 @@ func newEnv(t *testing.T) *env {
 	t.Setenv("AGTRACK_ACTOR", "")
 	t.Setenv("AGENT", "")
 	t.Setenv("AGTRACK_FORMAT", "")
+	for _, k := range sessionEnv {
+		t.Setenv(k, "") // a harness session must not leak into test output
+	}
 	return e
 }
 

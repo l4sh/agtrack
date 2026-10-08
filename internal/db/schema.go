@@ -2,7 +2,7 @@ package db
 
 // SchemaVersion is the schema this build writes. v2 is the Python 1.0.0
 // schema; v3 adds agent features and the spec entity.
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 // Statement lists, never split on semicolons (D15): trigger bodies contain
 // semicolons of their own.
@@ -357,3 +357,126 @@ END`,
 	)
 	return s
 }()
+
+// migration4 is v3 -> v4 (docs/agent-features-spec.md "Schema v4"): session
+// identity and claim liveness, handoff acknowledgement, snoozed tasks,
+// evidence on done, checkpoints, the actor registry, standing rules and
+// shared lessons.
+var migration4 = []string{
+	`ALTER TABLE events ADD COLUMN session TEXT`,
+	`ALTER TABLE tasks ADD COLUMN claim_session TEXT`,
+	`ALTER TABLE tasks ADD COLUMN claim_last_seen TEXT`,
+	`ALTER TABLE tasks ADD COLUMN snoozed_until TEXT`,
+	`ALTER TABLE tasks ADD COLUMN snooze_note TEXT`,
+	`ALTER TABLE notes ADD COLUMN acknowledged_at TEXT`,
+	`ALTER TABLE notes ADD COLUMN acknowledged_by TEXT`,
+	`CREATE INDEX idx_events_session ON events(session)`,
+	`CREATE TABLE task_evidence (
+    id          INTEGER PRIMARY KEY,
+    task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    subtask_id  INTEGER REFERENCES subtasks(id) ON DELETE CASCADE,
+    event_id    INTEGER REFERENCES events(id) ON DELETE SET NULL,
+    kind        TEXT NOT NULL
+                CHECK(kind IN ('commit','branch','pr','test','file','url','note')),
+    value       TEXT NOT NULL,
+    actor       TEXT,
+    created_at  TEXT NOT NULL
+)`,
+	`CREATE INDEX idx_task_evidence_task ON task_evidence(task_id)`,
+	`CREATE TABLE checkpoints (
+    id          INTEGER PRIMARY KEY,
+    task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    n           INTEGER NOT NULL,
+    body        TEXT NOT NULL,
+    next        TEXT,
+    actor       TEXT,
+    session     TEXT,
+    created_at  TEXT NOT NULL,
+    UNIQUE(task_id, n)
+)`,
+	`CREATE TABLE actors (
+    id          INTEGER PRIMARY KEY,
+    slug        TEXT NOT NULL UNIQUE,
+    kind        TEXT NOT NULL DEFAULT 'agent' CHECK(kind IN ('agent','human')),
+    note        TEXT,
+    created_at  TEXT NOT NULL
+)`,
+	`CREATE TABLE actor_aliases (
+    alias       TEXT PRIMARY KEY,
+    actor_id    INTEGER NOT NULL REFERENCES actors(id) ON DELETE CASCADE
+)`,
+	`CREATE TABLE rules (
+    id          INTEGER PRIMARY KEY,
+    uid         TEXT NOT NULL UNIQUE,
+    kind        TEXT NOT NULL CHECK(kind IN ('deny','allow','require','remember')),
+    verb        TEXT,
+    check_name  TEXT,
+    text        TEXT,
+    scope_type  TEXT NOT NULL CHECK(scope_type IN ('global','context','project','task')),
+    scope_id    INTEGER,
+    path_glob   TEXT,
+    repo        TEXT,
+    where_json  TEXT,
+    hard        INTEGER NOT NULL DEFAULT 0,
+    overridable INTEGER NOT NULL DEFAULT 0,
+    status      TEXT NOT NULL DEFAULT 'active'
+                CHECK(status IN ('active','proposed','revoked','expired')),
+    expires_at  TEXT,
+    until_task_closed INTEGER NOT NULL DEFAULT 0,
+    session     TEXT,
+    source      TEXT NOT NULL DEFAULT 'agent' CHECK(source IN ('user','agent')),
+    stated_by   TEXT,
+    stated_at   TEXT,
+    quote       TEXT,
+    supersedes  INTEGER REFERENCES rules(id),
+    actor       TEXT,
+    created_at  TEXT NOT NULL
+)`,
+	`CREATE INDEX idx_rules_scope ON rules(scope_type, scope_id, status)`,
+	`CREATE TABLE rule_events (
+    id          INTEGER PRIMARY KEY,
+    rule_id     INTEGER NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+    action      TEXT NOT NULL CHECK(action IN ('add','propose','approve','revoke','expire','amend')),
+    actor       TEXT,
+    at          TEXT NOT NULL,
+    note        TEXT
+)`,
+	`CREATE TABLE lessons (
+    id          INTEGER PRIMARY KEY,
+    uid         TEXT NOT NULL UNIQUE,
+    title       TEXT NOT NULL,
+    body        TEXT NOT NULL DEFAULT '',
+    kind        TEXT NOT NULL DEFAULT 'gotcha' CHECK(kind IN ('gotcha','fix','decision','fact')),
+    scope_type  TEXT NOT NULL CHECK(scope_type IN ('global','context','project','task')),
+    scope_id    INTEGER,
+    status      TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','retired')),
+    source_task INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+    verified_at TEXT,
+    verified_by TEXT,
+    supersedes  INTEGER REFERENCES lessons(id),
+    actor       TEXT,
+    created_at  TEXT NOT NULL
+)`,
+	`CREATE INDEX idx_lessons_scope ON lessons(scope_type, scope_id, status)`,
+	`CREATE TABLE lesson_triggers (
+    lesson_id   INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    type        TEXT NOT NULL CHECK(type IN ('path','cmd','topic')),
+    value       TEXT NOT NULL,
+    PRIMARY KEY (lesson_id, type, value)
+)`,
+	`CREATE VIRTUAL TABLE lessons_fts USING fts5(
+    title, body,
+    content='lessons', content_rowid='id',
+    tokenize='unicode61'
+)`,
+	`CREATE TRIGGER lessons_ai AFTER INSERT ON lessons BEGIN
+    INSERT INTO lessons_fts(rowid, title, body) VALUES (new.id, new.title, new.body);
+END`,
+	`CREATE TRIGGER lessons_ad AFTER DELETE ON lessons BEGIN
+    INSERT INTO lessons_fts(lessons_fts, rowid, title, body) VALUES ('delete', old.id, old.title, old.body);
+END`,
+	`CREATE TRIGGER lessons_au AFTER UPDATE ON lessons BEGIN
+    INSERT INTO lessons_fts(lessons_fts, rowid, title, body) VALUES ('delete', old.id, old.title, old.body);
+    INSERT INTO lessons_fts(rowid, title, body) VALUES (new.id, new.title, new.body);
+END`,
+}

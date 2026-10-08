@@ -324,6 +324,12 @@ func cmdInfo(c *Ctx) error {
 	obj := row.Of("version", Version, "database", db.ResolvePath(c.DBPath), "schema", int64(schema),
 		"schema_expected", int64(db.SchemaVersion), "current_context", ctxName, "current_project", projName,
 		"counts", counts, "sqlite", c.S.DB.SQLiteVersion(), "actor", nilIfEmpty(c.Actor))
+	// Only when one is detected, so output is the same outside a harness.
+	session := ""
+	if c.Session != "" {
+		session = c.Session + " (from " + c.SessionSource + ")"
+		obj.Set("session", c.Session).Set("session_source", c.SessionSource)
+	}
 	if c.structured() {
 		return c.emitObject(obj)
 	}
@@ -333,6 +339,7 @@ func cmdInfo(c *Ctx) error {
 		{Label: "schema", Value: fmt.Sprintf("v%d (migrates automatically; this build expects v%d)", schema, db.SchemaVersion)},
 		{Label: "sqlite", Value: obj.Str("sqlite")},
 		{Label: "actor", Value: c.Actor},
+		{Label: "session", Value: session},
 		{Label: "context", Value: ctxName},
 		{Label: "project", Value: projName},
 		{Label: "counts", Value: kvLine(counts)},

@@ -29,6 +29,7 @@ var Globals = []argp.Flag{
 	{Long: "--no-color", Kind: argp.Bool},
 	{Long: "--quiet", Short: "-q", Kind: argp.Bool, Help: "identifiers only: a bare id from a create, ids from a listing, nothing from a mutation"},
 	{Long: "--actor", Metavar: "NAME", Help: "attribute writes to this actor (default $AGTRACK_ACTOR)"},
+	{Long: "--session", Metavar: "ID", Help: "session id stamped on writes (default $AGTRACK_SESSION, else the harness's session id)"},
 	{Long: "--max-bytes", Kind: argp.PositiveInt, Metavar: "N", Help: "bound the output; omitted records are listed in a manifest, never dropped silently"},
 	{Long: "--idem", Metavar: "KEY", Help: "idempotency key for a create: a retry with the same key reprints the first result"},
 }

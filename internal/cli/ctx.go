@@ -34,6 +34,9 @@ type Ctx struct {
 	Color    *bool
 	Quiet    bool
 	Actor    string
+	// Session is the harness session writes are stamped with (B1);
+	// SessionSource names where it came from, for `info`.
+	Session, SessionSource string
 	MaxBytes int
 	Noun     string // for shared note/tag verbs: the noun in play
 	idem

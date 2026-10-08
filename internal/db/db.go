@@ -239,7 +239,10 @@ func (d *DB) migrate() error {
 		} else if version < 2 {
 			stmts = append(stmts, migration2...)
 		}
-		stmts = append(stmts, migration3...)
+		if version < 3 {
+			stmts = append(stmts, migration3...)
+		}
+		stmts = append(stmts, migration4...)
 		for _, s := range stmts {
 			if _, err := d.Exec(s); err != nil {
 				return fmt.Errorf("migration failed on %q: %w", firstLine(s), err)

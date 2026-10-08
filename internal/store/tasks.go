@@ -182,7 +182,7 @@ func (s *Store) setTaskStatus(taskID int64, status, at string) (*row.Row, bool) 
 			status, stampAt, started, closedAt, taskID)
 		if status == "done" {
 			// A finished task releases its claim (design §4.6).
-			s.exec("UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, claim_expires_at = NULL WHERE id = ?", taskID)
+			s.exec("UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, claim_expires_at = NULL, claim_session = NULL, claim_last_seen = NULL WHERE id = ?", taskID)
 			// Finishing re-stamps what the task agreed to in its spec links (design §5.7).
 			s.restampTaskLinks(taskID)
 		}

@@ -127,6 +127,7 @@ func Run(argv []string, st Streams) (code int) {
 	}
 	defer d.Close()
 	c.S = store.New(d, c.Actor)
+	c.S.Session = c.Session
 	c.S.Context = c.Context
 	c.S.CwdRepo = cwdRepo
 	if c.idemKey != "" {
@@ -204,6 +205,7 @@ func newCtx(res *argp.Result, st Streams) (*Ctx, error) {
 	if c.Actor == "" {
 		c.Actor = envOr("AGTRACK_ACTOR", "AGENT")
 	}
+	c.Session, c.SessionSource = detectSession(strOr(res.Values["session"]))
 	if n, ok := res.Values["max_bytes"].(int); ok {
 		c.MaxBytes = n
 	}
@@ -335,4 +337,21 @@ func isSQLiteError(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "SQLITE_") || strings.Contains(msg, "unable to open database") ||
 		strings.Contains(msg, "database is locked") || strings.Contains(msg, "disk I/O error")
+}
+
+// sessionEnv lists where a session id comes from, in order (agent-features
+// spec B1): agtrack's own variable, then what the harnesses export.
+var sessionEnv = []string{"AGTRACK_SESSION", "CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID"}
+
+// detectSession returns the session id writes are stamped with and its source.
+func detectSession(flag string) (id, source string) {
+	if flag = strings.TrimSpace(flag); flag != "" {
+		return flag, "--session"
+	}
+	for _, k := range sessionEnv {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return v, "$" + k
+		}
+	}
+	return "", ""
 }

@@ -24,6 +24,8 @@ import (
 type Store struct {
 	DB    *db.DB
 	Actor string // "" = unattributed
+	// Session is the harness session stamped on events and claims ("" = none).
+	Session string
 	// Context is the invocation's explicit -c, if any; it bounds the pins.
 	Context string
 	// CwdRepo returns the origin remote of the cwd repository, or "". The CLI
@@ -174,11 +176,19 @@ func (s *Store) event(targetType string, targetID int64, action string, detail a
 	if at == "" {
 		at = now
 	}
-	return s.insert(
+	id := s.insert(
 		"INSERT INTO events (at, recorded_at, actor, target_type, target_id,"+
-			" action, detail, task_id, project_id, uid) VALUES (?,?,?,?,?,?,?,?,?,?)",
+			" action, detail, task_id, project_id, uid, session) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 		at, now, nullable(s.Actor), targetType, targetID, action, detail,
-		nullableID(taskID), nullableID(projectID), NewUID())
+		nullableID(taskID), nullableID(projectID), NewUID(), nullable(s.Session))
+	// Claim liveness (C3): any write by the holder refreshes last_seen, and a
+	// claim with no session yet (a transfer) adopts the holder's first one.
+	if taskID > 0 && s.Actor != "" {
+		s.exec(`UPDATE tasks SET claim_last_seen = ?, claim_session = COALESCE(claim_session, ?)
+WHERE id = ? AND claimed_by = ? AND (claim_session IS NULL OR claim_session = ? OR ? IS NULL)`,
+			now, nullable(s.Session), taskID, s.Actor, nullable(s.Session), nullable(s.Session))
+	}
+	return id
 }
 
 // Event is the exported form of event, run in its own transaction.
