@@ -1,18 +1,11 @@
 package store
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
 	"github.com/l4sh/agtrack/internal/refs"
 	"github.com/l4sh/agtrack/internal/row"
 )
 
 // Read-only queries behind the stable `resume` packet (agent-features B6).
-// The rules and lessons queries are deliberately minimal (active rows by
-// scope, titles only); the rules/lessons feature (H) replaces them with its
-// own resolution.
 
 // UnackedHandoffs lists unresolved, unacknowledged handoff, blocker and
 // question notes on a task (and its steps) and on the project itself,
@@ -90,75 +83,5 @@ WHERE project_id IN (`+marks(len(ids))+`) AND status IN ('todo','in-progress') A
 	return out, nil
 }
 
-// scopeChain is the scope ladder for a task or project, narrowest first:
-// task, project and its ancestors, context, global.
-func (s *Store) scopeChain(projectID, taskID int64) (where string, args []any, rank string) {
-	var parts []string
-	var rankParts []string
-	if taskID != 0 {
-		parts = append(parts, "(scope_type = 'task' AND scope_id = ?)")
-		args = append(args, taskID)
-		rankParts = append(rankParts, "WHEN scope_type = 'task' THEN 0")
-	}
-	var chain []int64
-	ctxID := int64(0)
-	for id := projectID; id != 0; {
-		p := s.one("SELECT id, parent_id, context_id FROM projects WHERE id = ?", id)
-		if p == nil {
-			break
-		}
-		chain = append(chain, id)
-		ctxID = p.Int("context_id")
-		id = p.Int("parent_id")
-	}
-	if len(chain) > 0 {
-		parts = append(parts, "(scope_type = 'project' AND scope_id IN ("+marks(len(chain))+"))")
-		args = append(args, ids64(chain)...)
-		rankParts = append(rankParts, "WHEN scope_type = 'project' THEN 1")
-	}
-	if ctxID != 0 {
-		parts = append(parts, "(scope_type = 'context' AND scope_id = ?)")
-		args = append(args, ctxID)
-		rankParts = append(rankParts, "WHEN scope_type = 'context' THEN 2")
-	}
-	parts = append(parts, "scope_type = 'global'")
-	rank = "CASE " + strings.Join(rankParts, " ") + " ELSE 3 END"
-	return "(" + strings.Join(parts, " OR ") + ")", args, rank
-}
-
-// ResumeRules lists the active rules that bind a task or project: deny,
-// require and hard rules, plus allow rules added in the last 7 days,
-// narrowest scope first. total is before limit.
-func (s *Store) ResumeRules(projectID, taskID int64, limit int) (out []*row.Row, total int, err error) {
-	defer guard(&err)
-	where, args, rank := s.scopeChain(projectID, taskID)
-	now := refs.NowISO()
-	week := refs.ToUTCISO(refs.Now().Add(-7 * 24 * time.Hour))
-	cond := " FROM rules WHERE " + where + ` AND status = 'active' AND (expires_at IS NULL OR expires_at > ?)
-  AND (kind IN ('deny','require') OR hard = 1 OR (kind = 'allow' AND created_at >= ?))`
-	args = append(args, now, week)
-	total = int(s.count("SELECT COUNT(*)"+cond, args...))
-	q := "SELECT id, kind, verb, check_name, text, scope_type, scope_id, hard" + cond + " ORDER BY " + rank + ", hard DESC, id"
-	if limit > 0 {
-		q += fmt.Sprintf(" LIMIT %d", limit)
-	}
-	out = []*row.Row{}
-	out = append(out, s.q(q, args...)...)
-	return out, total, nil
-}
-
-// ResumeLessons lists active lessons for a task or project, titles only,
-// narrowest scope first, newest first within a scope. total is before limit.
-func (s *Store) ResumeLessons(projectID, taskID int64, limit int) (out []*row.Row, total int, err error) {
-	defer guard(&err)
-	where, args, rank := s.scopeChain(projectID, taskID)
-	cond := " FROM lessons WHERE " + where + " AND status = 'active'"
-	total = int(s.count("SELECT COUNT(*)"+cond, args...))
-	q := "SELECT id, title, kind, scope_type, scope_id, verified_at" + cond + " ORDER BY " + rank + ", id DESC"
-	if limit > 0 {
-		q += fmt.Sprintf(" LIMIT %d", limit)
-	}
-	out = []*row.Row{}
-	out = append(out, s.q(q, args...)...)
-	return out, total, nil
-}
+// ResumeRules and ResumeLessons live with the rules and lessons (rules.go,
+// lessons.go), on the same scope resolution as `check`.

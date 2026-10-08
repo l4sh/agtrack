@@ -374,6 +374,7 @@ func Tree() *argp.Command {
 			{Name: "grammar", Help: "the reference grammar, statuses, formats, exit codes and core commands", Run: Handler(cmdGrammar)},
 			{Name: "describe", Help: "a command's arguments as JSON", Run: Handler(cmdDescribe), Args: []argp.Arg{{Name: "command", NArgs: "*"}}},
 			config, actorTree(),
+			ruleTree(), rulesCmd(), checkCmd(), lessonTree(), lessonsCmd(),
 		}}
 	return root
 }

@@ -169,6 +169,27 @@ agtrack task done 12                                    # releases the claim
   PR (read only, never writes to GitHub), updates the stored state, and lists open tasks whose PR
   merged with their `task done` command. PRs it cannot read are skipped with the reason.
 
+- **Standing rules**: `rule add deny|allow|require|remember ... [-g|-c CTX|-p REF|-t ID]
+  --quote "the human's words"` (an agent's `allow` and `--hard` rules are proposed until
+  `rule approve`), `rule propose`, `rule revoke 3 --note why`, `rule show`, `rules -p .`
+  (effective set, narrowest first; `--proposed`, `--all`). Verbs: commit, push, pr, merge,
+  release, write, install, migrate, delete, deploy, external-post, config; checks:
+  branch-not-base, browser-check, tests-pass, ask-first. Conditions: `--path GLOB`, `--repo`,
+  `--where branch=GLOB|base=true`; expiry: `--until 3d`, `--until-task-closed`,
+  `--for-session`.
+- **`check <verb>`** resolves the rules for the cwd (task → project → parent → context →
+  global) and exits 0 allow, 20 deny, 21 hard deny, 22 needs approval, with
+  `{"action","decision","hard","matched","allowed_by","hint"}` under `-f json`. A deny
+  accumulates; an approved allow at the same or a narrower scope cancels an `--overridable`
+  non-hard deny; `require branch-not-base` fails on main/master/develop/dev/stage/staging/trunk
+  and the repo's origin/HEAD. Fast enough for a pre-tool hook (a benchmark guards it).
+- **Lessons**: `lesson add "title" [--body|--body-file] [--kind gotcha|fix|decision|fact]
+  [--path GLOB] [--cmd PREFIX] [--topic T]`, `lessons [--path FILE] [--cmd CMD] [--topic T]
+  [--q TEXT] [--unverified 30d] [-x]`, `lesson show|verify|retire|amend`. Lessons not verified
+  for 90 days (`config set lessons.stale_days N`) read as `unverified since ...`. Adding a rule
+  or lesson similar to one at the same or a wider scope is refused (`--supersedes N` or
+  `--force`).
+
 ### Installing the hooks by hand
 
 `agtrack hooks print claude|codex [--event session-start|session-end|pre-commit]` prints
@@ -314,6 +335,8 @@ $ agtrack -f json task show 999
 | 4 | conflict (includes a live claim held by someone else, a reused `--idem` key) |
 | 5 | database unreachable or broken |
 | 10 / 11 / 12 / 13 | `spec await`/`watch`: comments / timeout / spec changed / channel lost |
+| 14 | `watch --until stale`: a watched claim went quiet |
+| 20 / 21 / 22 | `check`: deny / hard deny / needs approval |
 | 130 | interrupted |
 
 ## Changes from agtrack 1.x

@@ -47,6 +47,7 @@ backfilling:
 exit codes:
   0 ok   1 error   2 usage   3 not found   4 conflict   5 database   130 interrupted
   spec await/watch: 10 comments  11 timeout  12 spec changed  13 channel lost
+  watch --until stale: 14   check: 20 deny  21 hard deny  22 needs approval
 
 start here: ` + "`agtrack grammar`" + ` (one screen), then ` + "`agtrack resume`" + `.
 `

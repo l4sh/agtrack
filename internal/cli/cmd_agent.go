@@ -637,6 +637,7 @@ scope     project pin is per actor (AGTRACK_ACTOR); ` + "`ctx use`" + ` drops a 
 exit      0 ok  1 error  2 usage  3 not found  4 conflict  5 database  130 interrupted
           spec await/watch: 0 approved  10 comments  11 timeout  12 spec changed  13 channel lost
           watch --until stale: 14 a watched claim went quiet
+          check: 0 allow  20 deny  21 hard deny  22 needs approval
 errors    under -f json|yaml|jsonl: one object on stderr {"error","code","message","ref",...}
 retries   --idem KEY on any create: a retry reprints the first result, never double-writes
 
@@ -650,6 +651,13 @@ the six commands an agent actually uses
   agtrack note ack 41                     take on a handoff (resolve closes it later); notes --unacked lists the waiting ones
   agtrack task note 12 --kind handoff --close 12.3 "…"   hand off and finish the step in one write
   agtrack claims --stale 15m              who holds what and who has gone quiet; task transfer 12 --to X hands one over
+
+standing rules and lessons (scopes: -g global, -c CTX, -p REF, -t ID; default the cwd project)
+  agtrack check push                      before commit/push/pr/release/install/delete/external-post; obey the exit code
+  agtrack rule add deny push -p . --quote "the human's words"     the moment a human states a rule
+  agtrack rules -p . / lessons -p .       what binds here; lessons --path FILE before editing an unfamiliar file
+  agtrack lesson add "title" --path GLOB --cmd PREFIX --body "…"   a gotcha learned the hard way
+  agtrack hooks print / pr sync           harness hook snippets; refresh PR states from the forge
 
 waiting for a human or another agent (pick by harness)
   background notifications (Claude Code): run in the background, react per line

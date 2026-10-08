@@ -250,6 +250,7 @@ Errors under `-f json|yaml|jsonl` are one JSON object on **stderr**
 | 5 | database unreachable or busy (busy: retry; do not switch databases) |
 | 10 / 11 / 12 / 13 | `await`/`watch`: comments / timeout / spec changed / channel lost |
 | 14 | `watch --until stale`: a watched claim went quiet |
+| 20 / 21 / 22 | `check`: deny / hard deny / needs approval |
 
 ## 8. Rules
 
@@ -262,3 +263,32 @@ Errors under `-f json|yaml|jsonl` are one JSON object on **stderr**
 - **One task, one unit of work.** Split rather than widening the title.
 - **Use invented examples in anything you publish** (READMEs, tests, fixtures): never real
   project, organisation or person names from the database you are working in.
+
+## 9. Standing rules and lessons
+
+Rules are what the human told you once and expects every agent to remember; lessons are
+what an agent learned the hard way. Both live at a scope - `-g` global, `-c CTX`,
+`-p REF`, `-t ID` (default: the cwd's project) - and bind everything under it.
+`resume` shows the binding ones at the top; `resume -t 12` gives a sub-agent the same set.
+
+The moments:
+
+- **Before commit, push, pr, merge, release, install, delete, deploy or an external post**,
+  run `agtrack check <verb>` and obey the exit code: 0 go, 20 stop, 21 stop (hard: only the
+  human lifts it), 22 ask the human first. The `hint` says why. Pass `--path` for `write`
+  and `delete` checks on specific files.
+- **When the human states a rule**, record it at once, with their words:
+  `agtrack rule add deny push -p . --quote "never push without asking"`. Kinds: `deny`,
+  `allow`, `require <check>` (`branch-not-base`, `tests-pass`, `browser-check`,
+  `ask-first`; `--verb V` narrows it), `remember "text"`. Your `allow` and `--hard` rules
+  are stored as proposed until an approver runs `rule approve`; say so to the human.
+  Temporary rules: `--until 3d`, `--until-task-closed` (with `-t`), `--for-session`.
+- **Before editing an unfamiliar file**, `agtrack lessons --path src/db/pool.ts` (or
+  `--cmd "pnpm install"`, `--topic T`, `--q TEXT`; `-x` adds bodies).
+- **When you learn a gotcha the hard way**, `agtrack lesson add "pnpm install needs node 20"
+  -p . --cmd "pnpm install" --body "what happened and the fix"`. When a lesson proved true
+  again, `lesson verify 3 --note how`; when it stopped being true, `lesson retire 3 --note why`.
+
+A similar rule or lesson at the same or a wider scope refuses the add (exit 4) and names
+it: use `--supersedes N` to replace it, or `--force` if it really is different. Never
+revoke or supersede a human's rule to get past a `check`; ask.
