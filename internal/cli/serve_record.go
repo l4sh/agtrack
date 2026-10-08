@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -20,12 +21,15 @@ import (
 // record that fails either check is stale and is deleted.
 
 type serveRecord struct {
-	PID       int    `json:"pid"`
-	Port      int    `json:"port"`
-	Token     string `json:"token"`
-	As        string `json:"as"`
-	Build     string `json:"build"`
-	DB        string `json:"db"`
+	PID   int    `json:"pid"`
+	Port  int    `json:"port"`
+	Token string `json:"token"`
+	As    string `json:"as"`
+	Build string `json:"build"`
+	DB    string `json:"db"`
+	// Root is the git toplevel the server was started in: where it finds
+	// spec files and writes section pins back (R7).
+	Root      string `json:"root"`
 	StartedAt string `json:"started_at"`
 }
 
@@ -121,10 +125,16 @@ func removeServeRecord(path string, pid int) {
 	}
 }
 
-// stopServer asks a recorded server to exit and waits until it is gone.
+// stopServer asks a recorded server to exit and waits until it is gone. It
+// asks through the authenticated POST /api/shutdown, so no process is
+// signalled on the strength of a pid alone; SIGTERM is the fallback for a
+// server without that endpoint, and only while the ping still identifies the
+// recorded pid as that server.
 func stopServer(r *serveRecord) error {
-	if err := syscall.Kill(r.PID, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
-		return err
+	if !requestShutdown(r) && pingServer(r) {
+		if err := syscall.Kill(r.PID, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
+			return err
+		}
 	}
 	for i := 0; i < 50; i++ {
 		if !pingServer(r) {
@@ -133,6 +143,23 @@ func stopServer(r *serveRecord) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 	return fmt.Errorf("agtrack serve (pid %d) did not stop", r.PID)
+}
+
+// requestShutdown posts the token-authenticated shutdown request; true when
+// the server accepted it (202).
+func requestShutdown(r *serveRecord) bool {
+	req, err := http.NewRequest(http.MethodPost, r.base()+"/api/shutdown", strings.NewReader("{}"))
+	if err != nil {
+		return false
+	}
+	req.Header.Set("X-Agtrack-Token", r.Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 2 * time.Second}).Do(req)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusAccepted
 }
 
 var (

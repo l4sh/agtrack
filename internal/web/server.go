@@ -215,6 +215,10 @@ func Serve(ctx context.Context, o Options) error {
 			s.shutdown(srv)
 			return nil
 		case <-s.stop:
+			// POST /api/shutdown (the only closer before shutdown itself).
+			if o.Out != nil {
+				fmt.Fprintln(o.Out, "shutdown requested; viewer stopped")
+			}
 			s.shutdown(srv)
 			return nil
 		case <-tick.C:
@@ -304,6 +308,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, row.Of("pid", int64(os.Getpid()), "mode", s.o.Mode, "viewer", s.o.Viewer, "build", s.o.Build))
+	case path == "/api/shutdown":
+		// `agtrack serve --restart`: stop this server without signalling a
+		// pid. Token in the header only, and a JSON POST like every write.
+		if r.Method != http.MethodPost {
+			writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "POST only")
+			return
+		}
+		if !s.authHeader(r) {
+			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+			return
+		}
+		if !requireJSON(w, r) {
+			return
+		}
+		writeJSON(w, http.StatusAccepted, row.Of("stopping", true, "pid", int64(os.Getpid())))
+		if fl, ok := w.(http.Flusher); ok {
+			fl.Flush()
+		}
+		s.stopOnce.Do(func() { close(s.stop) })
 	case path == "/api/events":
 		if !s.authQuery(r) && !s.authHeader(r) && !s.authCookie(r) {
 			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")

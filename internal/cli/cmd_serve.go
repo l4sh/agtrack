@@ -63,7 +63,7 @@ func cmdServe(c *Ctx) error {
 		o.Build = buildID()
 		o.OnListen = func(port int, token string) error {
 			return writeServeRecord(path, &serveRecord{PID: pid, Port: port, Token: token, As: o.Viewer,
-				Build: o.Build, DB: db.ResolvePath(c.DBPath), StartedAt: time.Now().UTC().Format(time.RFC3339)})
+				Build: o.Build, DB: db.ResolvePath(c.DBPath), Root: o.RepoRoot, StartedAt: time.Now().UTC().Format(time.RFC3339)})
 		}
 		// Deferred for a normal return (idle timeout); the exit hook covers
 		// Ctrl+C and SIGTERM, where main exits without unwinding.

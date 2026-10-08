@@ -319,6 +319,52 @@ func TestIdleIgnoresRefreshReads(t *testing.T) {
 	}
 }
 
+// R12: POST /api/shutdown stops the server; token header and JSON only.
+func TestShutdownEndpoint(t *testing.T) {
+	base, _, cancel, done := start(t, time.Hour)
+	defer cancel()
+	sd := base + "/api/shutdown"
+	for _, c := range []struct {
+		name, method, url, token, ctype string
+		want                            int
+	}{
+		{"get", "GET", sd, "tok", "", 405},
+		{"no token", "POST", sd, "", "application/json", 403},
+		{"query token", "POST", sd + "?t=tok", "", "application/json", 403},
+		{"wrong token", "POST", sd, "nope", "application/json", 403},
+		{"form post", "POST", sd, "tok", "application/x-www-form-urlencoded", 415},
+	} {
+		if got, body := do(t, c.method, c.url, "", c.token, c.ctype, "{}"); got != c.want {
+			t.Errorf("%s: %d, want %d: %s", c.name, got, c.want, body)
+		}
+	}
+	// The cookie alone is not enough either.
+	req, _ := http.NewRequest("POST", sd, strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: "tok"})
+	if resp, err := http.DefaultClient.Do(req); err != nil || resp.StatusCode != 403 {
+		t.Errorf("cookie-only shutdown: %v %v", resp, err)
+	} else {
+		resp.Body.Close()
+	}
+	select {
+	case <-done:
+		t.Fatal("a refused shutdown stopped the server")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if got, body := do(t, "POST", sd, "", "tok", "application/json", "{}"); got != 202 || !strings.Contains(body, `"stopping":true`) {
+		t.Fatalf("shutdown: %d %s", got, body)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the server did not stop after an accepted shutdown")
+	}
+}
+
 func TestModelCarriesViewer(t *testing.T) {
 	base, _, cancel, _ := start(t, time.Hour)
 	defer cancel()

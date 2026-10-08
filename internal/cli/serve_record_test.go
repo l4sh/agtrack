@@ -9,7 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func writeRecord(t *testing.T, path string, r serveRecord) {
@@ -104,5 +106,57 @@ func TestServeRecordRemoveOnlyOwn(t *testing.T) {
 	removeServeRecord(path, 4242)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("own record kept: %v", err)
+	}
+}
+
+// R12: a server without POST /api/shutdown gets SIGTERM, but only while its
+// ping still names the recorded pid; anything else is never signalled.
+func TestStopServerFallback(t *testing.T) {
+	if _, err := exec.LookPath("sleep"); err != nil {
+		t.Skip("no `sleep` binary")
+	}
+	start := func() (*exec.Cmd, *atomic.Bool) {
+		child := exec.Command("sleep", "30")
+		if err := child.Start(); err != nil {
+			t.Fatal(err)
+		}
+		var exited atomic.Bool
+		go func() { child.Wait(); exited.Store(true) }()
+		t.Cleanup(func() { child.Process.Kill() })
+		return child, &exited
+	}
+	// stub answers ping with pid() while the child runs; it has no shutdown endpoint.
+	stub := func(pid func() int, exited *atomic.Bool) int {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/ping" || r.Header.Get("X-Agtrack-Token") != "tok" || exited.Load() {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"pid": pid()})
+		}))
+		t.Cleanup(srv.Close)
+		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
+		n, _ := strconv.Atoi(port)
+		return n
+	}
+
+	child, exited := start()
+	port := stub(func() int { return child.Process.Pid }, exited)
+	if err := stopServer(&serveRecord{PID: child.Process.Pid, Port: port, Token: "tok"}); err != nil {
+		t.Fatalf("fallback stop: %v", err)
+	}
+	if !exited.Load() {
+		t.Error("the identified server was not signalled")
+	}
+
+	// The ping names another pid: the recorded one is not this server's.
+	bystander, gone := start()
+	port = stub(func() int { return bystander.Process.Pid + 1 }, gone)
+	if err := stopServer(&serveRecord{PID: bystander.Process.Pid, Port: port, Token: "tok"}); err != nil {
+		t.Fatalf("stop of an unidentified server: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	if gone.Load() {
+		t.Error("a process the ping did not identify was signalled")
 	}
 }

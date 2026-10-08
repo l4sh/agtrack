@@ -223,15 +223,30 @@ removes it on exit (idle timeout, SIGINT, SIGTERM):
 ```json
 {"pid": 4242, "port": 41077, "token": "…", "as": "human",
  "build": "2.0.0-dev+23948826-1791345600", "db": "/home/u/.local/share/agtrack/agtrack.db",
- "started_at": "2026-10-07T04:14:01Z"}
+ "root": "/home/u/code/orbiter", "started_at": "2026-10-07T04:14:01Z"}
 ```
+
+`root` is the git toplevel the server was started in (empty outside a repository): where it
+reads spec files and writes section pins back.
 
 `GET /api/ping` (both modes; token in `X-Agtrack-Token` only) answers
 `{"pid": 4242, "mode": "browse", "viewer": "human", "build": "…"}`. A later `agtrack serve` or
 `spec serve` trusts the record only when that pid is alive and the ping returns the same pid;
 anything else deletes the record as stale. `agtrack serve` with the same `--as` then prints the
-running server's link and exits; `spec serve` prints `/s/<ctx/project/slug>?t=` on it. `--new`
-skips reuse; `serve --restart` stops the recorded server first.
+running server's link and exits; `spec serve` prints `/s/<ctx/project/slug>?t=` on it, but
+only when the invoking checkout's root equals the record's `root`, or when the spec's file is
+not in the invoking checkout's repository. Otherwise (say, the server runs in another worktree
+of the same repository, where pins would land) it starts its own viewer and prints one line
+saying why. `--new` skips reuse; `serve --restart` stops the recorded server first.
+
+### POST /api/shutdown
+
+`agtrack serve --restart` stops the recorded server by asking it, not by signalling its pid.
+Both modes; token in `X-Agtrack-Token` only (no cookie, no `?t=`), `Content-Type:
+application/json` (body `{}`), else `403` / `415`; any other method is `405`. It answers
+`202 {"stopping": true, "pid": 4242}`, then stops as on an idle timeout (the record is
+removed). Only when the request fails (a server that predates the endpoint) does `--restart`
+fall back to SIGTERM, and only while `GET /api/ping` still returns the recorded pid.
 
 prints `serving agtrack at http://127.0.0.1:<port>/?t=<token>`. The session rules above are
 unchanged: the first `GET /?t=` sets the `agtrack_session` cookie, API calls carry the

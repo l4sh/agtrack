@@ -1638,6 +1638,14 @@ func specServe(c *Ctx) error {
 	// out its link instead of starting a second server. The review signal is
 	// the database row, so watch/await work the same either way.
 	if rec := liveServeRecord(serveRecordPath(c.DBPath)); rec != nil && rec.As == o.Viewer && !c.Bool("new") {
+		reuse, why, err := c.canReuseFor(rec, sp, o.RepoRoot)
+		if err != nil {
+			return err
+		}
+		if !reuse {
+			c.warnf("%s; starting a viewer here", why)
+			return web.Serve(context.Background(), o)
+		}
 		p, err := c.S.GetProject(sp.Int("project_id"))
 		if err != nil {
 			return err
@@ -1655,6 +1663,33 @@ func specServe(c *Ctx) error {
 		return nil
 	}
 	return web.Serve(context.Background(), o)
+}
+
+// canReuseFor decides whether `spec serve` from the checkout root may hand
+// out a running browse server's link (R7). A viewer reads the spec's file and
+// writes section pins back in its own checkout, so a server started in
+// another checkout of the same repo (a worktree) would pin there instead.
+// It is reused when it runs in this checkout, or when the spec's file is not
+// in this checkout anyway; otherwise why says what differs.
+func (c *Ctx) canReuseFor(rec *serveRecord, sp *row.Row, root string) (reuse bool, why string, err error) {
+	if rec.Root == root {
+		return true, "", nil
+	}
+	if root == "" {
+		return true, "", nil
+	}
+	fileRoot, err := c.S.SpecFileRoot(sp, root)
+	if err != nil {
+		return false, "", err
+	}
+	if fileRoot != root {
+		return true, "", nil
+	}
+	ran := rec.Root
+	if ran == "" {
+		ran = "an unrecorded checkout"
+	}
+	return false, fmt.Sprintf("agtrack serve (pid %d) runs in %s, but %s is in this checkout (%s)", rec.PID, ran, sp.Str("source_path"), root), nil
 }
 
 // serveOptions builds the viewer session. Browser actions are attributed to
