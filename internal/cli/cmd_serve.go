@@ -61,14 +61,16 @@ func cmdServe(c *Ctx) error {
 	if register {
 		pid := os.Getpid()
 		o.Build = buildID()
+		var mine string // this server's token: the record is ours only while it holds it
 		o.OnListen = func(port int, token string) error {
+			mine = token
 			return writeServeRecord(path, &serveRecord{PID: pid, Port: port, Token: token, As: o.Viewer,
 				Build: o.Build, DB: db.ResolvePath(c.DBPath), Root: o.RepoRoot, StartedAt: time.Now().UTC().Format(time.RFC3339)})
 		}
 		// Deferred for a normal return (idle timeout); the exit hook covers
 		// Ctrl+C and SIGTERM, where main exits without unwinding.
-		defer removeServeRecord(path, pid)
-		AtExit(func() { removeServeRecord(path, pid) })
+		defer func() { removeServeRecord(path, pid, mine) }()
+		AtExit(func() { removeServeRecord(path, pid, mine) })
 	}
 	return web.Serve(context.Background(), o)
 }

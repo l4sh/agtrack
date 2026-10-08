@@ -99,11 +99,12 @@ func TestServeRecordStaleIsRemoved(t *testing.T) {
 func TestServeRecordRemoveOnlyOwn(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "t.db.serve.json")
 	writeRecord(t, path, serveRecord{PID: 4242, Port: 1, Token: "x"})
-	removeServeRecord(path, 4243)
+	removeServeRecord(path, 4243, "x")
+	removeServeRecord(path, 4242, "other-token")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("another process's record was removed")
 	}
-	removeServeRecord(path, 4242)
+	removeServeRecord(path, 4242, "x")
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("own record kept: %v", err)
 	}

@@ -113,14 +113,16 @@ func writeServeRecord(path string, r *serveRecord) error {
 	return os.Rename(tmp.Name(), path)
 }
 
-// removeServeRecord deletes the record only if it is still this process's.
-func removeServeRecord(path string, pid int) {
+// removeServeRecord deletes the record only if it is still this server's:
+// same pid and same token, so a server that replaced it (a --restart, or a
+// second server in the same process) keeps its record.
+func removeServeRecord(path string, pid int, token string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
 	var r serveRecord
-	if json.Unmarshal(data, &r) == nil && r.PID == pid {
+	if json.Unmarshal(data, &r) == nil && r.PID == pid && r.Token == token {
 		os.Remove(path)
 	}
 }
