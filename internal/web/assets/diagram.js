@@ -350,9 +350,11 @@
       if (pts.size === 1) {
         panBy(w, cur.x - prev.x, cur.y - prev.y);
       } else if (pts.size === 2 && pinch) {
+        // Pan by the midpoint's move first, then zoom about where the midpoint is
+        // now: the content under the fingers stays under them.
         const next = pinchState();
-        zoomAt(w, next.d / pinch.d, next.mx, next.my);
         panBy(w, next.mx - pinch.mx, next.my - pinch.my);
+        zoomAt(w, next.d / pinch.d, next.mx, next.my);
         pinch = next;
       }
     });
@@ -555,6 +557,7 @@
 
   /** PNG blob of the whole diagram at 2x its intrinsic size on the page background. */
   async function renderPng(w) {
+    w.lastSvg = null; // Save SVG offers only what this attempt produced
     const out = await exportSvg(w);
     w.lastSvg = out.xml;
     const img = await loadImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(out.xml));
@@ -602,7 +605,9 @@
       w.btnSvg.hidden = true;
     } catch (err) {
       console.error("diagram PNG export failed", err);
-      ctx.toast("Could not save PNG (" + (err && err.message ? err.message.replace(/\.$/, "") : String(err)) + "). Use Save SVG instead.", true);
+      const why = err && err.message ? err.message.replace(/\.$/, "") : String(err);
+      // Save SVG only when this attempt produced an SVG; otherwise the error is all there is.
+      ctx.toast(w.lastSvg ? "Could not save PNG (" + why + "). Use Save SVG instead." : "Could not export the diagram (" + why + ").", true);
       w.btnSvg.hidden = !w.lastSvg;
     } finally {
       w.exporting = false;
