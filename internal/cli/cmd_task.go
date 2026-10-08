@@ -335,7 +335,7 @@ func taskSet(c *Ctx) error {
 		}
 		fields = append(fields, store.Field{Name: "project_id", Value: p.Int("id")})
 	}
-	if task, err = c.S.UpdateTask(task, fields); err != nil {
+	if task, err = c.S.UpdateTask(task, fields, c.expectTitle); err != nil {
 		return err
 	}
 	obj, _ := c.S.TaskDict(task)
@@ -581,7 +581,7 @@ func subtaskSet(c *Ctx) error {
 	if c.Has("title") {
 		fields = append(fields, store.Field{Name: "title", Value: c.Str("title")})
 	}
-	if sub, err = c.S.UpdateSubtask(sub, fields); err != nil {
+	if sub, err = c.S.UpdateSubtask(sub, fields, c.expectTitle); err != nil {
 		return err
 	}
 	d, _ := c.S.SubtaskDetail(sub)

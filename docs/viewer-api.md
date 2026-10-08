@@ -299,7 +299,7 @@ replay with the same key writes nothing and returns the first result.
 | `projects/{project}/notes` | `{"kind", "body", "idem"}` | `project note --kind` |
 | `projects/{project}/log` | `{"body", "idem"}` | `log add -p` |
 | `tasks/{id}/title` | `{"title", "expected"}` | `task set --title` |
-| `tasks/{id}/tags` | `{"add": [], "remove": []}` | `task tag` / `task untag` (returns `task show`) |
+| `tasks/{id}/tags` | `{"add": [], "remove": []}` | `task tag` / `task untag` in one transaction: an unknown tag in `remove` is `404` and nothing is written (returns `task show`) |
 | `tasks/{id}/status` | `{"status": "todo"\|"in-progress"\|"done"\|"cancelled", "note"}` | `task reopen` / `start` / `done` / `cancel` |
 | `tasks/{id}/release` | `{}` | `task release --force` |
 | `tasks/{id}/block` | `{"on": "12"}` | `task block --on 12 --kind blocks` |
@@ -316,8 +316,10 @@ replay with the same key writes nothing and returns the first result.
 `kind` ∈ `note|decision|handoff|blocker|question` (default `note`). There are no delete
 endpoints, no claim-taking endpoint, and no project or context edits.
 
-**Compare-and-set titles.** `expected` is the title the page last saw. When the stored title
-differs, nothing is written and the answer is `409`:
+**Compare-and-set titles.** `expected` is the title the page last saw; it is required. The
+store compares it with the stored title inside the write transaction, so no other write can
+land between the check and the update. When the stored title differs, nothing is written and
+the answer is `409`:
 
 ```json
 {"error": "conflict", "message": "the task's title changed since the page loaded it",

@@ -229,8 +229,20 @@ func TestServeWriteAPI(t *testing.T) {
 	if r := post(t, base+"steps/3.1/title", `{"title":"uno","expected":"one"}`); r.code != 200 {
 		t.Fatalf("step title: %d %s", r.code, r.body)
 	}
-	if r := post(t, base+"steps/3.1/title", `{"title":"eins","expected":"one"}`); r.code != 409 {
+	if r := post(t, base+"steps/3.1/title", `{"title":"eins","expected":"one"}`); r.code != 409 || r.json(t)["current"] != "uno" {
 		t.Fatalf("stale step title: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"tasks/3/title", `{"title":"Renamed again"}`); r.code != 400 {
+		t.Errorf("title without expected: %d %s", r.code, r.body)
+	}
+
+	// Tags: an unknown tag to remove fails the whole change before anything
+	// is written, so the tag to add is not applied either.
+	if r := post(t, base+"tasks/3/tags", `{"add":["fresh"],"remove":["nosuch"]}`); r.code != 404 {
+		t.Errorf("unknown tag removal: %d %s", r.code, r.body)
+	}
+	if out := e.ok("task", "show", "3"); strings.Contains(out, "fresh") {
+		t.Errorf("a refused tag change wrote its additions:\n%s", out)
 	}
 
 	// A browser write makes the viewer the row's latest actor.

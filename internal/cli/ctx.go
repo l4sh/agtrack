@@ -43,6 +43,9 @@ type Ctx struct {
 	Noun                   string // for shared note/tag verbs: the noun in play
 	hint                   string // next-action hint (E3)
 	idem
+	// expectTitle is the browse app's compare-and-set precondition for
+	// `task set` / `sub set --title`; there is no flag for it.
+	expectTitle *string
 }
 
 // --- value accessors -----------------------------------------------------------

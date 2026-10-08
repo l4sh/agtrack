@@ -195,8 +195,10 @@ func (s *Store) setTaskStatus(taskID int64, status, at string) (*row.Row, bool) 
 	return s.getTaskID(taskID, "", true), true
 }
 
-// UpdateTask retitles or moves a task.
-func (s *Store) UpdateTask(task *row.Row, fields []Field) (r *row.Row, err error) {
+// UpdateTask retitles or moves a task. A non-nil expectTitle is a
+// compare-and-set precondition checked inside the write transaction: a task
+// whose stored title differs is a conflict carrying `current` and `yours`.
+func (s *Store) UpdateTask(task *row.Row, fields []Field, expectTitle *string) (r *row.Row, err error) {
 	defer guard(&err)
 	pid := task.Int("project_id")
 	for _, f := range fields {
@@ -205,6 +207,7 @@ func (s *Store) UpdateTask(task *row.Row, fields []Field) (r *row.Row, err error
 		}
 	}
 	s.tx(func() {
+		s.expectTitle("tasks", "task", task.Int("id"), expectTitle, fields)
 		s.updateRow("tasks", task.Int("id"), fields)
 		s.event("task", task.Int("id"), "updated", describeFields(fields), task.Int("id"), pid, "")
 	})

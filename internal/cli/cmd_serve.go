@@ -135,7 +135,11 @@ func (b *browser) store(context string) *store.Store {
 // -f json output, decoded. The caller builds argv from typed fields only:
 // user text goes into `--flag=value` or after `--`, never where it could
 // be read as a flag.
-func (b *browser) exec(argv ...string) (any, error) {
+func (b *browser) exec(argv ...string) (any, error) { return b.execExpect(nil, argv...) }
+
+// execExpect is exec with a title compare-and-set precondition for `task
+// set` / `sub set`, checked by the store inside the write transaction.
+func (b *browser) execExpect(expectTitle *string, argv ...string) (any, error) {
 	full := append([]string{"--actor=" + b.as, "--format=json"}, argv...)
 	res, err := NewParser().Parse(full)
 	if err != nil {
@@ -154,6 +158,7 @@ func (b *browser) exec(argv ...string) (any, error) {
 		return nil, errs.Usage("not a command: %s", strings.Join(res.Path, " "))
 	}
 	c.S = b.store(c.Context)
+	c.expectTitle = expectTitle
 	if c.idemKey != "" {
 		if !idemVerbs[strings.Join(res.Path, " ")] {
 			return nil, errs.Usage("--idem is only accepted by create verbs")
@@ -730,34 +735,28 @@ func (b *browser) Write(req web.BrowseRequest) (any, error) {
 		}
 		return b.exec(append(argv, "--", in.Title)...)
 	case "task.title":
-		id, err := parseID(ref)
-		if err != nil {
-			return nil, err
-		}
-		t, err := b.store("").GetTaskID(id)
-		if err != nil {
-			return nil, err
-		}
-		if err := casTitle("task", t.Str("title"), in); err != nil {
-			return nil, err
-		}
-		return b.exec("task", "set", "--title="+in.Title, "--", strconv.FormatInt(id, 10))
-	case "task.tags":
 		id, err := b.taskID(ref)
 		if err != nil {
 			return nil, err
 		}
-		if len(in.Add) > 0 {
-			if _, err := b.exec(append([]string{"task", "tag", "--", id}, in.Add...)...); err != nil {
-				return nil, err
-			}
+		if err := checkTitle("task", in); err != nil {
+			return nil, err
 		}
-		if len(in.Remove) > 0 {
-			if _, err := b.exec(append([]string{"task", "untag", "--", id}, in.Remove...)...); err != nil {
-				return nil, err
-			}
+		return b.execExpect(in.Expected, "task", "set", "--title="+in.Title, "--", id)
+	case "task.tags":
+		id, err := parseID(ref)
+		if err != nil {
+			return nil, err
 		}
-		return b.exec("task", "show", "--", id)
+		s := b.store("")
+		t, err := s.GetTaskID(id)
+		if err != nil {
+			return nil, err
+		}
+		if _, _, err := s.ChangeTags("task", id, splitTags(in.Add), splitTags(in.Remove), id, t.Int("project_id")); err != nil {
+			return nil, err
+		}
+		return b.exec("task", "show", "--", strconv.FormatInt(id, 10))
 	case "task.status", "step.status":
 		verb, ok := statusVerb[in.Status]
 		if !ok {
@@ -820,10 +819,10 @@ func (b *browser) Write(req web.BrowseRequest) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := casTitle("step", st.Str("title"), in); err != nil {
+		if err := checkTitle("step", in); err != nil {
 			return nil, err
 		}
-		return b.exec("sub", "set", "--title="+in.Title, "--", strconv.FormatInt(st.Int("id"), 10))
+		return b.execExpect(in.Expected, "sub", "set", "--title="+in.Title, "--", strconv.FormatInt(st.Int("id"), 10))
 	case "task.note", "project.note":
 		target := ref
 		noun := "project"
@@ -909,20 +908,17 @@ func (b *browser) taskID(ref string) (string, error) {
 	return strconv.FormatInt(id, 10), nil
 }
 
-// casTitle is the compare-and-set check for a title edit: the page sends
-// the title it last saw, and a different stored title is a 409 carrying
-// both versions, so the human can re-apply rather than overwrite.
-func casTitle(noun, stored string, in web.BrowseInput) error {
+// checkTitle validates a title edit before it runs. The page sends the title
+// it last saw as `expected`; the store compares it with the stored title
+// inside the write transaction (UpdateTask/UpdateSubtask), and a mismatch is
+// a 409 carrying `current` and `yours`, so the human can re-apply rather
+// than overwrite.
+func checkTitle(noun string, in web.BrowseInput) error {
 	if strings.TrimSpace(in.Title) == "" {
 		return errs.New("a %s needs a title", noun)
 	}
 	if in.Expected == nil {
 		return errs.New("a title edit must send `expected`, the title the page last saw")
-	}
-	if *in.Expected != stored {
-		e := errs.Conflict("the %s's title changed since the page loaded it", noun)
-		e.Extra = map[string]any{"current": stored, "yours": in.Title}
-		return e
 	}
 	return nil
 }

@@ -88,6 +88,38 @@ func (s *Store) DetachTags(targetType string, targetID int64, names []string) (r
 	return removed, nil
 }
 
+// ChangeTags adds and removes tags in one transaction. Every tag to remove
+// is looked up before anything is written, so an unknown tag fails the whole
+// change. It records a `tagged` event when add is non-empty and an
+// `untagged` event when a tagging was removed.
+func (s *Store) ChangeTags(targetType string, targetID int64, add, remove []string, taskID, projectID int64) (applied, removed []string, err error) {
+	defer guard(&err)
+	s.tx(func() {
+		var drop []*row.Row
+		for _, name := range remove {
+			drop = append(drop, s.getTag(name, true))
+		}
+		for _, name := range add {
+			tag, _ := s.attachTag(targetType, targetID, name)
+			applied = append(applied, tag)
+		}
+		if len(applied) > 0 {
+			s.event(targetType, targetID, "tagged", strings.Join(applied, ","), taskID, projectID, "")
+		}
+		for _, tag := range drop {
+			res := s.exec("DELETE FROM taggings WHERE tag_id = ? AND target_type = ? AND target_id = ?",
+				tag.Int("id"), targetType, targetID)
+			if n, _ := res.RowsAffected(); n > 0 {
+				removed = append(removed, tag.Str("name"))
+			}
+		}
+		if len(removed) > 0 {
+			s.event(targetType, targetID, "untagged", strings.Join(removed, ","), taskID, projectID, "")
+		}
+	})
+	return applied, removed, nil
+}
+
 func (s *Store) tagsFor(targetType string, targetID int64) []string {
 	out := []string{}
 	for _, r := range s.q("SELECT g.name FROM taggings tg JOIN tags g ON g.id = tg.tag_id WHERE tg.target_type = ? AND tg.target_id = ? ORDER BY g.name",

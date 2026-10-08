@@ -244,6 +244,31 @@ func (s *Store) updateRow(table string, id int64, fields []Field) {
 	s.exec("UPDATE "+table+" SET "+strings.Join(sets, ", ")+", updated_at = ? WHERE id = ?", args...)
 }
 
+// expectTitle is the compare-and-set precondition of a title edit, run inside
+// the caller's write transaction so no other write lands between the check
+// and the update. A nil expect checks nothing.
+func (s *Store) expectTitle(table, noun string, id int64, expect *string, fields []Field) {
+	if expect == nil {
+		return
+	}
+	cur := s.one("SELECT title FROM "+table+" WHERE id = ?", id)
+	if cur == nil {
+		fail(errs.NotFound(noun, fmt.Sprint(id), "no such %s: %d", noun, id))
+	}
+	if cur.Str("title") == *expect {
+		return
+	}
+	yours := ""
+	for _, f := range fields {
+		if f.Name == "title" {
+			yours, _ = f.Value.(string)
+		}
+	}
+	e := errs.Conflict("the %s's title changed since the page loaded it", noun)
+	e.Extra = map[string]any{"current": cur.Str("title"), "yours": yours}
+	fail(e)
+}
+
 func describeFields(fields []Field) string {
 	var kv [][2]any
 	for _, f := range fields {
