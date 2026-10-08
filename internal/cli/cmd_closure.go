@@ -75,7 +75,7 @@ func (c *Ctx) closeParent(info closeInfo, at string, evs []store.Evidence) (clos
 				return info, err
 			}
 		}
-		if err := c.S.AddEvidence(info.taskID, 0, evs); err != nil {
+		if err := c.S.AddEvidence(info.taskID, 0, c.gitDone(t, evs)); err != nil {
 			return info, err
 		}
 		info.taskClosed, info.status = true, "done"

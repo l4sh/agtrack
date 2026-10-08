@@ -270,6 +270,8 @@ type TaskFilter struct {
 	// ExcludeSnoozed hides parked tasks (snoozed_until in the future);
 	// OnlySnoozed shows only them (A5).
 	ExcludeSnoozed, OnlySnoozed bool
+	// MissingArtifact keeps tasks with no "branch" artifact or no linked "pr" (F1).
+	MissingArtifact string
 }
 
 // ListTasks lists tasks as flat listing rows. total is the number of matches
@@ -368,6 +370,12 @@ func (s *Store) listTasks(f TaskFilter) ([]*row.Row, int) {
 	}
 	if f.Blocked {
 		where = append(where, unmet)
+	}
+	switch f.MissingArtifact {
+	case "branch":
+		where = append(where, "NOT EXISTS (SELECT 1 FROM artifacts a WHERE a.task_id = t.id AND a.kind = 'branch')")
+	case "pr":
+		where = append(where, "NOT EXISTS (SELECT 1 FROM pull_requests r WHERE r.task_id = t.id)")
 	}
 	from := " FROM tasks t JOIN projects p ON p.id = t.project_id"
 	if len(where) > 0 {

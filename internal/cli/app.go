@@ -154,7 +154,7 @@ func Run(argv []string, st Streams) (code int) {
 // needsNoDB are commands that explain syntax without opening a database
 // (design §4.9: describe must not create a database to explain itself).
 var needsNoDB = map[string]bool{"grammar": true, "describe": true,
-	"skill install": true, "skill status": true, "skill uninstall": true, "skill print": true}
+	"hooks print": true, "skill install": true, "skill status": true, "skill uninstall": true, "skill print": true}
 
 func finish(st Streams, format string, err error, dbPath string, p *argp.Parser, argv []string) int {
 	if err == nil {

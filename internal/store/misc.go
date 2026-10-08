@@ -499,6 +499,7 @@ type PRFilter struct {
 	HasNumber        bool
 	Context          string
 	AllContexts      bool
+	Project          *row.Row // with its subprojects
 }
 
 // FindPRs searches PRs across tasks.
@@ -527,7 +528,11 @@ func (s *Store) FindPRs(f PRFilter) (out []*row.Row, err error) {
 		where = append(where, "r.state = ?")
 		args = append(args, f.State)
 	}
-	if !f.AllContexts || f.Context != "" {
+	if f.Project != nil {
+		ids := s.descendantIDs(f.Project.Int("id"))
+		where = append(where, "t.project_id IN ("+marks(len(ids))+")")
+		args = append(args, ids64(ids)...)
+	} else if !f.AllContexts || f.Context != "" {
 		ctx := s.contextOrDefault(f.Context)
 		where = append(where, "p.context_id = ?")
 		args = append(args, ctx.Int("id"))

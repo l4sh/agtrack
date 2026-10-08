@@ -111,7 +111,7 @@ func taskLs(c *Ctx) error {
 		Context: c.Context, Project: project, Direct: c.Bool("direct"), Statuses: statuses,
 		Tags: c.Tags("tag"), TagsAll: c.Bool("tags_all"), Grep: c.Str("grep"), Since: since,
 		Repo: c.Str("repo"), Limit: c.Int("limit"), Order: c.Str("order"), AllContexts: c.Bool("all_contexts"),
-		Unclaimed: c.Bool("unclaimed"), Ready: c.Bool("ready"), Blocked: c.Bool("blocked"),
+		Unclaimed: c.Bool("unclaimed"), Ready: c.Bool("ready"), Blocked: c.Bool("blocked"), MissingArtifact: c.Str("missing_artifact"),
 	})
 	if err != nil {
 		return err
@@ -278,7 +278,7 @@ func taskStatus(c *Ctx, status string) error {
 				return err
 			}
 			if changed && status == "done" {
-				if err := c.S.AddEvidence(task.Int("id"), 0, evs); err != nil {
+				if err := c.S.AddEvidence(task.Int("id"), 0, c.gitDone(task, evs)); err != nil {
 					return err
 				}
 			}
@@ -299,6 +299,11 @@ func taskStatus(c *Ctx, status string) error {
 	})
 	if err != nil {
 		return err
+	}
+	if status == "in-progress" {
+		for _, o := range done {
+			c.gitStart(o.task)
+		}
 	}
 	if status == "done" && len(done) == 1 && done[0].changed {
 		c.taskDoneHint(done[0].task.Int("id"))
@@ -516,6 +521,13 @@ func subtaskStatus(c *Ctx, status string) error {
 	})
 	if err != nil {
 		return err
+	}
+	for _, res := range done {
+		if status == "in-progress" && res.TaskMoved {
+			if task, err := c.S.GetTaskID(res.Subtask.Int("task_id")); err == nil {
+				c.gitStart(task)
+			}
+		}
 	}
 	var results []*row.Row
 	for i, res := range done {

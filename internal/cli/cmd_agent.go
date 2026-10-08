@@ -53,6 +53,7 @@ func taskClaim(c *Ctx) error {
 		return err
 	}
 	t := res.Task
+	c.gitStart(t)
 	text := fmt.Sprintf("#%d claimed by %s", t.Int("id"), t.Str("claimed_by"))
 	if exp := t.Str("claim_expires_at"); exp != "" {
 		text += " until " + refs.FmtTS(exp, false, false)
@@ -126,6 +127,7 @@ func nextClaim(c *Ctx, f store.TaskFilter) error {
 			}
 			return err
 		}
+		c.gitStart(res.Task)
 		obj, _ := c.S.TaskDict(res.Task)
 		subs, _, _ := c.S.ListSubtasks(t.Int("id"), refs.OpenStatuses, 0)
 		if c.structured() {

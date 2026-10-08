@@ -25,6 +25,11 @@ func newEnv(t *testing.T) *env {
 	t.Setenv("AGTRACK_ACTOR", "")
 	t.Setenv("AGENT", "")
 	t.Setenv("AGTRACK_FORMAT", "")
+	// F1 must not read the checkout the tests run in; tests that want git
+	// replace gitProbe themselves.
+	oldProbe := gitProbe
+	gitProbe = func() gitInfo { return gitInfo{} }
+	t.Cleanup(func() { gitProbe = oldProbe })
 	for _, k := range sessionEnv {
 		t.Setenv(k, "") // a harness session must not leak into test output
 	}

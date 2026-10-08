@@ -97,6 +97,9 @@ func statusVerbs(group string, set func(*Ctx, string) error, cascade bool) []*ar
 		if cascade {
 			flags = append(flags, argp.Flag{Long: "--no-cascade", Kind: argp.Bool, Help: "do not pull the parent task into in-progress"})
 		}
+		if v.verb == "start" || v.verb == "done" {
+			flags = append(flags, argp.Flag{Long: "--no-git", Kind: argp.Bool, Help: "do not record branch/worktree/commit artifacts from the cwd checkout"})
+		}
 		if v.verb == "done" {
 			flags = append(flags, argp.Flag{Long: "--evidence", Kind: argp.Append, Metavar: "KIND:VALUE",
 				Help: "proof of completion: commit|branch|pr|test|file|url|note:VALUE; repeatable"})
@@ -206,6 +209,7 @@ func Tree() *argp.Command {
 				{Long: "--unclaimed", Kind: argp.Bool, Help: "only tasks nobody holds a live claim on"},
 				{Long: "--ready", Kind: argp.Bool, Help: "only tasks with no unmet blocker"},
 				{Long: "--blocked", Kind: argp.Bool, Help: "only tasks waiting on an unmet blocker"},
+				{Long: "--missing-artifact", Choices: []string{"branch", "pr"}, Help: "only tasks with no branch artifact / no linked PR"},
 			}, listFlags()...)},
 		{Name: "show", Help: "one task with its steps, notes and PRs (-x adds history)", Run: Handler(taskShow), Args: []argp.Arg{{Name: "ref"}}},
 	}
@@ -225,7 +229,8 @@ func Tree() *argp.Command {
 				{Long: "--yes", Kind: argp.Bool, Help: "confirm --apply without a terminal"}}, listFlags()...)},
 		&argp.Command{Name: "claim", Help: "take an advisory, expiring claim on a task", Run: Handler(taskClaim), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "claim lifetime: 45m, 2h, 1d; 0 = no expiry (default 2h)"},
-				{Long: "--steal", Kind: argp.Bool, Help: "take over another actor's live claim"}}},
+				{Long: "--steal", Kind: argp.Bool, Help: "take over another actor's live claim"},
+				{Long: "--no-git", Kind: argp.Bool, Help: "do not record branch/worktree artifacts from the cwd checkout"}}},
 		&argp.Command{Name: "transfer", Help: "hand a task to another actor: release, claim for them and a handoff note, atomically", Run: Handler(taskTransfer), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--to", Metavar: "ACTOR", Help: "receiving actor (required)"}, {Long: "--note", Help: "the handoff note (default: who handed over to whom)"},
 				{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "the new claim's lifetime"},
@@ -285,6 +290,8 @@ func Tree() *argp.Command {
 			{Name: "ls", Aliases: []string{"list"}, Help: "list PRs, or find the task behind one", Run: Handler(prLs),
 				Flags: append([]argp.Flag{{Long: "--task", Short: "-t", Metavar: "ID"}, {Long: "--repo", Metavar: "URL"}, {Long: "--number", Kind: argp.Int},
 					{Long: "--url"}, {Long: "--state"}, {Long: "--all-contexts", Kind: argp.Bool}}, listFlags()...)},
+			{Name: "sync", Help: "read each linked PR's state with `gh pr view` (read only) and list open tasks whose PR merged", Run: Handler(prSync),
+				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--all-contexts", Kind: argp.Bool}}},
 			{Name: "state", Help: "update a PR state", Run: Handler(prState), Args: []argp.Arg{{Name: "id", Help: "pr record id"}, {Name: "new_state"}}},
 			{Name: "rm", Aliases: []string{"delete"}, Help: "unlink a PR", Run: Handler(prRm), Args: []argp.Arg{{Name: "id"}}},
 		}}
@@ -327,12 +334,13 @@ func Tree() *argp.Command {
 		}}
 
 	root := &argp.Command{Name: "agtrack", Help: "Context / project / task / subtask tracker for agents and humans.", Epilog: Epilog, SubRequired: true,
-		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, claims, specTree(), skillTree(),
+		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, claims, specTree(), skillTree(), hooksCommand(),
 			{Name: "next", Help: "what is in progress, with its open steps", Run: Handler(cmdNext),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--todo", Kind: argp.Bool, Help: "include todo tasks"},
 					{Long: "--limit", Short: "-n", Kind: argp.PositiveInt}, {Long: "--all-contexts", Kind: argp.Bool},
 					{Long: "--claim", Kind: argp.Bool, Help: "claim the first unclaimed, unblocked task (implies --todo)"},
 					{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "claim lifetime with --claim"},
+					{Long: "--no-git", Kind: argp.Bool, Help: "with --claim: do not record git artifacts"},
 					{Long: "--blocked", Kind: argp.Bool, Help: "include tasks waiting on an unmet blocker"},
 					{Long: "--stale", Kind: argp.Bool, Help: "only stale tasks (all steps done, idle, claim expired)"},
 					{Long: "--stale-after", Metavar: "Nd", Help: "idle threshold in days; implies --stale (default config next.stale_days, 7)"},

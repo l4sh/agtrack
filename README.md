@@ -159,6 +159,35 @@ agtrack task done 12                                    # releases the claim
   `config set actor.required true` fails writes with no actor. `config set rules.approvers a,b`
   (default `human`) names who may approve rules. Settings: `config get` lists them.
 - **Artifacts**: `task artifact 12 branch feat/x`, `... file auth/tokens.py --label "..."`.
+  Inside a git checkout, `task start`, `task claim`, `sub start` (when it pulls the task into
+  progress) and `next --claim` record the `branch` and `worktree` artifacts if the task has none
+  for this checkout, and warn when the branch is a base branch (`main`, `master`, `develop`,
+  `dev`, `stage`, `staging`, `trunk`, and the repo's `origin/HEAD`). `task done` records HEAD as a
+  `commit` artifact and as `commit:` evidence. `--no-git` turns it off per call, `config set
+  git.auto false` everywhere. git failures only warn. `task ls --missing-artifact branch|pr`.
+- **PR state**: `pr sync [-p REF]` runs `gh pr view <url> --json state,mergedAt` for each linked
+  PR (read only, never writes to GitHub), updates the stored state, and lists open tasks whose PR
+  merged with their `task done` command. PRs it cannot read are skipped with the reason.
+
+### Installing the hooks by hand
+
+`agtrack hooks print claude|codex [--event session-start|session-end|pre-commit]` prints
+configuration and scripts; it installs nothing, because hooks live in user-level configuration.
+
+1. `agtrack hooks print claude` (or `codex`). Each event prints a JSON block and, for
+   `session-end` and `pre-commit`, a shell script with its target path.
+2. Save each script at the printed path (`~/.claude/hooks/agtrack-*.sh`, or `~/.codex/hooks/`)
+   and `chmod +x` it.
+3. Merge the JSON into `~/.claude/settings.json` (Codex: `~/.codex/hooks.json`, with
+   `hooks = true` under `[features]` in `~/.codex/config.toml`). If the file already has a
+   `SessionStart`, `Stop` or `PreToolUse` array, append the printed entry to it.
+4. Restart the harness. `session-start` runs `agtrack resume`; `session-end` blocks the stop once
+   to list `task done-check` candidates and unacknowledged handoffs; `pre-commit` runs `agtrack
+   check <verb>` before `git commit|push` and `gh pr|release` (exit 20/21 deny, 22 needs approval,
+   anything else lets the command through).
+
+The Codex output was checked against a local install for the file location and `SessionStart`;
+`Stop` and `PreToolUse` use the same schema but were not run.
 
 ## References
 

@@ -133,7 +133,7 @@ func isWriteVerb(path []string, c *Ctx) bool {
 	case "project repo":
 		return c.Str("repo_action") != "ls"
 	}
-	if path[0] == "skill" || path[0] == "config" {
+	if path[0] == "skill" || path[0] == "config" || path[0] == "hooks" {
 		return false
 	}
 	return !readLeaves[path[len(path)-1]]

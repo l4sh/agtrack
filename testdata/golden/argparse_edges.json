@@ -189,7 +189,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:09:00Z",
-   "stderr": "usage: agtrack task ls [-h] [-p REF] [--direct] [-s LIST] [--tag TAG]\n                       [--tags-all] [--grep TEXT] [--since WHEN] [--repo URL]\n                       [-n LIMIT] [--order {created,id,status,updated}]\n                       [--all-contexts] [--unclaimed] [--ready] [--blocked]\n                       [--count] [--ids]\nagtrack task ls: error: argument -f/--format: invalid choice: 'xml' (choose from 'table', 'plain', 'tsv', 'json', 'jsonl', 'yaml')\n",
+   "stderr": "usage: agtrack task ls [-h] [-p REF] [--direct] [-s LIST] [--tag TAG]\n                       [--tags-all] [--grep TEXT] [--since WHEN] [--repo URL]\n                       [-n LIMIT] [--order {created,id,status,updated}]\n                       [--all-contexts] [--unclaimed] [--ready] [--blocked]\n                       [--missing-artifact {branch,pr}] [--count] [--ids]\nagtrack task ls: error: argument -f/--format: invalid choice: 'xml' (choose from 'table', 'plain', 'tsv', 'json', 'jsonl', 'yaml')\n",
    "stdin": "",
    "stdout": "",
    "tags": [
@@ -274,7 +274,7 @@
    "exit": 2,
    "normalize": [],
    "now": "2026-09-01T12:14:00Z",
-   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME]\n               [-f {table,plain,tsv,json,jsonl,yaml}] [--fields A,B] [-x]\n               [--no-header] [--color] [--no-color] [-q] [--actor NAME]\n               [--session ID] [--max-bytes N] [--idem KEY] [-V]\n               \u003ccommand\u003e ...\nagtrack: error: argument \u003ccommand\u003e: invalid choice: 'bogus-noun' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'note', 'notes', 'claims', 'spec', 'specs', 'skill', 'skills', 'next', 'resume', 'batch', 'summary', 'here', 'watch', 'serve', 'dump', 'info', 'grammar', 'describe', 'config', 'actor', 'actors')\n",
+   "stderr": "usage: agtrack [-h] [--db PATH] [-c NAME]\n               [-f {table,plain,tsv,json,jsonl,yaml}] [--fields A,B] [-x]\n               [--no-header] [--color] [--no-color] [-q] [--actor NAME]\n               [--session ID] [--max-bytes N] [--idem KEY] [-V]\n               \u003ccommand\u003e ...\nagtrack: error: argument \u003ccommand\u003e: invalid choice: 'bogus-noun' (choose from 'ctx', 'context', 'contexts', 'project', 'proj', 'projects', 'p', 'task', 'tasks', 't', 'sub', 'subtask', 'subtasks', 's', 'tag', 'tags', 'pr', 'prs', 'log', 'worklog', 'note', 'notes', 'claims', 'spec', 'specs', 'skill', 'skills', 'hooks', 'next', 'resume', 'batch', 'summary', 'here', 'watch', 'serve', 'dump', 'info', 'grammar', 'describe', 'config', 'actor', 'actors')\n",
    "stdin": "",
    "stdout": "",
    "tags": [

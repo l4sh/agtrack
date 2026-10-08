@@ -157,7 +157,17 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
   Checkpoint before you stop, before a context compaction, and at each milestone.
 - **Artifacts** record where the work lives: `task artifact 12 branch feat/oauth`,
   `task artifact 12 file auth/tokens.ts --label "grace window"`. Store content that
-  resumption needs, not paths under `/tmp`.
+  resumption needs, not paths under `/tmp`. Inside a git checkout, `task start`/`claim`,
+  `sub start` (when it pulls the task in) and `next --claim` record the `branch` and
+  `worktree` for you, and `task done` records HEAD as a `commit` artifact and as evidence;
+  starting on a base branch (main, develop, origin/HEAD, ...) warns. `--no-git` skips it for a
+  call, `config set git.auto false` for good. `task ls --missing-artifact branch|pr` finds
+  tasks with no branch or no PR.
+- **PRs**: `pr sync [-p .]` reads each linked PR with `gh pr view` (read only; skips with a
+  reason when gh is missing, unauthenticated or the PR is gone), updates the stored state and
+  lists open tasks whose PR merged, each with its `task done` command.
+- **Hooks**: `hooks print claude|codex [--event session-start|session-end|pre-commit]` only
+  prints configuration and scripts; the human installs them (README).
 
 What goes where: a status change records *that* something moved; a note or log entry
 records *why*, or what the next agent needs and cannot infer. Log at milestones and
