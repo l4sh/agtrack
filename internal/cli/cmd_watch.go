@@ -182,6 +182,12 @@ func (c *Ctx) actorNot() string {
 	if v == "self" {
 		return c.Actor
 	}
+	// An alias names its canonical actor: events carry the slug.
+	if v != "" && c.S != nil {
+		if slug, _, _, err := c.S.ResolveActor(v); err == nil {
+			return slug
+		}
+	}
 	return v
 }
 

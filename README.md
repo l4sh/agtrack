@@ -146,6 +146,11 @@ agtrack task done 12                                    # releases the claim
   who is on what. A claim cannot fence a git worktree: an expired holder may still be editing.
   `claims [--stale 15m]` shows holders and who went quiet; `task transfer 12 --to X` hands a
   task over with a handoff note; `watch --until stale` exits 14 when a claim goes quiet.
+- **Diagnostics**: `doctor [-p REF] [--strict]` is a read-only health check (stale tasks and
+  claims, unacked handoffs, actor drift, done tasks with a branch and no PR, stale lessons,
+  proposed rules); every finding carries a `suggested` command, `--strict` exits 4 on findings.
+  `info --usage [--since 30d]` counts events per actor and per command family, and events with
+  no actor.
 - **Acknowledge handoffs**: `note ack 7` takes on a handoff, blocker or question (resolving
   stays separate); `notes --unacked` lists the ones nobody took. `task note 12 --kind
   handoff --close 12.3 "..."` hands off and finishes the step in one transaction.

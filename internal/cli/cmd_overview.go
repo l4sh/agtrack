@@ -342,6 +342,9 @@ func cmdDump(c *Ctx) error {
 }
 
 func cmdInfo(c *Ctx) error {
+	if c.Bool("usage") {
+		return infoUsage(c)
+	}
 	ctx, _ := c.S.CurrentContext()
 	project, _ := c.S.CurrentProject()
 	counts, err := c.S.TableCounts()

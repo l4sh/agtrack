@@ -266,7 +266,8 @@ func Tree() *argp.Command {
 	subSubs = append(subSubs, &argp.Command{Name: "next", Help: "close the in-progress step and start the next one", Run: Handler(subtaskNext),
 		Args: []argp.Arg{{Name: "task", Help: "task id"}},
 		Flags: []argp.Flag{{Long: "--close-parent", Kind: argp.Bool, Help: "close the task when no step is left"}, {Long: "--note", Help: "note on the closed step (and the task when it closes)"},
-			{Long: "--evidence", Kind: argp.Append, Metavar: "KIND:VALUE"}}})
+			{Long: "--evidence", Kind: argp.Append, Metavar: "KIND:VALUE"},
+			{Long: "--no-git", Kind: argp.Bool, Help: "do not record the commit artifact when the task closes"}}})
 	subSubs = append(subSubs,
 		&argp.Command{Name: "set", Help: "retitle a step", Run: Handler(subtaskSet), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--title", Kind: argp.NArgsPlus}}},
@@ -335,6 +336,11 @@ func Tree() *argp.Command {
 
 	root := &argp.Command{Name: "agtrack", Help: "Context / project / task / subtask tracker for agents and humans.", Epilog: Epilog, SubRequired: true,
 		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, claims, specTree(), skillTree(), hooksCommand(),
+			{Name: "doctor", Help: "read-only health check: stale tasks and claims, unacked handoffs, actor drift, missing PRs, stale lessons, proposed rules; each finding names a fix", Run: Handler(cmdDoctor),
+				Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--all-contexts", Kind: argp.Bool},
+					{Long: "--strict", Kind: argp.Bool, Help: "exit 4 when there are findings"},
+					{Long: "--stale-after", Metavar: "Nd", Help: "idle days before a task is stale (default: next.stale_days)"},
+					{Long: "--claim-quiet", Metavar: "DURATION", Default: "1h", Help: "a live claim quiet for longer than this is stale (default 1h)"}}, listFlags()...)},
 			{Name: "next", Help: "what is in progress, with its open steps", Run: Handler(cmdNext),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--todo", Kind: argp.Bool, Help: "include todo tasks"},
 					{Long: "--limit", Short: "-n", Kind: argp.PositiveInt}, {Long: "--all-contexts", Kind: argp.Bool},
@@ -370,7 +376,9 @@ func Tree() *argp.Command {
 					{Long: "--new", Kind: argp.Bool, Help: "start another server even if one is running"},
 					{Long: "--restart", Kind: argp.Bool, Help: "stop the running server and start a fresh one"}}},
 			{Name: "dump", Help: "human-readable export of a whole context (yaml by default); not a backup format", Run: Handler(cmdDump), Flags: []argp.Flag{{Long: "--all-contexts", Kind: argp.Bool}}},
-			{Name: "info", Help: "database path, version and row counts", Run: Handler(cmdInfo)},
+			{Name: "info", Help: "database path, version and row counts", Run: Handler(cmdInfo),
+				Flags: []argp.Flag{{Long: "--usage", Kind: argp.Bool, Help: "event counts per actor and per command family, plus events with no actor"},
+					{Long: "--since", Metavar: "DURATION", Help: "with --usage: only events from the last 30d, 12h, ... (default all)"}}},
 			{Name: "grammar", Help: "the reference grammar, statuses, formats, exit codes and core commands", Run: Handler(cmdGrammar)},
 			{Name: "describe", Help: "a command's arguments as JSON", Run: Handler(cmdDescribe), Args: []argp.Arg{{Name: "command", NArgs: "*"}}},
 			config, actorTree(),

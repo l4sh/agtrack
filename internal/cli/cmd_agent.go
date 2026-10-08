@@ -54,6 +54,7 @@ func taskClaim(c *Ctx) error {
 	}
 	t := res.Task
 	c.gitStart(t)
+	c.ackHint(t.Int("project_id"), t.Int("id"))
 	text := fmt.Sprintf("#%d claimed by %s", t.Int("id"), t.Str("claimed_by"))
 	if exp := t.Str("claim_expires_at"); exp != "" {
 		text += " until " + refs.FmtTS(exp, false, false)
@@ -84,6 +85,21 @@ func taskRelease(c *Ctx) error {
 		text = fmt.Sprintf("#%d was not claimed", t.Int("id"))
 	}
 	return c.mutated(text, row.Of("id", t.Int("id"), "released", changed))
+}
+
+// ackHint points a claimer at an unacknowledged handoff on the task it just
+// took (E3). Hint is first-wins, so any hint set earlier stays.
+func (c *Ctx) ackHint(projectID, taskID int64) {
+	notes, err := c.S.UnackedHandoffs(projectID, taskID)
+	if err != nil {
+		return
+	}
+	for _, n := range notes {
+		if n.Str("kind") == "handoff" && n.Str("target_type") != "project" {
+			c.Hint(fmt.Sprintf("agtrack note ack %d", n.Int("id")))
+			return
+		}
+	}
 }
 
 // nextClaim folds find-and-take into one round trip: the first unclaimed,
@@ -128,6 +144,7 @@ func nextClaim(c *Ctx, f store.TaskFilter) error {
 			return err
 		}
 		c.gitStart(res.Task)
+		c.ackHint(res.Task.Int("project_id"), res.Task.Int("id"))
 		obj, _ := c.S.TaskDict(res.Task)
 		subs, _, _ := c.S.ListSubtasks(t.Int("id"), refs.OpenStatuses, 0)
 		if c.structured() {

@@ -220,6 +220,7 @@ var fieldsFor = map[string][2][]string{
 	"pr":        {{"id", "state", "repo", "number", "task_id", "task_title"}, {"url", "created"}},
 	"event":     {{"when", "actor", "target", "action", "detail"}, {"task", "target_type", "recorded"}},
 	"note":      {{"id", "created", "actor", "body"}, {"kind", "resolved_at", "acknowledged_at"}},
+	"finding":   {{"type", "task", "message", "suggested"}, {}},
 	"claim":     {{"id", "holder", "session", "age", "last_seen", "last_event", "title"}, {"project", "claimed_at", "claim_expires_at", "quiet"}},
 	"spec":      {{"slug", "revision", "status", "source_path", "title"}, {"project", "sha", "updated_at"}},
 	"dep":       {{"task_id", "depends_on_id", "kind", "status", "title"}, {"reason", "created_at"}},

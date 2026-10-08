@@ -124,7 +124,10 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
   next.stale_days N` - or claim expired) and lists them last; `next --stale` shows only
   those, `task done-check [--apply --yes]` lists/closes the finished ones. Park a task with
   `task snooze 97 --until 3d|2026-10-20 --note why` (hidden from `next`; `next --parked`
-  lists them; `task unsnooze 97`).
+  lists them; `task unsnooze 97`). `doctor [--strict]` sweeps everything at once (stale tasks
+  and claims, unacked handoffs, actor drift, missing PRs, stale lessons, proposed rules), each
+  finding with a `suggested` command; `info --usage --since 30d` shows whether the tool is used.
+  Claiming a task with an unacknowledged handoff hints `note ack <id>`.
 - **Status verbs are idempotent**: repeating `task done 12 --note x` writes nothing, not
   even a second note. **Multi-ref verbs are atomic**: `task done 4 999` writes nothing if
   999 is bad.
