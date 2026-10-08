@@ -12,6 +12,7 @@ const LOG_PAGE = 50;
 const LOG_MAX = 1000; // the server refuses a larger limit
 const SVG_NS = "http://www.w3.org/2000/svg";
 const NOTE_KINDS = ["note", "decision", "handoff", "blocker", "question"];
+const ACK_KINDS = ["handoff", "blocker", "question"];
 const STATUSES = ["todo", "in-progress", "done", "cancelled"];
 const STATUS_LABEL = { todo: "todo", "in-progress": "in progress", done: "done", cancelled: "cancelled" };
 const STATUS_MARK = { todo: "[ ]", "in-progress": "[~]", done: "[x]", cancelled: "[-]" };
@@ -232,6 +233,8 @@ const state = {
   es: null,
   sseTimer: null,
   pending: false,
+  openLessons: new Set(), // expanded lessons, kept across re-renders
+  approver: false,
   drafts: new Map(), // route|form key → unsent text, kept across re-renders
   titleSeen: new Map(), // title draft key → the title its editor was opened on
   renderSeq: 0,
@@ -464,6 +467,10 @@ function parseRoute() {
       return { view: "notes", q };
     case "log":
       return { view: "log", q };
+    case "rules":
+      return { view: "rules", q };
+    case "lessons":
+      return { view: "lessons", q };
   }
   return { view: "missing", q };
 }
@@ -555,6 +562,7 @@ async function render(opts = {}) {
   }
   window.scrollTo(0, scroll);
   if (!opts.keepScroll && !focus) view.focus({ preventScroll: true });
+  refreshBadge();
 }
 
 window.addEventListener("hashchange", () => render({ force: true }));
@@ -575,6 +583,8 @@ const VIEWS = {
   task: viewTask,
   notes: viewNotes,
   log: viewLog,
+  rules: viewRules,
+  lessons: viewLessons,
   missing: async () => h("div", { class: "b-error" }, h("h1", null, "Not found"), h("p", null, "No view at this address.")),
 };
 
@@ -693,7 +703,7 @@ async function viewContext(route) {
     "div",
     { class: "b-page" },
     crumbs({ label: "Contexts", href: "#/" }, { label: c.name }),
-    header(c.title || c.name, h("p", { class: "b-sub" }, countsLine(c.counts)), copyBtn(c.name)),
+    header(c.title || c.name, h("p", { class: "b-sub" }, countsLine(c.counts)), scopeLinks("context", c.name, true), copyBtn(c.name)),
     card(
       "Projects",
       archivedCount
@@ -790,7 +800,7 @@ async function viewProject(route) {
     default:
       body = await projectTasksTab(data, route.q);
   }
-  return h("div", { class: "b-page" }, crumbs(...crumbItems), header(p.title || p.name, h("div", null, meta, countsLine(p.counts)), copyBtn(data.path)), tabs, body);
+  return h("div", { class: "b-page" }, crumbs(...crumbItems), header(p.title || p.name, h("div", null, meta, countsLine(p.counts)), scopeLinks("project", data.path, true), copyBtn(data.path)), tabs, body);
 }
 
 async function projectTasksTab(data, q) {
@@ -827,7 +837,14 @@ async function projectTasksTab(data, q) {
       { class: (t.blocked ? "is-blocked" : "") + (isMine(t.last_actor) ? " is-mine" : "") },
       h("td", null, h("a", { href: hrefTask(t.id), class: "b-ref" }, "#" + t.id)),
       h("td", { class: "b-title-cell" }, h("a", { href: hrefTask(t.id) }, t.title), t.project && t.project !== data.short ? h("span", { class: "b-muted b-small" }, " · " + t.project) : null),
-      h("td", null, statusBadge(t.status), t.blocked ? h("span", { class: "b-pill is-warn", title: "waits on an unmet blocker" }, "blocked") : null),
+      h(
+        "td",
+        null,
+        statusBadge(t.status),
+        t.blocked ? h("span", { class: "b-pill is-warn", title: "waits on an unmet blocker" }, "blocked") : null,
+        t.stale_reason ? h("span", { class: "b-pill is-warn", title: "stale: " + t.stale_reason }, "stale: " + t.stale_reason) : null,
+        isParked(t) ? h("span", { class: "b-pill", title: "parked until " + fmtTS(t.snoozed_until) + (t.snooze_note ? ": " + t.snooze_note : "") }, "parked") : null
+      ),
       h("td", { class: "b-mono b-small", title: "steps done / total" }, t.subtasks || "—"),
       h(
         "td",
@@ -950,6 +967,7 @@ async function viewTask(route) {
   const main = h(
     "div",
     { class: "b-task-main" },
+    checkpointCard(t),
     card(`Steps (${(t.subtask_list || []).filter((s) => s.status === "done").length}/${(t.subtask_list || []).length})`, null, stepList(t.subtask_list || []), addStepsForm(base + "/steps")),
     card("Notes", null, noteThreads(t.note_list || [], {}), addNoteForm(base + "/notes")),
     card("History", null, eventList((t.events || []).slice().reverse(), { noTask: true }))
@@ -960,6 +978,9 @@ async function viewTask(route) {
     { class: "b-task-side" },
     card("Status", null, statusControls(t, base)),
     card("Claim", null, claimBox(t, base)),
+    card("Snooze", null, snoozeBox(t, base)),
+    (t.evidence || []).length || t.status === "done" ? card("Evidence", null, evidenceList(t.evidence || [])) : null,
+    card("Rules and lessons", null, scopeLinks("task", String(id))),
     card("Tags", null, tagEditor(t, base)),
     card("Dependencies", null, depsBox(data.deps || {}, base)),
     card("Spec sections", null, specLinks(data.specs || [])),
@@ -975,7 +996,7 @@ async function viewTask(route) {
     h(
       "div",
       { class: "b-head" },
-      h("div", { class: "b-head-text" }, titleBox, h("div", { class: "b-meta" }, h("span", { class: "b-mono" }, "#" + id), statusBadge(t.status), tagChips(t.tag_list || []))),
+      h("div", { class: "b-head-text" }, titleBox, h("div", { class: "b-meta" }, h("span", { class: "b-mono" }, "#" + id), statusBadge(t.status), t.stale_reason ? h("span", { class: "b-pill is-warn", title: "stale: " + t.stale_reason }, "stale: " + t.stale_reason) : null, isParked(t) ? h("span", { class: "b-pill" }, "parked until " + fmtTS(t.snoozed_until)) : null, tagChips(t.tag_list || []))),
       h("div", { class: "b-head-actions" }, copyBtn("#" + id))
     ),
     h("div", { class: "b-task" }, main, side)
@@ -1111,6 +1132,14 @@ function claimBox(t, base) {
     "div",
     null,
     h("p", null, icon("lock"), " ", actorEl(t.claimed_by), " ", h("span", { class: "b-muted" }, until)),
+    t.claim_session || t.claim_last_seen
+      ? h(
+          "dl",
+          { class: "b-dl" },
+          t.claim_session ? [h("dt", null, "session"), h("dd", { class: "b-mono b-small" }, t.claim_session)] : null,
+          t.claim_last_seen ? [h("dt", null, "last seen"), h("dd", null, fmtTS(t.claim_last_seen), " ", h("span", { class: "b-muted" }, ago(t.claim_last_seen)))] : null
+        )
+      : null,
     expired
       ? null
       : h(
@@ -1387,6 +1416,30 @@ function noteItem(n, opts, isRoot) {
         )
       );
   }
+  const ackable = isRoot && ACK_KINDS.includes(n.kind);
+  if (ackable && !n.acknowledged_at && !resolved && !opts.readOnly)
+    actions.appendChild(
+      h(
+        "button",
+        {
+          type: "button",
+          class: "b-link-btn",
+          on: {
+            click: () =>
+              openDialog({
+                title: "Acknowledge note " + n.id,
+                sub: "Marks it as seen by you. It stays open until someone resolves it.",
+                fields: [field("Reply (optional)", h("textarea", { name: "note", rows: 3 }))],
+                confirm: "Acknowledge",
+                onSubmit: async (form) => {
+                  await write("notes/" + n.id + "/ack", { note: form.elements.note.value.trim() }, "Note acknowledged");
+                },
+              }),
+          },
+        },
+        "Acknowledge…"
+      )
+    );
   actions.appendChild(copyBtn(String(n.id), "#" + n.id));
   return h(
     "article",
@@ -1398,6 +1451,8 @@ function noteItem(n, opts, isRoot) {
       actorEl(n.actor),
       when(n.created_at),
       resolved ? h("span", { class: "b-pill is-ok", title: "resolved " + fmtTS(n.resolved_at) }, "resolved" + (n.resolved_by ? " by " + n.resolved_by : "")) : isRoot ? h("span", { class: "b-pill" }, "open") : null,
+      ackable && n.acknowledged_at ? h("span", { class: "b-pill is-ok", title: "acknowledged " + fmtTS(n.acknowledged_at) }, "acknowledged" + (n.acknowledged_by ? " by " + n.acknowledged_by : "")) : null,
+      ackable && !n.acknowledged_at && !resolved ? h("span", { class: "b-pill is-warn", title: "nobody has acknowledged this yet" }, "unacknowledged") : null,
       opts.where ? noteWhere(n) : null
     ),
     h("p", { class: "b-note-body" }, linkify(n.body)),
@@ -1605,6 +1660,492 @@ async function probe() {
       document.getElementById("stopped").hidden = false;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Task continuity: checkpoints, evidence, snooze
+// ---------------------------------------------------------------------------
+
+const isParked = (t) => !!t.snoozed_until && parseTS(t.snoozed_until) > new Date();
+
+function checkpointCard(t) {
+  const cp = t.checkpoint;
+  const hist = t.checkpoints || [];
+  if (!cp) return card("Checkpoint", null, empty("No checkpoint. An agent saves one with `agtrack task checkpoint`."));
+  const body = h("pre", { class: "b-plain", hidden: true }, linkify(cp.body || ""));
+  const toggle = h(
+    "button",
+    {
+      type: "button",
+      class: "b-link-btn",
+      on: {
+        click: () => {
+          body.hidden = !body.hidden;
+          toggle.textContent = body.hidden ? "Show body" : "Hide body";
+        },
+      },
+    },
+    "Show body"
+  );
+  const versions =
+    hist.length > 1
+      ? h(
+          "details",
+          { class: "b-history" },
+          h("summary", null, `History (${hist.length} versions)`),
+          h(
+            "ul",
+            { class: "b-list" },
+            hist.map((v) =>
+              h("li", null, h("span", { class: "b-mono" }, "v" + v.n), " ", actorEl(v.actor), " ", when(v.created_at), " ", h("span", { class: "b-muted b-small" }, v.bytes + " bytes"), v.next ? h("div", { class: "b-small" }, "next: ", linkify(v.next)) : null)
+            )
+          )
+        )
+      : null;
+  return card(
+    "Checkpoint v" + cp.n,
+    null,
+    h("p", { class: "b-checkpoint-next" }, h("strong", null, "Next: "), linkify(cp.next || "")),
+    h("p", { class: "b-small b-muted" }, actorEl(cp.actor), " ", when(cp.created_at)),
+    cp.body ? [toggle, body] : null,
+    versions
+  );
+}
+
+function evidenceList(ev) {
+  if (!ev.length) return empty("Closed with no evidence.");
+  return h(
+    "ul",
+    { class: "b-list" },
+    ev.map((e) => h("li", null, h("span", { class: "b-pill" }, e.kind), " ", h("span", { class: "b-mono b-small" }, linkify(e.value)), e.subtask_id ? h("span", { class: "b-muted b-small" }, " (step)") : null))
+  );
+}
+
+function snoozeBox(t, base) {
+  if (isParked(t))
+    return h(
+      "div",
+      null,
+      h("p", null, h("span", { class: "b-pill" }, "parked"), " until ", fmtTS(t.snoozed_until)),
+      t.snooze_note ? h("p", { class: "b-small" }, linkify(t.snooze_note)) : null,
+      h("button", { type: "button", class: "b-btn b-btn-sm", on: { click: () => send(base + "/unsnooze", {}, `#${t.id} unsnoozed`) } }, "Unsnooze")
+    );
+  return h(
+    "button",
+    {
+      type: "button",
+      class: "b-btn b-btn-sm",
+      on: {
+        click: () =>
+          openDialog({
+            title: "Snooze #" + t.id,
+            sub: "Parked tasks are hidden from `agtrack next` until the date.",
+            fields: [field("Until (date or duration: 2026-10-20, 3d, 2w)", h("input", { name: "until", value: "3d", autocomplete: "off" })), field("Note (optional)", h("input", { name: "note", autocomplete: "off" }))],
+            confirm: "Snooze",
+            onSubmit: async (form) => {
+              await write(base + "/snooze", { until: form.elements.until.value.trim(), note: form.elements.note.value.trim() }, `#${t.id} snoozed`);
+            },
+          }),
+      },
+    },
+    "Snooze…"
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Rules and lessons (agent-features H4)
+// ---------------------------------------------------------------------------
+
+const RULE_KINDS = ["deny", "allow", "require", "remember"];
+const RULE_VERBS = ["commit", "push", "pr", "merge", "release", "write", "install", "migrate", "delete", "deploy", "external-post", "config"];
+const RULE_CHECKS = ["branch-not-base", "browser-check", "tests-pass", "ask-first"];
+const LESSON_KINDS = ["gotcha", "fix", "decision", "fact"];
+const SCOPES = [
+  ["global", "Global"],
+  ["context", "Context"],
+  ["project", "Project"],
+  ["task", "Task"],
+];
+
+function scopeHref(view, scope, ref) {
+  return "#/" + view + "?scope=" + enc(scope) + (ref ? "&ref=" + enc(ref) : "");
+}
+
+// scopeLinks: links from a context, project or task page to its rules and lessons.
+function scopeLinks(scope, ref, inline) {
+  const links = [h("a", { class: "b-btn b-btn-sm", href: scopeHref("rules", scope, ref) }, "Rules"), h("a", { class: "b-btn b-btn-sm", href: scopeHref("lessons", scope, ref) }, "Lessons")];
+  return h(inline ? "span" : "div", { class: "b-row" }, links);
+}
+
+// scopeBar: the scope picker for the Rules and Lessons views. The lists show
+// everything that binds the chosen scope; an addition lands in it.
+function scopeBar(route) {
+  const scope = route.q.get("scope") || "global";
+  const ref = route.q.get("ref") || "";
+  const plain = scope === "global" || scope === "proposed";
+  const sel = selectEl("scope", scope === "proposed" ? [["proposed", "Proposed (all)"], ...SCOPES] : SCOPES, scope);
+  const refIn = h("input", { name: "ref", value: ref, size: 24, placeholder: { context: "context name", project: "context/project", task: "task id" }[scope] || "", autocomplete: "off", list: "ctx-names" });
+  const form = h(
+    "form",
+    {
+      class: "b-filters",
+      on: {
+        submit: (e) => {
+          e.preventDefault();
+          setQuery({ scope: sel.value, ref: sel.value === "global" || sel.value === "proposed" ? "" : refIn.value.trim() });
+        },
+      },
+    },
+    field("Scope", sel),
+    plain ? null : field("Ref", refIn),
+    h("datalist", { id: "ctx-names" }, state.contexts.map((c) => h("option", { value: c.name }))),
+    plain ? null : h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Show")
+  );
+  sel.addEventListener("change", () => {
+    if (sel.value === "global" || sel.value === "proposed") setQuery({ scope: sel.value, ref: "" });
+    else if (scope === sel.value) return;
+    else setQuery({ scope: sel.value, ref: "" });
+  });
+  return { form, scope, ref };
+}
+
+function otherView(view, scope, ref) {
+  const other = view === "rules" ? "lessons" : "rules";
+  return h("p", { class: "b-small" }, "Same scope: ", h("a", { href: scopeHref(other, scope === "proposed" ? "global" : scope, ref) }, other));
+}
+
+async function refreshBadge() {
+  const el = document.getElementById("proposed");
+  if (!el) return;
+  try {
+    const data = await api("/api/browse/rules?scope=proposed", { refresh: true });
+    state.approver = !!data.approver;
+    const n = data.proposed_total || 0;
+    el.hidden = n === 0;
+    el.textContent = n + " proposed rule" + (n === 1 ? "" : "s");
+    el.title = state.approver ? "Rules waiting for you to approve" : "Rules waiting for an approver";
+  } catch {
+    el.hidden = true;
+  }
+}
+
+async function viewRules(route) {
+  if (!state.viewer) await loadHome();
+  const bar = scopeBar(route);
+  const showAll = route.q.get("all") === "1";
+  const params = new URLSearchParams({ scope: bar.scope });
+  if (bar.ref) params.set("ref", bar.ref);
+  if (showAll) params.set("all", "1");
+  const res = await load(() => get("rules?" + params.toString()));
+  const approver = !!(res.data && res.data.approver);
+  const head = header(
+    bar.scope === "proposed" ? "Proposed rules" : "Rules",
+    h("p", { class: "b-sub" }, bar.scope === "proposed" ? "Every rule waiting for an approver, in any scope." : "Effective rules for this scope, narrowest first."),
+    h("button", { type: "button", class: "b-btn b-btn-primary", on: { click: () => ruleDialog(bar.scope, bar.ref, approver) } }, "Add rule…")
+  );
+  if (res.error) return h("div", { class: "b-page" }, head, bar.form, res.error);
+  const d = res.data;
+  const toggle =
+    bar.scope === "proposed"
+      ? null
+      : h("label", { class: "b-toggle" }, h("input", { type: "checkbox", checked: showAll, on: { change: (e) => setQuery({ all: e.target.checked ? "1" : "" }) } }), " Include revoked, expired and proposed");
+  const who = approver
+    ? h("p", { class: "b-small b-muted" }, `You (${d.viewer}) are an approver: you can approve, revoke and add any rule.`)
+    : h("p", { class: "b-small b-muted" }, `You (${d.viewer}) are not an approver: you can add deny, require and remember rules and propose the rest; an approver approves them.`);
+  const rules = d.rules || [];
+  const table = rules.length
+    ? h(
+        "table",
+        { class: "b-table b-rules" },
+        h("thead", null, h("tr", null, ["ID", "Rule", "Scope", "Status", "Quote", "Expires", ""].map((c) => h("th", null, c)))),
+        h("tbody", null, rules.map((r) => ruleRow(r, approver)))
+      )
+    : empty(bar.scope === "proposed" ? "Nothing is waiting for approval." : "No rules bind this scope.");
+  return h("div", { class: "b-page" }, head, bar.form, otherView("rules", bar.scope, bar.ref), who, toggle, card(`Rules (${rules.length})`, null, table));
+}
+
+function ruleRow(r, approver) {
+  const meta = [];
+  if (r.path) meta.push("path " + r.path);
+  if (r.repo) meta.push("repo " + r.repo);
+  if (r.where) meta.push(Object.entries(r.where).map(([k, v]) => k + "=" + v).join(", "));
+  if (r.overridable) meta.push("overridable");
+  const actions = h("div", { class: "b-row" });
+  if (approver && r.status === "proposed")
+    actions.appendChild(
+      h(
+        "button",
+        {
+          type: "button",
+          class: "b-btn b-btn-sm b-btn-primary",
+          on: {
+            click: () =>
+              openDialog({
+                title: `Approve rule ${r.id}?`,
+                sub: `${r.kind} ${r.rule} (${r.scope})${r.hard ? ", hard" : ""}${r.quote ? ": " + r.quote : ""}`,
+                fields: [field("Note (optional)", h("input", { name: "note", autocomplete: "off" }))],
+                confirm: "Approve",
+                onSubmit: async (form) => {
+                  await write("rules/" + r.id + "/approve", { note: form.elements.note.value.trim() }, `Rule ${r.id} approved`);
+                },
+              }),
+          },
+        },
+        "Approve…"
+      )
+    );
+  if (approver && (r.status === "proposed" || r.status === "active"))
+    actions.appendChild(
+      h(
+        "button",
+        {
+          type: "button",
+          class: "b-btn b-btn-sm b-btn-danger",
+          on: {
+            click: () =>
+              openDialog({
+                title: `Revoke rule ${r.id}?`,
+                sub: `${r.kind} ${r.rule} (${r.scope}). It stays in history.`,
+                fields: [field("Why (required)", h("textarea", { name: "note", rows: 3 }))],
+                confirm: "Revoke",
+                danger: true,
+                onSubmit: async (form) => {
+                  const note = form.elements.note.value.trim();
+                  if (!note) throw new Error("Say why the rule no longer holds.");
+                  await write("rules/" + r.id + "/revoke", { note }, `Rule ${r.id} revoked`);
+                },
+              }),
+          },
+        },
+        "Revoke…"
+      )
+    );
+  return h(
+    "tr",
+    { class: "b-rule" + (r.status === "proposed" ? " is-proposed" : "") + (r.status === "revoked" || r.status === "expired" ? " is-off" : ""), data: { status: r.status, kind: r.kind } },
+    h("td", { class: "b-mono" }, "#" + r.id),
+    h("td", null, kindBadge(r.kind), " ", h("strong", null, r.rule || ""), r.hard ? h("span", { class: "b-pill is-warn", title: "cannot be cancelled by an allow" }, "hard") : null, meta.length ? h("div", { class: "b-small b-muted" }, meta.join(" · ")) : null),
+    h("td", { class: "b-small" }, r.scope),
+    h("td", null, h("span", { class: "b-pill" + (r.status === "proposed" ? " is-warn" : r.status === "active" ? " is-ok" : "") }, r.status), r.actor ? h("div", { class: "b-small" }, actorEl(r.actor)) : null),
+    h("td", { class: "b-small" }, r.quote ? linkify("“" + r.quote + "”") : h("span", { class: "b-muted" }, "—"), r.stated_by ? h("div", { class: "b-muted" }, "stated by " + r.stated_by) : null),
+    h("td", { class: "b-small" }, r.expires ? fmtTS(r.expires) : h("span", { class: "b-muted" }, "—")),
+    h("td", null, actions)
+  );
+}
+
+// ruleDialog adds a rule in the page's scope (the proposed list has none: global).
+function ruleDialog(scope, ref, approver) {
+  const addScope = scope === "proposed" ? "global" : scope;
+  const kind = selectEl("kind", RULE_KINDS, "deny");
+  const verb = selectEl("verb", RULE_VERBS, "push");
+  const verbLabel = h("span", null, "Verb");
+  const verbField = h("label", { class: "b-field" }, verbLabel, verb);
+  const textIn = h("input", { name: "text", autocomplete: "off" });
+  const textLabel = h("span", null, "Text (optional)");
+  const hard = h("input", { type: "checkbox", name: "hard" });
+  const over = h("input", { type: "checkbox", name: "overridable" });
+  const propose = h("input", { type: "checkbox", name: "propose", checked: !approver });
+  const syncVerb = () => {
+    const k = kind.value;
+    verb.textContent = "";
+    for (const o of k === "require" ? RULE_CHECKS : RULE_VERBS) verb.appendChild(h("option", { value: o }, o));
+    verbLabel.textContent = k === "require" ? "Check" : "Verb";
+    verbField.hidden = k === "remember";
+    textLabel.textContent = k === "remember" ? "Text" : "Text (optional)";
+  };
+  kind.addEventListener("change", syncVerb);
+  const scopeSel = selectEl("scope", SCOPES, addScope);
+  const refIn = h("input", { name: "scope_ref", value: scope === "proposed" ? "" : ref, autocomplete: "off", placeholder: "context name, context/project or task id" });
+  openDialog({
+    title: "Add rule",
+    sub: approver ? "You are an approver: a rule you add is active at once." : "An allow or hard rule from a non-approver is stored as proposed.",
+    fields: [
+      field("Kind", kind),
+      verbField,
+      h("label", { class: "b-field" }, textLabel, textIn),
+      field("Scope", scopeSel),
+      field("Scope ref (not for global)", refIn),
+      field("Path glob (optional)", h("input", { name: "path", autocomplete: "off", placeholder: "src/db/**" })),
+      field("Repository (optional)", h("input", { name: "repo", autocomplete: "off", placeholder: "owner/name" })),
+      field("Until (optional: date or duration)", h("input", { name: "until", autocomplete: "off" })),
+      field("Quote: the human's words (required for deny, allow, hard)", h("textarea", { name: "quote", rows: 2 })),
+      h("label", { class: "b-toggle" }, hard, " Hard (an allow cannot cancel it)"),
+      h("label", { class: "b-toggle" }, over, " Overridable (a deny an allow may cancel)"),
+      h("label", { class: "b-toggle" }, propose, " Only propose it for an approver"),
+    ],
+    confirm: "Add rule",
+    onSubmit: async (form) => {
+      const f = form.elements;
+      await write(
+        "rules",
+        {
+          scope: scopeSel.value,
+          scope_ref: refIn.value.trim(),
+          kind: kind.value,
+          verb: kind.value === "remember" ? "" : verb.value,
+          text: textIn.value.trim(),
+          path: f.path.value.trim(),
+          repo: f.repo.value.trim(),
+          until: f.until.value.trim(),
+          quote: f.quote.value.trim(),
+          hard: hard.checked,
+          overridable: over.checked,
+          propose: propose.checked,
+          idem: newIdem(),
+        },
+        "Rule added"
+      );
+    },
+  });
+  syncVerb();
+}
+
+async function viewLessons(route) {
+  if (!state.viewer) await loadHome();
+  const bar = scopeBar(route);
+  const scope = bar.scope === "proposed" ? "global" : bar.scope;
+  const params = new URLSearchParams({ scope });
+  if (bar.ref) params.set("ref", bar.ref);
+  if (route.q.get("retired") === "1") params.set("retired", "1");
+  if (route.q.get("q")) params.set("q", route.q.get("q"));
+  const head = header(
+    "Lessons",
+    h("p", { class: "b-sub" }, "Gotchas, fixes, decisions and facts agents share, narrowest scope first."),
+    h("button", { type: "button", class: "b-btn b-btn-primary", on: { click: () => lessonDialog(scope, bar.ref) } }, "Add lesson…")
+  );
+  const filters = h(
+    "form",
+    {
+      class: "b-filters",
+      on: {
+        submit: (e) => {
+          e.preventDefault();
+          setQuery({ q: e.target.elements.q.value.trim() });
+        },
+      },
+    },
+    field("Search", h("input", { name: "q", type: "search", value: route.q.get("q") || "", size: 18 })),
+    h("label", { class: "b-toggle" }, h("input", { type: "checkbox", checked: route.q.get("retired") === "1", on: { change: (e) => setQuery({ retired: e.target.checked ? "1" : "" }) } }), " Include retired")
+  );
+  const res = await load(() => get("lessons?" + params.toString()));
+  if (res.error) return h("div", { class: "b-page" }, head, bar.form, res.error);
+  const ls = res.data.lessons || [];
+  const list = ls.length ? h("div", { class: "b-lessons" }, ls.map(lessonItem)) : empty("No lessons bind this scope.");
+  return h("div", { class: "b-page" }, head, bar.form, otherView("lessons", scope, bar.ref), filters, card(`Lessons (${ls.length})`, null, list));
+}
+
+function lessonItem(l) {
+  const triggers = [].concat((l.paths || []).map((p) => "path " + p), (l.cmds || []).map((c) => "cmd " + c), (l.topics || []).map((t) => "topic " + t));
+  const retired = l.status === "retired";
+  const actions = h("div", { class: "b-row" });
+  if (!retired) {
+    actions.appendChild(
+      h(
+        "button",
+        {
+          type: "button",
+          class: "b-btn b-btn-sm",
+          on: {
+            click: () =>
+              openDialog({
+                title: `Verify lesson ${l.id}?`,
+                sub: "Confirms it still holds today.",
+                fields: [field("How you know (optional)", h("input", { name: "note", autocomplete: "off" }))],
+                confirm: "Verify",
+                onSubmit: async (form) => {
+                  await write("lessons/" + l.id + "/verify", { note: form.elements.note.value.trim() }, `Lesson ${l.id} verified`);
+                },
+              }),
+          },
+        },
+        "Verify…"
+      )
+    );
+    actions.appendChild(
+      h(
+        "button",
+        {
+          type: "button",
+          class: "b-btn b-btn-sm b-btn-danger",
+          on: {
+            click: () =>
+              openDialog({
+                title: `Retire lesson ${l.id}?`,
+                sub: l.title,
+                fields: [field("Why (required)", h("textarea", { name: "note", rows: 3 }))],
+                confirm: "Retire",
+                danger: true,
+                onSubmit: async (form) => {
+                  const note = form.elements.note.value.trim();
+                  if (!note) throw new Error("Say why the lesson no longer holds.");
+                  await write("lessons/" + l.id + "/retire", { note }, `Lesson ${l.id} retired`);
+                },
+              }),
+          },
+        },
+        "Retire…"
+      )
+    );
+  }
+  return h(
+    "details",
+    {
+      class: "b-lesson" + (retired ? " is-off" : ""),
+      data: { kind: l.kind },
+      open: state.openLessons.has(l.id),
+      on: { toggle: (e) => (e.target.open ? state.openLessons.add(l.id) : state.openLessons.delete(l.id)) },
+    },
+    h(
+      "summary",
+      null,
+      h("span", { class: "b-mono" }, "#" + l.id),
+      " ",
+      kindBadge(l.kind),
+      " ",
+      h("strong", null, l.title),
+      " ",
+      h("span", { class: "b-small b-muted" }, l.scope + " · " + (l.age || "") + " old"),
+      l.stale ? h("span", { class: "b-pill is-warn", title: "not verified recently" }, "unverified since " + String(l.stale).slice(0, 10)) : null,
+      retired ? h("span", { class: "b-pill" }, "retired") : null
+    ),
+    h("pre", { class: "b-plain" }, linkify(l.body || "")),
+    triggers.length ? h("p", { class: "b-small b-muted" }, "Triggers: " + triggers.join(", ")) : null,
+    h("p", { class: "b-small b-muted" }, "by ", actorEl(l.actor), " · verified ", l.verified_at ? fmtTS(l.verified_at) : "never", l.verified_by ? " by " + l.verified_by : "", l.source_task ? [" · from ", taskLink(l.source_task)] : null),
+    actions
+  );
+}
+
+function lessonDialog(scope, ref) {
+  const scopeSel = selectEl("scope", SCOPES, scope);
+  const refIn = h("input", { name: "scope_ref", value: ref, autocomplete: "off", placeholder: "context name, context/project or task id" });
+  const split = (v) =>
+    v
+      .split(/[\n,]/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  openDialog({
+    title: "Add lesson",
+    fields: [
+      field("Title", h("input", { name: "title", autocomplete: "off" })),
+      field("Kind", selectEl("kind", LESSON_KINDS, "gotcha")),
+      field("Body", h("textarea", { name: "body", rows: 5 })),
+      field("Scope", scopeSel),
+      field("Scope ref (not for global)", refIn),
+      field("Trigger: paths (comma or line separated globs)", h("textarea", { name: "paths", rows: 2 })),
+      field("Trigger: commands (prefixes)", h("textarea", { name: "cmds", rows: 2 })),
+      field("Trigger: topics", h("input", { name: "topics", autocomplete: "off" })),
+    ],
+    confirm: "Add lesson",
+    onSubmit: async (form) => {
+      const f = form.elements;
+      if (!f.title.value.trim()) throw new Error("A lesson needs a title.");
+      await write(
+        "lessons",
+        { scope: scopeSel.value, scope_ref: refIn.value.trim(), title: f.title.value.trim(), kind: f.kind.value, body: f.body.value.trim(), paths: split(f.paths.value), cmds: split(f.cmds.value), topics: split(f.topics.value), idem: newIdem() },
+        "Lesson added"
+      );
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------

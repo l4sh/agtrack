@@ -255,6 +255,10 @@ func (b *browser) Read(req web.BrowseRequest) (any, error) {
 		return b.openNotes(q.Get("context"), q.Get("project"), q.Get("kind"))
 	case "log":
 		return b.log(q)
+	case "rules":
+		return b.rules(q)
+	case "lessons":
+		return b.lessons(q)
 	}
 	return nil, errs.NotFound("endpoint", req.Op, "no such endpoint")
 }
@@ -422,6 +426,9 @@ func (b *browser) projectTasks(ref string, q map[string][]string) (any, error) {
 			continue
 		}
 		t.Set("blocked", blocked[t.Int("id")])
+		if st, err := b.store("").Staleness(t, 0); err == nil {
+			t.Set("stale_reason", st.Get("stale_reason"))
+		}
 		if ev := last[t.Int("id")]; ev != nil {
 			t.Set("last_actor", ev.Get("actor"))
 			t.Set("last_event_at", ev.Get("at"))
@@ -566,6 +573,28 @@ func (b *browser) task(ref string) (any, error) {
 		}
 		sr.Set("note_list", ns)
 	}
+	// Continuity, claim liveness and staleness (agent-features A2, B, C).
+	sr := asRow(show)
+	sr.Set("claim_last_seen", t.Get("claim_last_seen"))
+	if st, err := s.Staleness(t, 0); err == nil {
+		sr.Set("stale_reason", st.Get("stale_reason"))
+		sr.Set("age", st.Get("age"))
+	}
+	cp, err := b.exec("task", "checkpoint", "--show", "--", sid)
+	switch {
+	case err == nil:
+		sr.Set("checkpoint", cp)
+	default:
+		if e, ok := errs.As(err); !ok || e.Code != errs.ExitNotFound {
+			return nil, err
+		}
+		sr.Set("checkpoint", nil)
+	}
+	hist, err := b.exec("task", "checkpoint", "--history", "--", sid)
+	if err != nil {
+		return nil, err
+	}
+	sr.Set("checkpoints", asList(hist))
 	return row.Of("task", show, "project_path", path, "context", contextOf(path), "deps", deps,
 		"artifacts", asList(arts), "specs", specs), nil
 }
@@ -872,6 +901,67 @@ func (b *browser) Write(req web.BrowseRequest) (any, error) {
 			return nil, err
 		}
 		return b.exec("note", "reopen", "--", id)
+	case "note.ack":
+		id, err := b.taskID(ref)
+		if err != nil {
+			return nil, err
+		}
+		argv := []string{"note", "ack"}
+		if strings.TrimSpace(in.Note) != "" {
+			argv = append(argv, "--note="+in.Note)
+		}
+		return b.exec(append(argv, "--", id)...)
+	case "task.snooze":
+		id, err := b.taskID(ref)
+		if err != nil {
+			return nil, err
+		}
+		argv := []string{"task", "snooze"}
+		if strings.TrimSpace(in.Until) != "" {
+			argv = append(argv, "--until="+in.Until)
+		}
+		if strings.TrimSpace(in.Note) != "" {
+			argv = append(argv, "--note="+in.Note)
+		}
+		return b.exec(append(argv, "--", id)...)
+	case "task.unsnooze":
+		id, err := b.taskID(ref)
+		if err != nil {
+			return nil, err
+		}
+		return b.exec("task", "unsnooze", "--", id)
+	case "rule.add":
+		return b.ruleAdd(in)
+	case "rule.approve", "rule.revoke":
+		id, err := b.taskID(ref)
+		if err != nil {
+			return nil, err
+		}
+		verb := strings.TrimPrefix(req.Op, "rule.")
+		argv := []string{"rule", verb}
+		if verb == "revoke" && strings.TrimSpace(in.Note) == "" {
+			return nil, errs.New("revoking a rule needs a note: why it no longer holds")
+		}
+		if strings.TrimSpace(in.Note) != "" {
+			argv = append(argv, "--note="+in.Note)
+		}
+		return b.exec(append(argv, "--", id)...)
+	case "lesson.add":
+		return b.lessonAdd(in)
+	case "lesson.verify", "lesson.retire":
+		id, err := b.taskID(ref)
+		if err != nil {
+			return nil, err
+		}
+		verb := strings.TrimPrefix(req.Op, "lesson.")
+		if verb == "retire" && strings.TrimSpace(in.Note) == "" {
+			return nil, errs.New("retiring a lesson needs a note: why it no longer holds")
+		}
+		argv := []string{"lesson", verb}
+		if strings.TrimSpace(in.Note) != "" {
+			argv = append(argv, "--note="+in.Note)
+		}
+		return b.exec(append(argv, "--", id)...)
 	}
 	return nil, errs.NotFound("endpoint", req.Op, "no such endpoint")
 }

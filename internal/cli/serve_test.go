@@ -528,3 +528,169 @@ func TestServeSpecPagesAndEvents(t *testing.T) {
 		t.Fatalf("event stream: spec events %v, human note %v", sawSpec, sawHuman)
 	}
 }
+
+// Rules and lessons views: reads, approver actions, and the gate for a
+// viewer who is not an approver.
+func TestServeRulesAndLessons(t *testing.T) {
+	e := newEnv(t)
+	seedBrowse(e)
+	e.ok("rule", "add", "-g", "deny", "push", "--quote", "never push")
+	e.ok("rule", "propose", "-p", "acme/orbiter", "allow", "push", "--quote", "ok on feature branches")
+	e.ok("lesson", "add", "-g", "Gotcha <b>one</b>", "--body", "see https://example.com/x", "--path", "src/**")
+	base := browseServer(t, e) + "/api/browse/"
+
+	r := get(t, base+"rules?scope=global")
+	if r.code != 200 {
+		t.Fatalf("rules: %d %s", r.code, r.body)
+	}
+	j := r.json(t)
+	if j["approver"] != true || j["proposed_total"].(float64) != 1 || len(j["rules"].([]any)) != 1 {
+		t.Fatalf("global rules: %s", r.body)
+	}
+	if r := get(t, base+"rules?scope=project&ref=acme%2Forbiter&all=1"); r.code != 200 || len(r.json(t)["rules"].([]any)) != 2 {
+		t.Fatalf("project rules (effective + proposed): %d %s", r.code, r.body)
+	}
+	if r := get(t, base+"rules?scope=proposed"); r.code != 200 || len(r.json(t)["rules"].([]any)) != 1 {
+		t.Fatalf("proposed: %d %s", r.code, r.body)
+	}
+	if r := get(t, base+"rules?scope=task"); r.code != 400 {
+		t.Errorf("task scope without ref: %d %s", r.code, r.body)
+	}
+	if r := get(t, base+"rules?scope=bogus"); r.code != 400 {
+		t.Errorf("bogus scope: %d", r.code)
+	}
+	if r := get(t, base+"rules?scope=task&ref=1"); r.code != 200 {
+		t.Errorf("task rules: %d %s", r.code, r.body)
+	}
+
+	// The approver approves; revoking needs a note.
+	if r := post(t, base+"rules/2/approve", `{"note":"fine"}`); r.code != 200 || r.json(t)["status"] != "active" {
+		t.Fatalf("approve: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"rules/1/revoke", `{}`); r.code != 400 {
+		t.Errorf("revoke without note: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"rules/1/revoke", `{"note":"changed my mind"}`); r.code != 200 || r.json(t)["status"] != "revoked" {
+		t.Fatalf("revoke: %d %s", r.code, r.body)
+	}
+	// Add: a deny needs the human's words.
+	if r := post(t, base+"rules", `{"scope":"global","kind":"deny","verb":"delete"}`); r.code != 400 {
+		t.Errorf("deny without quote: %d %s", r.code, r.body)
+	}
+	add := post(t, base+"rules", `{"scope":"project","scope_ref":"acme/orbiter","kind":"deny","verb":"deploy","text":"not on fridays","quote":"no friday deploys","hard":true}`)
+	if add.code != 200 || add.json(t)["status"] != "active" || add.json(t)["hard"] != true || add.json(t)["scope"] != "acme/orbiter" {
+		t.Fatalf("add: %d %s", add.code, add.body)
+	}
+	if r := post(t, base+"rules", `{"scope":"global","kind":"require","verb":"tests-pass","propose":true}`); r.code != 200 || r.json(t)["status"] != "proposed" {
+		t.Errorf("propose: %d %s", r.code, r.body)
+	}
+
+	// Lessons: bodies come back as plain text; add, verify, retire.
+	l := get(t, base+"lessons?scope=global")
+	if l.code != 200 || !strings.Contains(l.body, "see https://example.com/x") {
+		t.Fatalf("lessons: %d %s", l.code, l.body)
+	}
+	la := post(t, base+"lessons", `{"scope":"project","scope_ref":"acme/orbiter","title":"Use pnpm","body":"not npm","kind":"fix","paths":["package.json"],"cmds":["pnpm install"]}`)
+	if la.code != 200 || la.json(t)["title"] != "Use pnpm" {
+		t.Fatalf("lesson add: %d %s", la.code, la.body)
+	}
+	if r := post(t, base+"lessons/1/verify", `{"note":"checked today"}`); r.code != 200 {
+		t.Errorf("verify: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"lessons/1/retire", `{}`); r.code != 400 {
+		t.Errorf("retire without note: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"lessons/1/retire", `{"note":"fixed upstream"}`); r.code != 200 {
+		t.Errorf("retire: %d %s", r.code, r.body)
+	}
+	if r := get(t, base+"lessons?scope=project&ref=acme%2Forbiter"); r.code != 200 || len(r.json(t)["lessons"].([]any)) != 1 {
+		t.Errorf("lessons after retire: %d %s", r.code, r.body)
+	}
+}
+
+func TestServeRulesGateForNonApprover(t *testing.T) {
+	e := newEnv(t)
+	seedBrowse(e)
+	e.ok("rule", "propose", "-g", "allow", "push", "--quote", "go ahead")
+	base := browseServer(t, e, "--as", "visitor") + "/api/browse/"
+
+	if j := get(t, base+"rules?scope=global").json(t); j["approver"] != false {
+		t.Fatalf("visitor is an approver: %v", j)
+	}
+	r := post(t, base+"rules/1/approve", `{}`)
+	if r.code != 400 || !strings.Contains(r.body, "only an approver may approve") {
+		t.Fatalf("non-approver approve: %d %s", r.code, r.body)
+	}
+	if out := e.ok("rule", "show", "1"); !strings.Contains(out, "proposed") {
+		t.Errorf("rule changed:\n%s", out)
+	}
+	// Anyone may add a deny; an allow or hard rule is stored as proposed.
+	if r := post(t, base+"rules", `{"scope":"global","kind":"deny","verb":"delete","quote":"no deletes"}`); r.code != 200 || r.json(t)["status"] != "active" {
+		t.Errorf("deny: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"rules", `{"scope":"global","kind":"allow","verb":"merge","quote":"merge freely"}`); r.code != 200 || r.json(t)["status"] != "proposed" {
+		t.Errorf("allow from a non-approver: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"rules", `{"scope":"global","kind":"deny","verb":"release","quote":"q","hard":true}`); r.code != 200 || r.json(t)["status"] != "proposed" {
+		t.Errorf("hard from a non-approver: %d %s", r.code, r.body)
+	}
+}
+
+// Continuity data on the task page: checkpoints, evidence, snooze, acks.
+func TestServeTaskContinuity(t *testing.T) {
+	e := newEnv(t)
+	seedBrowse(e)
+	e.ok("task", "checkpoint", "1", "--next", "finish build", "--body", "state <i>so far</i>")
+	e.ok("task", "checkpoint", "1", "--next", "ship it", "--body", "later")
+	base := browseServer(t, e) + "/api/browse/"
+
+	tk := get(t, base+"tasks/1").json(t)
+	task := tk["task"].(map[string]any)
+	cp := task["checkpoint"].(map[string]any)
+	if cp["next"] != "ship it" || cp["n"].(float64) != 2 || len(task["checkpoints"].([]any)) != 2 {
+		t.Fatalf("checkpoint: %v / %v", cp, task["checkpoints"])
+	}
+	if _, ok := task["claim_last_seen"]; !ok {
+		t.Errorf("claim_last_seen missing")
+	}
+	if get(t, base+"tasks/2").json(t)["task"].(map[string]any)["checkpoint"] != nil {
+		t.Errorf("a task without a checkpoint reports one")
+	}
+
+	// Acknowledge the handoff note; it shows who and when.
+	if r := post(t, base+"notes/1/ack", `{"note":"on it"}`); r.code != 200 {
+		t.Fatalf("ack: %d %s", r.code, r.body)
+	}
+	notes := get(t, base+"tasks/1").json(t)["task"].(map[string]any)["note_list"].([]any)
+	if n := notes[0].(map[string]any); n["acknowledged_by"] != "human" {
+		t.Errorf("ack not recorded: %v", n)
+	}
+
+	// Snooze and unsnooze.
+	if r := post(t, base+"tasks/2/snooze", `{"until":"3d","note":"later"}`); r.code != 200 {
+		t.Fatalf("snooze: %d %s", r.code, r.body)
+	}
+	if v := get(t, base+"tasks/2").json(t)["task"].(map[string]any)["snoozed_until"]; v == nil {
+		t.Errorf("snoozed_until not set")
+	}
+	if r := post(t, base+"tasks/2/snooze", `{"until":"garbage"}`); r.code != 400 {
+		t.Errorf("bad snooze: %d %s", r.code, r.body)
+	}
+	if r := post(t, base+"tasks/2/unsnooze", `{}`); r.code != 200 {
+		t.Fatalf("unsnooze: %d %s", r.code, r.body)
+	}
+	if v := get(t, base+"tasks/2").json(t)["task"].(map[string]any)["snoozed_until"]; v != nil {
+		t.Errorf("snooze not cleared: %v", v)
+	}
+
+	// Evidence on a close shows on the task; the list carries stale_reason.
+	e.ok("task", "done", "1", "--evidence", "test:go test ./...=0", "--evidence", "url:https://example.com/pr/1")
+	task = get(t, base+"tasks/1").json(t)["task"].(map[string]any)
+	if ev := task["evidence"].([]any); len(ev) != 2 {
+		t.Errorf("evidence: %v", task["evidence"])
+	}
+	pl := get(t, base+"projects/acme%2Forbiter/tasks?status=all")
+	if !strings.Contains(pl.body, "stale_reason") {
+		t.Errorf("task list lacks stale_reason: %s", pl.body)
+	}
+}

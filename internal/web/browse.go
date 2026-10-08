@@ -55,6 +55,24 @@ type BrowseInput struct {
 	On        string   `json:"on"`
 	Rationale string   `json:"rationale"`
 	Idem      string   `json:"idem"`
+
+	// Rules and lessons: Scope is global|context|project|task and ScopeRef
+	// names the context, project path or task id.
+	Scope       string   `json:"scope"`
+	ScopeRef    string   `json:"scope_ref"`
+	Verb        string   `json:"verb"`  // deny/allow verb, or require check
+	Text        string   `json:"text"`  // rule text
+	Path        string   `json:"path"`  // rule path glob
+	Repo        string   `json:"repo"`  // rule repository
+	Quote       string   `json:"quote"` // the human's words
+	Hard        bool     `json:"hard"`
+	Overridable bool     `json:"overridable"`
+	Propose     bool     `json:"propose"`
+	Force       bool     `json:"force"`
+	Until       string   `json:"until"`
+	Paths       []string `json:"paths"` // lesson triggers
+	Cmds        []string `json:"cmds"`
+	Topics      []string `json:"topics"`
 }
 
 // browseRoutes maps "METHOD kind[/action]" to an op. {ref} sits between kind
@@ -69,6 +87,8 @@ var browseRoutes = map[string]string{
 	"GET projects/prs":   "project.prs",
 	"GET tasks/*":        "task",
 	"GET notes":          "notes",
+	"GET rules":          "rules",
+	"GET lessons":        "lessons",
 	"GET log":            "log",
 
 	"POST projects/tasks": "task.add",
@@ -86,6 +106,15 @@ var browseRoutes = map[string]string{
 	"POST steps/title":    "step.title",
 	"POST steps/status":   "step.status",
 	"POST steps/notes":    "step.note",
+	"POST rules":          "rule.add",
+	"POST rules/approve":  "rule.approve",
+	"POST rules/revoke":   "rule.revoke",
+	"POST lessons":        "lesson.add",
+	"POST lessons/verify": "lesson.verify",
+	"POST lessons/retire": "lesson.retire",
+	"POST tasks/snooze":   "task.snooze",
+	"POST tasks/unsnooze": "task.unsnooze",
+	"POST notes/ack":      "note.ack",
 	"POST notes/reply":    "note.reply",
 	"POST notes/resolve":  "note.resolve",
 	"POST notes/reopen":   "note.reopen",

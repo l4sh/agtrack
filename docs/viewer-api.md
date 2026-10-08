@@ -259,6 +259,8 @@ and every `POST` must be `application/json` (else `415`).
   shared tokens in `base.css`). Views are hash routes: `#/`, `#/c/{ctx}`,
   `#/p/{ctx}/{project[:sub]}[?tab=tasks|specs|notes|prs|log&…filters]`, `#/t/{id}`,
   `#/notes?context=&project=&kind=`, `#/log?context=&project=&actor=&action=&since=&until=`.
+  `#/rules?scope=global|context|project|task|proposed&ref=&all=1` and
+  `#/lessons?scope=global|context|project|task&ref=&q=&retired=1` (agent-features H4).
 - `GET /s/{spec}` — the spec viewer, unchanged. `{spec}` is any context-qualified spec ref,
   URL-escaped (`acme%2Forbiter%2Fauth`). `GET /api/spec/{spec}` then also carries
   `"serve": {"project": "acme/orbiter"}`; the viewer shows its "← agtrack" link only when
@@ -294,11 +296,13 @@ ref, URL-escaped as one segment (`acme%2Forbiter%3Aapi`); `{id}` is a task id.
 | `contexts` | `{"start", "viewer", "cursor", "contexts": [ctx ls --archived rows + "counts"], "log": [log --all-contexts -n 15], "notes": [open handoffs and blockers, all contexts]}`. `start` is the context the app opens on (`-c`, else the serving actor's current context); `cursor` is the newest event id. |
 | `contexts/{ctx}` | `{"context": ctx show, "projects": project ls --archived, "specs": [spec summary]}` |
 | `projects/{project}` | `{"project": project show, "path", "context", "short", "parents": [{kind, ref, name}], "pinned_by": [actor, …]}` |
-| `projects/{project}/tasks?…` | `{"project", "tasks": [task ls rows + "blocked": bool]}`. Filters, named as `task ls` flags: `status` (default `open`), `tag` (repeatable), `grep`, `since`, `order`, `limit`, `ready=1`, `blocked=1`, `unclaimed=1`, `direct=1` (exclude subprojects), `tags_all=1`; plus `claimed_by`, applied to the rows. |
+| `projects/{project}/tasks?…` | `{"project", "tasks": [task ls rows + "blocked": bool + "stale_reason": string\|null]}` (`snoozed_until` marks a parked task). Filters, named as `task ls` flags: `status` (default `open`), `tag` (repeatable), `grep`, `since`, `order`, `limit`, `ready=1`, `blocked=1`, `unclaimed=1`, `direct=1` (exclude subprojects), `tags_all=1`; plus `claimed_by`, applied to the rows. |
 | `projects/{project}/specs` | `[spec summary]` |
 | `projects/{project}/notes?kind=` | `{"open": [open notes in the project and its subprojects], "notes": project notes (all, threaded by parent_id)}` |
 | `projects/{project}/prs` | `[pr ls rows + "task_title"]` for the project's tasks |
-| `tasks/{id}` | `{"task": task show -x (steps, notes, PRs, events), "project_path", "context", "deps": task deps, "artifacts": task artifact ls, "specs": [{section, kind, state, open_notes, spec, slug}]}` — `spec` is the context-qualified spec ref and `slug` the section to link to. |
+| `tasks/{id}` | `{"task": task show -x (steps, notes, PRs, events), "project_path", "context", "deps": task deps, "artifacts": task artifact ls, "specs": [{section, kind, state, open_notes, spec, slug}]}` — `spec` is the context-qualified spec ref and `slug` the section to link to. | The task also carries `checkpoint` (the latest `task checkpoint --show`: `n`, `next`, `body`, `actor`, `created_at`, or `null`), `checkpoints` (`--history`, newest first), `evidence` (the closes' `--evidence` rows), `snoozed_until` / `snooze_note`, `claim_session` / `claim_last_seen`, and `stale_reason` / `age` (A2). Notes carry `acknowledged_at` / `acknowledged_by` once acknowledged. |
+| `rules?scope=&ref=&all=` | `{"scope", "ref", "viewer", "approver": bool, "proposed_total", "rules": [rule rows]}`. `scope` is `global` (default), `context`, `project` or `task` (the others need `ref`: context name, project path, task id) and lists the effective rules narrowest first, as `rules` does; `all=1` adds proposed, revoked and expired. `scope=proposed` lists every proposed rule in any scope. `approver` is `store.IsApprover(--as)`; `proposed_total` backs the top-bar badge. A missing `ref` or an unknown scope is `400`. |
+| `lessons?scope=&ref=&q=&retired=1` | `{"scope", "ref", "viewer", "lessons": [lesson rows with body, paths, cmds, topics]}`, ranked as `lessons -x`. `stale` is set when the lesson is unverified past `lessons.stale_days` (the page shows "unverified since"). `q` is a full-text search. |
 | `notes?context=&project=&kind=` | Open notes across every context, or one context, or one project with its subprojects; `kind` is a comma list. Each note adds where it lives: `context`, `project`, `task_id`, `task_title`, `step`, `spec`, `spec_slug`, `anchor`. |
 | `log?context=&project=&actor=&action=&since=&until=&task=&limit=` | `{"events": [log rows, newest first], "total"}`. Without `context` or `project` it covers every context. `limit` defaults to 50 and is clamped to 1–1000; above 1000, or not a number, is `400`. The page pages by raising it (**Load older**), up to 1000. |
 
@@ -331,9 +335,21 @@ replay with the same key writes nothing and returns the first result.
 | `notes/{id}/reply` | `{"body", "idem"}` | `note reply` |
 | `notes/{id}/resolve` | `{"rationale"}` | `note resolve --note` |
 | `notes/{id}/reopen` | `{}` | `note reopen` |
+| `notes/{id}/ack` | `{"note"}` | `note ack [--note]` (handoff, blocker or question notes; not the same as resolving) |
+| `tasks/{id}/snooze` | `{"until", "note"}` | `task snooze --until --note` (`until` is a date or a duration; a bad one is `400`) |
+| `tasks/{id}/unsnooze` | `{}` | `task unsnooze` |
+| `rules` | `{"scope", "scope_ref", "kind", "verb", "text", "path", "repo", "until", "quote", "hard", "overridable", "propose", "force", "idem"}` | `rule add` (`rule propose` when `propose` is true). `verb` is the verb of a deny or allow rule, or the check of a require rule. The CLI's rules apply: a deny, allow or hard rule needs `quote` (`400` otherwise), and an allow or hard rule from a viewer who is not an approver is stored as `proposed`. |
+| `rules/{id}/approve` | `{"note"}` | `rule approve`. A viewer who is not an approver (config `rules.approvers`) gets `400` with `only an approver may approve a rule …`, and nothing is written. |
+| `rules/{id}/revoke` | `{"note"}` | `rule revoke --note`; the note is required (`400`) |
+| `lessons` | `{"scope", "scope_ref", "title", "body", "kind", "paths": [], "cmds": [], "topics": [], "force", "idem"}` | `lesson add` with `--path`, `--cmd`, `--topic` triggers |
+| `lessons/{id}/verify` | `{"note"}` | `lesson verify --note` |
+| `lessons/{id}/retire` | `{"note"}` | `lesson retire --note`; the note is required (`400`) |
 
 `kind` ∈ `note|decision|handoff|blocker|question` (default `note`). There are no delete
 endpoints, no claim-taking endpoint, and no project or context edits.
+
+Rule and lesson text is plain text on the page: the bodies, quotes and titles are set with
+`textContent` and only `http(s)://` URLs become links; HTML and Markdown are never rendered.
 
 **Compare-and-set titles.** `expected` is the title the page last saw; it is required. The
 store compares it with the stored title inside the write transaction, so no other write can
