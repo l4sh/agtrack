@@ -153,8 +153,10 @@ func cmdDoctor(c *Ctx) error {
 		}
 	}
 
-	// done tasks with a branch and no PR
+	// done tasks with a branch and no PR, closed recently: years of history
+	// before PR links existed would otherwise drown the report.
 	f.Statuses = []string{"done"}
+	f.Since = refs.ToUTCISO(refs.Now().AddDate(0, 0, -30))
 	done, _, err := c.S.ListTasks(f)
 	if err != nil {
 		return err

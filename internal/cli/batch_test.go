@@ -201,7 +201,7 @@ func TestOpArgvMapping(t *testing.T) {
 func TestBatchStdin(t *testing.T) {
 	e := closureEnv(t)
 	var out bytes.Buffer
-	c := Run([]string{"--db", e.db, "--actor", "tester", "batch"}, Streams{Out: &out, Err: &bytes.Buffer{}, In: strings.NewReader(`{"argv":["task","add","x"]}`+"\n")})
+	c := Run([]string{"--db", e.db, "--actor", "tester", "batch"}, Streams{Out: &out, Err: &bytes.Buffer{}, In: strings.NewReader(`{"argv":["task","add","x"]}` + "\n")})
 	if c != 0 || !strings.Contains(out.String(), `"ok":true`) {
 		t.Fatalf("%d %s", c, out.String())
 	}
