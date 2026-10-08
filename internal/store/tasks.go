@@ -19,6 +19,9 @@ func taskRow(r *row.Row) *row.Row {
 		out.Set("claimed_by", r.Get("claimed_by"))
 		out.Set("claimed_at", r.Get("claimed_at"))
 		out.Set("claim_expires_at", r.Get("claim_expires_at"))
+		if r.Has("claim_session") && !r.IsNull("claim_session") {
+			out.Set("claim_session", r.Get("claim_session"))
+		}
 	}
 	if r.Has("snoozed_until") && !r.IsNull("snoozed_until") {
 		out.Set("snoozed_until", r.Get("snoozed_until"))

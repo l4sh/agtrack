@@ -149,6 +149,8 @@ func cmdNext(c *Ctx) error {
 	if err != nil {
 		return err
 	}
+	// This session's claim first; the stale split below is stable.
+	tasks = preferMine(c, tasks)
 	days, err := c.staleDays()
 	if err != nil {
 		return err
@@ -186,6 +188,7 @@ func cmdNext(c *Ctx) error {
 			}
 			subs = leaned
 		}
+		markClaim(c, item)
 		item.Set("open_subtasks", nonNil(subs))
 		payload = append(payload, item)
 	}
@@ -210,7 +213,7 @@ func cmdNext(c *Ctx) error {
 		if item.Str("tags") != "" {
 			line += "  [" + item.Str("tags") + "]"
 		}
-		if claim := claimLine(item); claim != "" {
+		if claim := claimLineFor(c, item); claim != "" {
 			line += "  (claimed by " + claim + ")"
 		}
 		c.println(line)

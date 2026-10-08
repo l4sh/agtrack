@@ -110,7 +110,15 @@ func nextClaim(c *Ctx, f store.TaskFilter) error {
 	if err != nil {
 		return err
 	}
-	for _, t := range append(mine, candidates...) {
+	// A claim this actor holds from another live session is that session's
+	// work, not a task to resume here (B1).
+	var resumable []*row.Row
+	for _, t := range mine {
+		if claimMine(c, t) {
+			resumable = append(resumable, t)
+		}
+	}
+	for _, t := range append(resumable, candidates...) {
 		res, err := c.S.ClaimDoable(t.Int("id"), ttl)
 		if err != nil {
 			if e, ok := errs.As(err); ok && e.Code == errs.ExitConflict {

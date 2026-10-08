@@ -14,6 +14,7 @@ type Schema struct {
 	Flags       []FlagSchema `json:"flags"`
 	Subcommands []SubSchema  `json:"subcommands"`
 	SubRequired bool         `json:"subcommand_required"`
+	Output      []OutputKey  `json:"output,omitempty"`
 }
 
 // ArgSchema describes a positional.
@@ -68,6 +69,7 @@ func (p *Parser) Describe(path []string) *Schema {
 		Flags:       []FlagSchema{},
 		Subcommands: []SubSchema{},
 		SubRequired: len(c.Subs) > 0 && c.SubRequired,
+		Output:      c.Output,
 	}
 	for _, a := range s.actions {
 		switch a.kind {

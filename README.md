@@ -112,6 +112,7 @@ agtrack task add "title" -p . --step one --step two --idem "$KEY"
 agtrack sub start 12.1; agtrack sub done 12.1          # a step pulls a todo task into in-progress
 agtrack task note 12 --kind handoff "what the next agent needs"
 agtrack log add -t 12 "milestone or blocker, and why"
+agtrack task checkpoint 12 --next "next action" --file state.md   # versioned working state; resume shows it
 agtrack task done 12                                    # releases the claim
 ```
 
@@ -121,6 +122,15 @@ agtrack task done 12                                    # releases the claim
   (`next --stale`, `task done-check [--apply --yes]`, `config set next.stale_days N`);
   `task snooze 97 --until 3d` / `task unsnooze` / `next --parked`. Mutations may return a
   `hint` (JSON) or a final `→ command` line.
+- **Resume is stable and incremental.** `resume -f json` always carries the same top-level
+  keys (`agtrack describe resume` lists them) and a `cursor`; `resume --since <cursor>`
+  returns only what changed; `resume --section checkpoint,handoffs` returns just those
+  sections, uncapped. `resume` prints `MISMATCH:` when the cwd's branch or worktree is not the
+  task's; `task verify-context 12` exits 4 on the same check.
+- **Sessions.** Writes carry a session id (`AGTRACK_SESSION`, else `CLAUDE_CODE_SESSION_ID`,
+  `CODEX_SESSION_ID` / `CODEX_THREAD_ID`; `--session` overrides). `resume` and `next` prefer
+  this actor's claim from this session; `watch --session-not self` ignores your own session.
+
 - **Pins are per actor.** `project use` pins for the current `AGTRACK_ACTOR` only; `ctx use`
   drops a project pin that lies in another context; an unqualified write with no
   resolvable project fails instead of guessing. `-p .` resolves the project linked to the

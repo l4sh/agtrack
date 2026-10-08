@@ -185,6 +185,14 @@ func (c *Ctx) actorNot() string {
 	return v
 }
 
+func (c *Ctx) sessionNot() string {
+	v := c.Str("session_not")
+	if v == "self" {
+		return c.Session
+	}
+	return v
+}
+
 // cmdWatch streams worklog events for agent-to-agent signalling (go spec §9.1.7).
 func cmdWatch(c *Ctx) error {
 	timeout, err := parseDuration(c.Str("timeout"))
@@ -198,9 +206,12 @@ func cmdWatch(c *Ctx) error {
 	if err != nil || interval <= 0 {
 		interval = time.Second
 	}
-	f := store.EventFilter{Context: c.Context, AllContexts: c.Bool("all_contexts"), ActorNot: c.actorNot()}
+	f := store.EventFilter{Context: c.Context, AllContexts: c.Bool("all_contexts"), ActorNot: c.actorNot(), SessionNot: c.sessionNot()}
 	if c.Str("actor_not") == "self" && c.Actor == "" {
 		fmt.Fprintln(c.Err, "agtrack: warning: --actor-not self has no effect without AGTRACK_ACTOR or --actor")
+	}
+	if c.Str("session_not") == "self" && c.Session == "" {
+		fmt.Fprintln(c.Err, "agtrack: warning: --session-not self has no effect without a session (AGTRACK_SESSION or --session)")
 	}
 	if c.Has("task") {
 		if f.Task, err = c.S.GetTask(c.Str("task"), true); err != nil {

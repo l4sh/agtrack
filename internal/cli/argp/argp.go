@@ -89,6 +89,15 @@ type Command struct {
 	// Hidden commands still parse but are left out of help, Describe's
 	// subcommand lists and invalid-choice messages.
 	Hidden bool
+	// Output documents the top-level keys of the command's -f json object,
+	// for `describe` (agent-features B6).
+	Output []OutputKey
+}
+
+// OutputKey is one documented top-level key of a command's JSON output.
+type OutputKey struct {
+	Key  string `json:"key"`
+	Help string `json:"help"`
 }
 
 // Parser is the entry point: a root command plus the flags every level accepts.

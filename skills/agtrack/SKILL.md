@@ -68,6 +68,20 @@ agtrack grammar                    # one-screen reference: refs, statuses, forma
 with the command that retrieves it - an omission is never "nothing there".
 `resume --complete` drops the caps.
 
+```bash
+agtrack resume --section checkpoint,handoffs   # only these sections, uncapped; the rest still named in omitted
+agtrack resume -f json                         # stable keys (agtrack describe resume), plus "cursor"
+agtrack resume --since <cursor>                # only what changed since: events, notes, checkpoints, claims, status
+```
+
+- **Sessions.** Writes carry a session id (`AGTRACK_SESSION`, else the harness's own;
+  `agtrack info` shows it). `resume` and `next` prefer the claim held by your actor **in
+  this session**; your actor's claim from another session shows as `(other session …)` and
+  is not yours to continue without asking.
+- **`MISMATCH:` in `resume`** means this checkout's branch or worktree is not the task's
+  (its `branch`/`worktree` artifacts). Switch, or confirm with the human, before editing.
+  `agtrack task verify-context 12` exits 4 on a mismatch, for hooks.
+
 Project resolution, in order: `-p` → your pinned project (per actor) → the project linked
 to the cwd's git `origin` → **error**. Unqualified writes never guess; `-c <context>` is
 honoured over a pin from elsewhere. `-p .` fails when two projects link the same remote
@@ -108,7 +122,7 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
   even a second note. **Multi-ref verbs are atomic**: `task done 4 999` writes nothing if
   999 is bad.
 - **Retries:** `--idem KEY` on any create (`ctx/project/task/sub/log/pr add`,
-  `<noun> note`, `note reply`, `task artifact`). A retry with the same key reprints the
+  `<noun> note`, `note reply`, `task artifact`, `task checkpoint`). A retry with the same key reprints the
   first result and writes nothing; the same key with different input is refused
   (`request_key_reused`). Other verbs reject `--idem`.
 - **Claims are advisory**: they expire, never block a write, and tell `resume`, `next`,
@@ -129,6 +143,11 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
 - **Who is still alive**: `claims [-p .] [--stale 15m]` shows holder, session, age,
   last_seen (refreshed by every write of the holder) and last event. An orchestrator can
   sleep on `watch --until stale --stale 15m` (exit 14, `TERMINAL stale`).
+- **Checkpoint instead of a scratch STATE.md**: `agtrack task checkpoint 12 --next "write
+  the callback test" --file state.md` (or `--body`, or stdin) stores a new numbered version
+  of your working state (64 KiB max). `resume` prints the latest `next` line and its age;
+  `task checkpoint 12 --show [--n 3]` prints the body, `--history` lists versions.
+  Checkpoint before you stop, before a context compaction, and at each milestone.
 - **Artifacts** record where the work lives: `task artifact 12 branch feat/oauth`,
   `task artifact 12 file auth/tokens.ts --label "grace window"`. Store content that
   resumption needs, not paths under `/tmp`.
@@ -145,7 +164,7 @@ agtrack spec await <spec> --until approval --timeout 2h   # one result, then exi
 ```
 
 - **Always `--actor-not self`**, or your own writes wake you (and two agents watching each
-  other livelock). **Always a timeout**; a hang needs a human to notice.
+  other livelock). Parallel sessions of the same actor use `--session-not self` instead. **Always a timeout**; a hang needs a human to notice.
 - Pick the shape your harness supports: if it turns **each line of a background command
   into a notification** (Claude Code: the Monitor tool, not a plain background shell), use
   `watch`; if it notifies only when a background command **exits**, use `await`; if it has

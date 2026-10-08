@@ -245,6 +245,7 @@ func Tree() *argp.Command {
 			Args:  []argp.Arg{{Name: "ref"}, {Name: "section"}},
 			Flags: []argp.Flag{{Long: "--verdict", Choices: []string{"still-valid", "needs-work"}, Default: "still-valid"}, {Long: "--reason"}, {Long: "--version", Kind: argp.Int}}},
 	)
+	taskSubs = append(taskSubs, continuityTaskVerbs()...)
 	taskSubs = append(taskSubs, noteVerbs("task", "task id", true)...)
 	task := &argp.Command{Name: "task", Aliases: []string{"tasks", "t"}, Help: "tasks: the unit of work, one per project", SubRequired: true, Subs: taskSubs}
 
@@ -337,13 +338,13 @@ func Tree() *argp.Command {
 					{Long: "--stale-after", Metavar: "Nd", Help: "idle threshold in days; implies --stale (default config next.stale_days, 7)"},
 					{Long: "--parked", Kind: argp.Bool, Help: "list parked (snoozed) tasks instead"}}},
 			{Name: "resume", Help: "the working-state packet a cold agent reads first", Run: Handler(cmdResume),
-				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
-					{Long: "--complete", Kind: argp.Bool, Help: "everything in scope, uncapped, including linked spec text"}}},
+				Flags: resumeFlags(), Output: resumeOutput},
 			{Name: "summary", Help: "counts per project plus current work", Run: Handler(cmdSummary), Flags: []argp.Flag{{Long: "--all-contexts", Kind: argp.Bool}}},
 			{Name: "here", Help: "which project the current repository belongs to", Run: Handler(cmdHere)},
 			{Name: "watch", Help: "stream new worklog events, one line each, until a timeout", Run: Handler(cmdWatch),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
 					{Long: "--action", Metavar: "LIST"}, {Long: "--actor-not", Metavar: "NAME", Help: "suppress events by this actor; `self` = your actor"},
+					{Long: "--session-not", Metavar: "ID", Help: "suppress events from this session; `self` = your session"},
 					{Long: "--after", Kind: argp.Int, Metavar: "CURSOR", Help: "start after this event id (default: now)"},
 					{Long: "--timeout", Metavar: "DURATION", Default: "1h"}, {Long: "--interval", Metavar: "DURATION", Default: "1s"},
 					{Long: "--until", Metavar: "ACTIONS", Help: "exit 0 after an event with one of these actions; `stale` exits 14 when a claim goes quiet"},

@@ -578,6 +578,7 @@ type EventFilter struct {
 	Context       string
 	Actor         string
 	ActorNot      string
+	SessionNot    string // suppress events stamped with this session (B1)
 	Actions       []string
 	Limit         int // 0 = unlimited
 	AllContexts   bool
@@ -633,6 +634,10 @@ func (s *Store) listEventsT(f EventFilter) ([]*row.Row, int) {
 	if f.ActorNot != "" {
 		where = append(where, "(e.actor IS NULL OR e.actor <> ?)")
 		args = append(args, f.ActorNot)
+	}
+	if f.SessionNot != "" {
+		where = append(where, "(e.session IS NULL OR e.session <> ?)")
+		args = append(args, f.SessionNot)
 	}
 	if len(f.Actions) > 0 {
 		where = append(where, "e.action IN ("+marks(len(f.Actions))+")")
