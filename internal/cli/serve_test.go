@@ -180,6 +180,15 @@ func TestServeReadAPI(t *testing.T) {
 	if r := get(t, base+"log?project=acme%2Forbiter&limit=2").json(t); len(r["events"].([]any)) != 2 || r["total"].(float64) < 5 {
 		t.Errorf("log: %v", r)
 	}
+	// R8: limit is clamped to 1..1000; above that, or not a number, is a 400.
+	for q, want := range map[string]int{"1000": 200, "0": 200, "-5": 200, "1001": 400, "lots": 400} {
+		if r := get(t, base+"log?limit="+q); r.code != want {
+			t.Errorf("log limit=%s: %d, want %d: %s", q, r.code, want, r.body)
+		}
+	}
+	if r := get(t, base+"log?limit=0").json(t); len(r["events"].([]any)) != 1 {
+		t.Errorf("limit=0 is not clamped to 1: %v", r["events"])
+	}
 	if r := get(t, base+"tasks/99"); r.code != 404 {
 		t.Errorf("missing task: %d", r.code)
 	}

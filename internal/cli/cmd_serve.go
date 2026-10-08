@@ -686,11 +686,11 @@ func (b *browser) log(q map[string][]string) (any, error) {
 			argv = append(argv, "--"+f[1]+"="+v)
 		}
 	}
-	limit := get("limit")
-	if limit == "" {
-		limit = "50"
+	limit, err := logLimit(get("limit"))
+	if err != nil {
+		return nil, err
 	}
-	rows, err := b.exec(append(argv, "--limit="+limit)...)
+	rows, err := b.exec(append(argv, "--limit="+strconv.Itoa(limit))...)
 	if err != nil {
 		return nil, err
 	}
@@ -699,6 +699,25 @@ func (b *browser) log(q map[string][]string) (any, error) {
 		return nil, err
 	}
 	return row.Of("events", asList(rows), "total", total), nil
+}
+
+// maxLogLimit bounds one worklog read from the page.
+const maxLogLimit = 1000
+
+// logLimit reads the log endpoint's limit: 50 when absent, at least 1, and
+// a 400 above maxLogLimit or when it is not a number.
+func logLimit(v string) (int, error) {
+	if v == "" {
+		return 50, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, errs.New("limit must be a number from 1 to %d", maxLogLimit)
+	}
+	if n > maxLogLimit {
+		return 0, errs.New("limit must be at most %d", maxLogLimit)
+	}
+	return max(n, 1), nil
 }
 
 // --- writes ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@
 
 const SSE_DEBOUNCE_MS = 300;
 const LOG_PAGE = 50;
+const LOG_MAX = 1000; // the server refuses a larger limit
 const SVG_NS = "http://www.w3.org/2000/svg";
 const NOTE_KINDS = ["note", "decision", "handoff", "blocker", "question"];
 const STATUSES = ["todo", "in-progress", "done", "cancelled"];
@@ -1502,7 +1503,7 @@ function eventList(events, opts) {
 
 async function logPanel(q, fixed, projectPath) {
   const params = new URLSearchParams();
-  const limit = Math.max(LOG_PAGE, parseInt(q.get("limit") || "", 10) || LOG_PAGE);
+  const limit = Math.min(LOG_MAX, Math.max(LOG_PAGE, parseInt(q.get("limit") || "", 10) || LOG_PAGE));
   params.set("limit", String(limit));
   for (const k of ["context", "project", "actor", "action", "since", "until"]) {
     const v = (fixed && fixed[k]) || q.get(k);
@@ -1529,8 +1530,8 @@ async function logPanel(q, fixed, projectPath) {
     const res = loaded.data;
     const events = res.events || [];
     const more =
-      events.length < (res.total || 0)
-        ? h("button", { type: "button", class: "b-btn", on: { click: () => setQueryKeepScroll({ limit: String(limit + LOG_PAGE) }) } }, `Load older (${res.total - events.length} more)`)
+      events.length < (res.total || 0) && limit < LOG_MAX
+        ? h("button", { type: "button", class: "b-btn", on: { click: () => setQueryKeepScroll({ limit: String(Math.min(LOG_MAX, limit + LOG_PAGE)) }) } }, `Load older (${res.total - events.length} more)`)
         : null;
     parts.push(card(`Worklog (${events.length} of ${res.total || 0})`, null, eventList(events), more));
   }

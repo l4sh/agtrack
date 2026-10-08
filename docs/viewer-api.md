@@ -300,7 +300,7 @@ ref, URL-escaped as one segment (`acme%2Forbiter%3Aapi`); `{id}` is a task id.
 | `projects/{project}/prs` | `[pr ls rows + "task_title"]` for the project's tasks |
 | `tasks/{id}` | `{"task": task show -x (steps, notes, PRs, events), "project_path", "context", "deps": task deps, "artifacts": task artifact ls, "specs": [{section, kind, state, open_notes, spec, slug}]}` — `spec` is the context-qualified spec ref and `slug` the section to link to. |
 | `notes?context=&project=&kind=` | Open notes across every context, or one context, or one project with its subprojects; `kind` is a comma list. Each note adds where it lives: `context`, `project`, `task_id`, `task_title`, `step`, `spec`, `spec_slug`, `anchor`. |
-| `log?context=&project=&actor=&action=&since=&until=&task=&limit=` | `{"events": [log rows, newest first], "total"}`. Without `context` or `project` it covers every context. `limit` defaults to 50; the page pages by raising it (**Load older**). |
+| `log?context=&project=&actor=&action=&since=&until=&task=&limit=` | `{"events": [log rows, newest first], "total"}`. Without `context` or `project` it covers every context. `limit` defaults to 50 and is clamped to 1–1000; above 1000, or not a number, is `400`. The page pages by raising it (**Load older**), up to 1000. |
 
 A spec summary is `{"slug", "ref", "qualified_ref", "title", "status", "source_path",
 "revision", "project", "approval": "approved"|"stale"|"none", "approval_revision",
