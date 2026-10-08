@@ -24,6 +24,7 @@ type Ctx struct {
 	Path  []string
 	Out   io.Writer
 	Err   io.Writer
+	In    io.Reader // stdin override for tests; nil = os.Stdin
 
 	DBPath   string
 	Context  string

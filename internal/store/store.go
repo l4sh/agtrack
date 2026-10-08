@@ -133,6 +133,10 @@ func (s *Store) tx(fn func()) {
 // Used by the CLI to make a whole invocation atomic (D5).
 func (s *Store) Tx(fn func() error) error { return s.DB.Tx(fn) }
 
+// Savepoint is Tx for a unit that may fail on its own: inside an open
+// transaction a failure undoes only that unit (batch --continue).
+func (s *Store) Savepoint(fn func() error) error { return s.DB.Savepoint(fn) }
+
 // NewUID returns a random RFC 4122 v4 uuid.
 func NewUID() string {
 	var b [16]byte

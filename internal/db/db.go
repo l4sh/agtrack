@@ -167,6 +167,34 @@ func (d *DB) Tx(fn func() error) (err error) {
 	return fn()
 }
 
+// Savepoint runs fn as a nested unit inside the open transaction: on error
+// (or panic) its effects alone are rolled back and the outer transaction
+// carries on. Outside a transaction it is just Tx.
+func (d *DB) Savepoint(fn func() error) (err error) {
+	if d.txDepth == 0 {
+		return d.Tx(fn)
+	}
+	if _, err := d.Exec("SAVEPOINT agtrack_sp"); err != nil {
+		return err
+	}
+	depth := d.txDepth
+	defer func() {
+		d.txDepth = depth
+		if p := recover(); p != nil {
+			_, _ = d.Exec("ROLLBACK TO agtrack_sp")
+			_, _ = d.Exec("RELEASE agtrack_sp")
+			panic(p)
+		}
+		if err != nil {
+			_, _ = d.Exec("ROLLBACK TO agtrack_sp")
+		}
+		if _, rerr := d.Exec("RELEASE agtrack_sp"); rerr != nil && err == nil {
+			err = rerr
+		}
+	}()
+	return fn()
+}
+
 // ReadTx runs fn in a deferred (read) transaction: one consistent WAL
 // snapshot that neither blocks nor is blocked by writers. Inside an open
 // transaction it just runs fn.

@@ -73,6 +73,40 @@ func TestTxRollsBack(t *testing.T) {
 	}
 }
 
+func TestSavepointUndoesOnlyItself(t *testing.T) {
+	d, err := Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	err = d.Tx(func() error {
+		d.Exec("INSERT INTO meta (key, value) VALUES ('a', '1')")
+		if d.Savepoint(func() error {
+			d.Exec("INSERT INTO meta (key, value) VALUES ('b', '1')")
+			return os.ErrInvalid
+		}) == nil {
+			t.Error("savepoint swallowed the error")
+		}
+		if !d.InTx() {
+			t.Error("outer transaction lost")
+		}
+		return d.Savepoint(func() error {
+			d.Exec("INSERT INTO meta (key, value) VALUES ('c', '1')")
+			return nil
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	d.QueryRow("SELECT COUNT(*) FROM meta WHERE key IN ('a','c')").Scan(&n)
+	var b int
+	d.QueryRow("SELECT COUNT(*) FROM meta WHERE key='b'").Scan(&b)
+	if n != 2 || b != 0 {
+		t.Fatalf("a,c=%d b=%d", n, b)
+	}
+}
+
 // AGTRACK_TEST_V2_DB points at a *copy* of a real v2 database.
 func TestOpensRealV2Copy(t *testing.T) {
 	src := os.Getenv("AGTRACK_TEST_V2_DB")

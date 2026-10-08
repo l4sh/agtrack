@@ -55,6 +55,7 @@ start here: ` + "`agtrack grammar`" + ` (one screen), then ` + "`agtrack resume`
 type Streams struct {
 	Out io.Writer
 	Err io.Writer
+	In  io.Reader // nil = os.Stdin
 	// ColorAuto is the auto-detected colour decision for Out (Main decides it
 	// from os.Stdout; the buffered wrapper hides the terminal from render).
 	ColorAuto bool
@@ -170,7 +171,7 @@ func dbErr(err error) error {
 }
 
 func newCtx(res *argp.Result, st Streams) (*Ctx, error) {
-	c := &Ctx{V: res.Values, Given: res.Given, Path: res.Path, Out: st.Out, Err: st.Err}
+	c := &Ctx{V: res.Values, Given: res.Given, Path: res.Path, Out: st.Out, Err: st.Err, In: st.In}
 	c.DBPath = strOr(res.Values["db"])
 	c.Context = strOr(res.Values["context"])
 	c.Extended = boolOr(res.Values["extended"])

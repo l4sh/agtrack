@@ -122,6 +122,9 @@ agtrack task done 12                                    # releases the claim
   (`next --stale`, `task done-check [--apply --yes]`, `config set next.stale_days N`);
   `task snooze 97 --until 3d` / `task unsnooze` / `next --parked`. Mutations may return a
   `hint` (JSON) or a final `→ command` line.
+- **Batch**: `agtrack batch [--file ops.jsonl] [--continue]` runs JSON-line ops
+  (`{"argv":[...]}` or `{"op":"sub done","args":{...}}`) in one transaction, one result line
+  per op; the first failure rolls everything back unless `--continue`.
 - **Resume is stable and incremental.** `resume -f json` always carries the same top-level
   keys (`agtrack describe resume` lists them) and a `cursor`; `resume --since <cursor>`
   returns only what changed; `resume --section checkpoint,handoffs` returns just those

@@ -113,6 +113,13 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
   in-progress step and starts the next in one call. `task done`/`sub done` take
   `--evidence commit:SHA|branch:|pr:|test:CMD=EXIT|file:|url:|note:` (repeatable; shown by
   `task show`). Any mutation may carry a `hint`: one command, run it if it fits.
+- **Many writes, one call:** `agtrack batch [--file ops.jsonl] [--continue]` reads one op per
+  line, `{"argv":["sub","done","12.3"]}` or `{"op":"sub done","args":{"ref":"12.3","note":"x"}}`
+  (keys are the positional and flag names `describe` lists), and runs them in one transaction
+  under your actor/session. One result line per op, `{"ok":true,"op":N,"result":...}` or the
+  structured error; the first failure rolls everything back unless `--continue` (then only the
+  failing op is undone). `--idem` works inside ops; `watch`, `await`, `serve`, `spec
+  serve|watch|await` and nested `batch` are refused, and an op cannot set `--db`/`--actor`.
 - **Hygiene:** `next` marks stale tasks `!` (all steps done, idle >7d - `config set
   next.stale_days N` - or claim expired) and lists them last; `next --stale` shows only
   those, `task done-check [--apply --yes]` lists/closes the finished ones. Park a task with

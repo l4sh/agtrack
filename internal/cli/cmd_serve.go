@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -142,51 +141,8 @@ func (b *browser) exec(argv ...string) (any, error) { return b.execExpect(nil, a
 // execExpect is exec with a title compare-and-set precondition for `task
 // set` / `sub set`, checked by the store inside the write transaction.
 func (b *browser) execExpect(expectTitle *string, argv ...string) (any, error) {
-	full := append([]string{"--actor=" + b.as, "--format=json"}, argv...)
-	res, err := NewParser().Parse(full)
-	if err != nil {
-		if _, ok := errs.As(err); ok {
-			return nil, err
-		}
-		return nil, errs.Usage("%s", err.Error())
-	}
-	var out, errb bytes.Buffer
-	c, err := newCtx(res, Streams{Out: &out, Err: &errb})
-	if err != nil {
-		return nil, err
-	}
-	h, ok := res.Cmd.Run.(Handler)
-	if !ok {
-		return nil, errs.Usage("not a command: %s", strings.Join(res.Path, " "))
-	}
-	c.S = b.store(c.Context)
-	c.expectTitle = expectTitle
-	if c.idemKey != "" {
-		if !idemVerbs[strings.Join(res.Path, " ")] {
-			return nil, errs.Usage("--idem is only accepted by create verbs")
-		}
-		c.idemSHA = requestSHA(res.Path, res.Values, c.Actor, c.Context)
-		rc, hit, err := c.S.CheckReceipt(c.idemKey, c.idemSHA)
-		if err != nil {
-			return nil, err
-		}
-		if hit {
-			c.receipt = rc
-		}
-	}
-	if err := h(c); err != nil {
-		return nil, err
-	}
-	if out.Len() == 0 {
-		return nil, nil
-	}
-	dec := json.NewDecoder(&out)
-	dec.UseNumber()
-	var v any
-	if err := dec.Decode(&v); err != nil {
-		return nil, fmt.Errorf("%s: unexpected output: %v", strings.Join(res.Path, " "), err)
-	}
-	return plainJSON(v), nil
+	r := &inproc{db: b.db, actor: b.as, cwdRepo: b.cwdRepo, pre: []string{"--format=json"}}
+	return r.run(expectTitle, argv...)
 }
 
 // plainJSON turns decoded JSON into the value types internal/render
