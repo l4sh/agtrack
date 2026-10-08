@@ -492,26 +492,75 @@ func normalizeNoteKind(k string) (string, error) {
 
 // --- config ---------------------------------------------------------------------------------
 
-var configKeys = map[string][]string{
-	"review.release": {"manual", "auto"},
+// configKey describes one known setting: its default and how a value is
+// validated. Other features read these through store.Config.
+type configKey struct {
+	def     string
+	allowed []string // enum values (compared lowercase); nil = use check
+	check   func(v string) (string, error)
+	fold    bool // lowercase the value before checking
 }
+
+func positiveDays(v string) (string, error) {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 1 {
+		return "", errs.New("expected a whole number of days, 1 or more")
+	}
+	return strconv.Itoa(n), nil
+}
+
+// actorList validates a comma separated list of actor names (case kept).
+func actorList(v string) (string, error) {
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		if p = strings.TrimSpace(p); p == "" {
+			continue
+		}
+		if strings.ContainsAny(p, " \t") {
+			return "", errs.New("actor names cannot contain whitespace: %q", p)
+		}
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return "", errs.New("expected at least one actor, comma separated")
+	}
+	return strings.Join(out, ","), nil
+}
+
+var boolValues = []string{"false", "true"}
+
+var configKeys = map[string]configKey{
+	"review.release":     {def: "manual", allowed: []string{"manual", "auto"}, fold: true},
+	"actor.strict":       {def: "false", allowed: boolValues, fold: true},
+	"actor.required":     {def: "false", allowed: boolValues, fold: true},
+	"rules.approvers":    {def: store.DefaultApprovers, check: actorList},
+	"next.stale_days":    {def: "7", check: positiveDays},
+	"lessons.stale_days": {def: "90", check: positiveDays},
+	"git.auto":           {def: "true", allowed: boolValues, fold: true},
+}
+
+// configOrder is the order `config get` lists settings in.
+var configOrder = []string{"review.release", "actor.strict", "actor.required", "rules.approvers", "next.stale_days", "lessons.stale_days", "git.auto"}
+
+const configKnown = "review.release, actor.strict, actor.required, rules.approvers, next.stale_days, lessons.stale_days, git.auto"
 
 func configGet(c *Ctx) error {
 	keys := []string{c.Str("key")}
 	if keys[0] == "" {
-		keys = []string{"review.release"}
+		keys = configOrder
 	}
 	out := row.New()
 	for _, k := range keys {
-		if _, ok := configKeys[k]; !ok {
-			return errs.New("unknown setting: %s (known: review.release)", k)
+		spec, ok := configKeys[k]
+		if !ok {
+			return errs.New("unknown setting: %s (known: %s)", k, configKnown)
 		}
 		v, ok, err := c.S.GetMeta("config:" + k)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			v = configKeys[k][0]
+			v = spec.def
 		}
 		out.Set(k, v)
 	}
@@ -529,17 +578,28 @@ func configGet(c *Ctx) error {
 }
 
 func configSet(c *Ctx) error {
-	k, v := c.Str("key"), strings.ToLower(c.Str("value"))
-	allowed, ok := configKeys[k]
+	k, v := c.Str("key"), c.Str("value")
+	spec, ok := configKeys[k]
 	if !ok {
-		return errs.New("unknown setting: %s (known: review.release)", k)
+		return errs.New("unknown setting: %s (known: %s)", k, configKnown)
 	}
-	valid := false
-	for _, a := range allowed {
-		valid = valid || a == v
+	if spec.fold {
+		v = strings.ToLower(v)
 	}
-	if !valid {
-		return errs.New("invalid value for %s: %s (expected %s)", k, v, strings.Join(allowed, " or "))
+	if spec.allowed != nil {
+		valid := false
+		for _, a := range spec.allowed {
+			valid = valid || a == v
+		}
+		if !valid {
+			return errs.New("invalid value for %s: %s (expected %s)", k, v, strings.Join(spec.allowed, " or "))
+		}
+	} else {
+		nv, err := spec.check(v)
+		if err != nil {
+			return errs.New("invalid value for %s: %s (%s)", k, v, err.Error())
+		}
+		v = nv
 	}
 	if err := c.S.SetMeta("config:"+k, &v); err != nil {
 		return err

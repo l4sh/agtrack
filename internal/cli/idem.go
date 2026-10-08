@@ -91,6 +91,6 @@ type idem struct {
 // is a usage error rather than silently ignored.
 var idemVerbs = map[string]bool{
 	"ctx add": true, "project add": true, "task add": true, "sub add": true, "log add": true,
-	"pr add": true, "note reply": true, "task artifact": true,
+	"pr add": true, "actor add": true, "note reply": true, "task artifact": true,
 	"ctx note": true, "project note": true, "task note": true, "sub note": true, "tag note": true,
 }

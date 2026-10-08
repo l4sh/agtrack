@@ -134,6 +134,11 @@ agtrack task done 12                                    # releases the claim
   --ready` lists the doable ones. Blocked-ness is not a status.
 - **Typed notes**: `--kind note|decision|handoff|blocker|question`; `notes -p .` lists every
   unresolved one; `note resolve 7 --note why`, `note reopen`, `note reply`, `note rm`.
+- **Actors**: optional registry (`actor add <slug> [--kind agent|human] [--alias A]`, `actor alias`,
+  `actor ls`, `actor rm`, `actor merge <alias> --into <slug> --yes`). Writes store the canonical
+  slug; an unregistered actor warns (`config set actor.strict true` makes it fail), and
+  `config set actor.required true` fails writes with no actor. `config set rules.approvers a,b`
+  (default `human`) names who may approve rules. Settings: `config get` lists them.
 - **Artifacts**: `task artifact 12 branch feat/x`, `... file auth/tokens.py --label "..."`.
 
 ## References

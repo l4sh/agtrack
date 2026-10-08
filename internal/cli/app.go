@@ -127,6 +127,9 @@ func Run(argv []string, st Streams) (code int) {
 	}
 	defer d.Close()
 	c.S = store.New(d, c.Actor)
+	if err := c.checkActor(res); err != nil {
+		return reportError(st, format, err, p, argv, c.DBPath)
+	}
 	c.S.Session = c.Session
 	c.S.Context = c.Context
 	c.S.CwdRepo = cwdRepo
@@ -205,6 +208,7 @@ func newCtx(res *argp.Result, st Streams) (*Ctx, error) {
 	if c.Actor == "" {
 		c.Actor = envOr("AGTRACK_ACTOR", "AGENT")
 	}
+	c.ActorGiven = c.Actor != ""
 	c.Session, c.SessionSource = detectSession(strOr(res.Values["session"]))
 	if n, ok := res.Values["max_bytes"].(int); ok {
 		c.MaxBytes = n

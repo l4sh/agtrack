@@ -303,7 +303,7 @@ func Tree() *argp.Command {
 	config := &argp.Command{Name: "config", Help: "preferences stored in the database", SubRequired: true,
 		Subs: []*argp.Command{
 			{Name: "get", Help: "print a setting", Run: Handler(configGet), Args: []argp.Arg{{Name: "key", NArgs: "?"}}},
-			{Name: "set", Help: "change a setting (review.release manual|auto)", Run: Handler(configSet), Args: []argp.Arg{{Name: "key"}, {Name: "value"}}},
+			{Name: "set", Help: "change a setting (known: review.release, actor.strict, actor.required, rules.approvers, next.stale_days, lessons.stale_days, git.auto)", Run: Handler(configSet), Args: []argp.Arg{{Name: "key"}, {Name: "value"}}},
 		}}
 
 	root := &argp.Command{Name: "agtrack", Help: "Context / project / task / subtask tracker for agents and humans.", Epilog: Epilog, SubRequired: true,
@@ -338,7 +338,7 @@ func Tree() *argp.Command {
 			{Name: "info", Help: "database path, version and row counts", Run: Handler(cmdInfo)},
 			{Name: "grammar", Help: "the reference grammar, statuses, formats, exit codes and core commands", Run: Handler(cmdGrammar)},
 			{Name: "describe", Help: "a command's arguments as JSON", Run: Handler(cmdDescribe), Args: []argp.Arg{{Name: "command", NArgs: "*"}}},
-			config,
+			config, actorTree(),
 		}}
 	return root
 }

@@ -34,6 +34,8 @@ type Ctx struct {
 	Color    *bool
 	Quiet    bool
 	Actor    string
+	// ActorGiven is true when --actor or $AGTRACK_ACTOR named the actor.
+	ActorGiven bool
 	// Session is the harness session writes are stamped with (B1);
 	// SessionSource names where it came from, for `info`.
 	Session, SessionSource string
@@ -216,6 +218,7 @@ var fieldsFor = map[string][2][]string{
 	"spec":     {{"slug", "revision", "status", "source_path", "title"}, {"project", "sha", "updated_at"}},
 	"dep":      {{"task_id", "depends_on_id", "kind", "status", "title"}, {"reason", "created_at"}},
 	"artifact": {{"id", "kind", "value", "label"}, {"actor", "created_at"}},
+	"actor":    {{"slug", "kind", "aliases"}, {"note", "created_at"}},
 }
 
 // emit renders rows honouring --count/--ids/-q/--fields/-f/-x. total is the
@@ -248,7 +251,7 @@ func (c *Ctx) emit(rows []*row.Row, kind string, total int) error {
 			if kind == "tag" {
 				key = "id"
 			}
-		case "spec":
+		case "spec", "actor":
 			key = "slug"
 		}
 		for _, r := range rows {

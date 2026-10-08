@@ -35,6 +35,13 @@ hyphenated, the concrete model: `claude-opus-5-5`, `gpt-6-astra`, `gemini-3-pro`
 harness, not a role). It is stamped on every write, it scopes your project pin to you, and
 it is what `--actor-not self` filters on. Do not also tag items with your name.
 
+If the store keeps an actor registry (`agtrack actor ls`), your name is rewritten to its
+canonical slug on every write, so `claude-opus-5.5` and `claude-opus-5-5` stop drifting. An
+unregistered name warns on stderr (exit 1 under `config set actor.strict true`). Under
+`actor.required` a write with no actor fails: `set AGTRACK_ACTOR=<model id> or pass --actor`.
+Humans maintain the registry: `actor add <slug> --alias A`, `actor alias`, `actor rm`, and
+`actor merge <old> --into <slug> --yes` to rewrite history written under a drifted name.
+
 | `agtrack info` says | Meaning | Fix |
 |---|---|---|
 | `command not found` | not installed | install the release binary (see the repo README), then `agtrack skill install` |

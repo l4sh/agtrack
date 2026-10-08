@@ -35,7 +35,9 @@ type Store struct {
 
 // New wraps an open database.
 func New(d *db.DB, actor string) *Store {
-	return &Store{DB: d, Actor: actor, CwdRepo: func() string { return "" }}
+	s := &Store{DB: d, Actor: actor, CwdRepo: func() string { return "" }}
+	s.CanonicalizeActor() // D1: an alias is rewritten to its registered slug on the way in
+	return s
 }
 
 // panicErr carries an error through the internal panic path.
