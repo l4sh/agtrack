@@ -47,6 +47,10 @@ async function api(path, opts = {}) {
   // After a reload the token is gone from the URL; the session cookie set on the
   // first load authenticates instead.
   const headers = session.token ? { "X-Agtrack-Token": session.token } : {};
+  // A read made by a live refresh (or the liveness probe) is not the human's
+  // activity: the server leaves its idle clock alone for it.
+  const method = opts.method || "GET";
+  if (method === "GET" && (opts.refresh || state.refreshSeq === state.renderSeq)) headers["X-Agtrack-Refresh"] = "1";
   let body;
   if (opts.body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -54,7 +58,7 @@ async function api(path, opts = {}) {
   }
   let res;
   try {
-    res = await fetch(path, { method: opts.method || "GET", headers, body });
+    res = await fetch(path, { method, headers, body });
   } catch {
     throw new ApiError("network_error", "Could not reach the server.", null, 0);
   }
@@ -228,7 +232,9 @@ const state = {
   sseTimer: null,
   pending: false,
   drafts: new Map(), // route|form key → unsent text, kept across re-renders
+  titleSeen: new Map(), // title draft key → the title its editor was opened on
   renderSeq: 0,
+  refreshSeq: -1, // the renderSeq of the latest live (event-triggered) refresh
   stopped: false,
 };
 
@@ -304,13 +310,6 @@ function noteWhere(n) {
   return null;
 }
 
-// markDirty: a form with unsaved input holds off live re-renders until it is
-// submitted or cancelled, so an incoming event never wipes what is being typed.
-function trackDirty(form) {
-  form.addEventListener("input", () => (form.dataset.dirty = "1"));
-  return form;
-}
-
 // Drafts: text typed into a form survives every re-render (a write elsewhere on the page,
 // a live refresh, a cancel of another form). A control opts in through keep(); a draft is
 // dropped only when its own form submits successfully or is cancelled.
@@ -331,8 +330,10 @@ function hasDraft(key) {
 }
 
 function clearDrafts(form) {
-  for (const c of form.querySelectorAll("[data-dkey]")) state.drafts.delete(c.dataset.dkey);
-  delete form.dataset.dirty;
+  for (const c of form.querySelectorAll("[data-dkey]")) {
+    state.drafts.delete(c.dataset.dkey);
+    state.titleSeen.delete(c.dataset.dkey);
+  }
 }
 
 async function busy(form, fn) {
@@ -348,7 +349,14 @@ async function busy(form, fn) {
   }
 }
 
-// write posts, toasts the outcome and re-renders the view.
+// isTitleConflict: a compare-and-set 409, which carries both versions for the
+// title editor to show side by side. Every other 409 is an ordinary error.
+function isTitleConflict(err) {
+  return err.status === 409 && !!err.payload && "current" in err.payload && "yours" in err.payload;
+}
+
+// write posts, toasts the outcome and re-renders the view. Every failure is
+// toasted except a title conflict, which the title editor shows in place.
 async function write(path, body, okText, form) {
   try {
     const res = await post(path, body);
@@ -357,9 +365,18 @@ async function write(path, body, okText, form) {
     await render({ keepScroll: true, force: true });
     return res;
   } catch (err) {
-    if (err.status !== 409) showToast(err.message, true);
+    if (!isTitleConflict(err)) showToast(err.message, true);
     throw err;
   }
+}
+
+// send is write for a control with nowhere to show an error: write has
+// already toasted the failure, so the rejection carries nothing more.
+function send(path, body, okText, form) {
+  return write(path, body, okText, form).then(
+    (res) => res,
+    () => null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -450,8 +467,9 @@ function parseRoute() {
   return { view: "missing", q };
 }
 
-// setQuery rewrites the current route's query (filters, tab) without a new
-// history entry, then re-renders.
+// setQuery rewrites the current route's query (filters, tab) as a new history
+// entry, so Back undoes a filter change, then re-renders. (pushState fires no
+// hashchange; Back does, and re-renders through it.)
 function setQuery(updates) {
   const raw = location.hash.replace(/^#/, "") || "/";
   const [pathPart, qs] = raw.split("?");
@@ -461,8 +479,19 @@ function setQuery(updates) {
     else q.set(k, String(v));
   }
   const s = q.toString();
-  history.replaceState(null, "", "#" + pathPart + (s ? "?" + s : ""));
+  const next = "#" + pathPart + (s ? "?" + s : "");
+  if (next !== location.hash) history.pushState(null, "", next);
   render({ force: true });
+}
+
+// load runs a panel's fetch and returns its data, or a node showing the
+// failure inside the panel, so the filters that caused it stay usable.
+async function load(fetcher) {
+  try {
+    return { data: await fetcher() };
+  } catch (err) {
+    return { error: h("div", { class: "b-error b-load-error", role: "alert" }, h("strong", null, "Could not load: "), err.message) };
+  }
 }
 
 function setNav(view) {
@@ -472,19 +501,22 @@ function setNav(view) {
   }
 }
 
-function hasDirtyForm() {
-  const v = document.getElementById("view");
+// holdRefresh: a live refresh waits while a dialog is open or a form control
+// has focus. Drafts in unfocused forms need no hold: keep() restores them.
+function holdRefresh() {
   if (!document.getElementById("dialog").hidden) return true;
-  if (v.querySelector("form[data-dirty]")) return true;
-  for (const c of v.querySelectorAll("[data-dkey]")) if (state.drafts.get(c.dataset.dkey)) return true;
+  const v = document.getElementById("view");
   const a = document.activeElement;
   return !!(a && v.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest("form"));
 }
 
+// render draws the current route. Without opts.force it is a live refresh
+// (an event arrived, or a held refresh catching up): it may be held, and its
+// reads are marked so the server does not count them as activity.
 async function render(opts = {}) {
   const view = document.getElementById("view");
-  if (!opts.force && hasDirtyForm()) {
-    // Never pull the page out from under a half-typed edit; catch up afterwards.
+  if (!opts.force && holdRefresh()) {
+    // Never pull the page out from under an edit in progress; catch up afterwards.
     state.pending = true;
     return;
   }
@@ -492,6 +524,7 @@ async function render(opts = {}) {
   const route = parseRoute();
   setNav(route.view);
   const seq = ++state.renderSeq;
+  if (!opts.force) state.refreshSeq = seq;
   const scroll = opts.keepScroll ? window.scrollY : 0;
   let node;
   try {
@@ -526,7 +559,7 @@ async function render(opts = {}) {
 window.addEventListener("hashchange", () => render({ force: true }));
 document.addEventListener("focusout", () => {
   setTimeout(() => {
-    if (state.pending && !hasDirtyForm()) render({ keepScroll: true });
+    if (state.pending && !holdRefresh()) render({ keepScroll: true });
   }, 0);
 });
 
@@ -767,7 +800,6 @@ async function projectTasksTab(data, q) {
   const readiness = q.get("readiness") || "";
   if (readiness) params.set(readiness, "1");
   if (q.get("direct") === "1") params.set("direct", "1");
-  const res = await get("projects/" + enc(data.path) + "/tasks?" + params.toString());
   const filterForm = h(
     "form",
     { class: "b-filters", on: { submit: (e) => e.preventDefault() } },
@@ -785,7 +817,9 @@ async function projectTasksTab(data, q) {
     const f = e.target;
     setQuery({ [f.name]: f.type === "checkbox" ? (f.checked ? "1" : "") : f.value.trim() });
   });
-  const rows = (res.tasks || []).map((t) => {
+  const res = await load(() => get("projects/" + enc(data.path) + "/tasks?" + params.toString()));
+  if (res.error) return h("div", null, filterForm, card("Tasks", newTaskButton(data), res.error));
+  const rows = (res.data.tasks || []).map((t) => {
     const expired = t.claim_expires_at && parseTS(t.claim_expires_at) < new Date();
     return h(
       "tr",
@@ -952,30 +986,33 @@ async function viewTask(route) {
 function editTitle(box, path, seen, noun, restoring) {
   const input = keep("title:" + path, h("input", { name: "title", value: seen, class: "b-title-input", "aria-label": noun + " title" }));
   const conflict = h("div", { class: "b-conflict", hidden: true });
-  const form = trackDirty(
+  const form = h(
+    "form",
+    { class: "b-inline-form" },
+    input,
+    h("button", { type: "submit", class: "b-btn b-btn-primary b-btn-sm" }, "Save"),
     h(
-      "form",
-      { class: "b-inline-form" },
-      input,
-      h("button", { type: "submit", class: "b-btn b-btn-primary b-btn-sm" }, "Save"),
-      h(
-        "button",
-        {
-          type: "button",
-          class: "b-btn b-btn-sm",
-          on: {
-            click: () => {
-              clearDrafts(form);
-              render({ keepScroll: true, force: true });
-            },
+      "button",
+      {
+        type: "button",
+        class: "b-btn b-btn-sm",
+        on: {
+          click: () => {
+            clearDrafts(form);
+            render({ keepScroll: true, force: true });
           },
         },
-        "Cancel"
-      ),
-      conflict
-    )
+      },
+      "Cancel"
+    ),
+    conflict
   );
-  let expected = seen;
+  // `expected` is the title the editor was opened on, kept with the draft: a
+  // re-render restoring the draft must not swap in the newer stored title, or
+  // the compare-and-set would silently overwrite a change made meanwhile.
+  const dk = input.dataset.dkey;
+  if (!state.drafts.has(dk) || !state.titleSeen.has(dk)) state.titleSeen.set(dk, seen);
+  let expected = state.titleSeen.get(dk);
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     busy(form, async () => {
@@ -984,7 +1021,7 @@ function editTitle(box, path, seen, noun, restoring) {
       try {
         await write(path, { title, expected }, "Title saved", form);
       } catch (err) {
-        if (err.status !== 409 || !err.payload) return;
+        if (!isTitleConflict(err)) return;
         const p = err.payload;
         conflict.textContent = "";
         append(conflict, [
@@ -1002,6 +1039,7 @@ function editTitle(box, path, seen, noun, restoring) {
                 on: {
                   click: () => {
                     expected = p.current;
+                    state.titleSeen.set(dk, p.current);
                     form.requestSubmit();
                   },
                 },
@@ -1037,7 +1075,7 @@ function editTitle(box, path, seen, noun, restoring) {
 
 function statusControls(t, base) {
   const note = keep("status:" + base, h("input", { name: "note", placeholder: "Note (optional)", autocomplete: "off" }));
-  const form = trackDirty(h("form", { class: "b-status-form", on: { submit: (e) => e.preventDefault() } }));
+  const form = h("form", { class: "b-status-form", on: { submit: (e) => e.preventDefault() } });
   const verbs = { todo: "Reopen", "in-progress": "Start", done: "Done", cancelled: "Cancel" };
   const buttons = STATUSES.filter((s) => s !== t.status).map((s) =>
     h(
@@ -1045,7 +1083,7 @@ function statusControls(t, base) {
       {
         type: "button",
         class: "b-btn b-btn-sm" + (s === "done" ? " b-btn-primary" : ""),
-        on: { click: () => busy(form, () => write(base + "/status", { status: s, note: note.value.trim() }, `#${t.id} ${STATUS_LABEL[s]}`, form).catch(() => {})) },
+        on: { click: () => busy(form, () => send(base + "/status", { status: s, note: note.value.trim() }, `#${t.id} ${STATUS_LABEL[s]}`, form)) },
       },
       verbs[s]
     )
@@ -1103,16 +1141,16 @@ function tagEditor(t, base) {
       "span",
       { class: "b-tag" },
       tag,
-      h("button", { type: "button", class: "b-tag-x", "aria-label": "Remove tag " + tag, title: "Remove tag", on: { click: () => write(base + "/tags", { remove: [tag] }, "Tag removed").catch(() => {}) } }, "×")
+      h("button", { type: "button", class: "b-tag-x", "aria-label": "Remove tag " + tag, title: "Remove tag", on: { click: () => send(base + "/tags", { remove: [tag] }, "Tag removed") } }, "×")
     )
   );
   const input = keep("tags:" + base, h("input", { name: "tags", placeholder: "add tags, comma separated", autocomplete: "off" }));
-  const form = trackDirty(h("form", { class: "b-inline-form" }, input, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add")));
+  const form = h("form", { class: "b-inline-form" }, input, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add"));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const add = splitList(input.value, ",");
     if (!add.length) return;
-    busy(form, () => write(base + "/tags", { add }, "Tags added", form).catch(() => {}));
+    busy(form, () => send(base + "/tags", { add }, "Tags added", form));
   });
   return h("div", null, chips.length ? h("div", { class: "b-chips" }, chips) : empty("No tags."), form);
 }
@@ -1128,18 +1166,18 @@ function depsBox(deps, base) {
       statusBadge(d.status),
       d.unmet ? h("span", { class: "b-pill is-warn" }, "unmet") : null,
       d.kind === "blocks"
-        ? h("button", { type: "button", class: "b-link-btn", title: "Remove this dependency", on: { click: () => write(base + "/unblock", { on: String(d.depends_on_id) }, "Dependency removed").catch(() => {}) } }, "remove")
+        ? h("button", { type: "button", class: "b-link-btn", title: "Remove this dependency", on: { click: () => send(base + "/unblock", { on: String(d.depends_on_id) }, "Dependency removed") } }, "remove")
         : null
     )
   );
   const blocks = (deps.dependents || []).map((d) => h("li", null, taskLink(d.task_id, d.title), " ", statusBadge(d.status)));
   const input = keep("dep:" + base, h("input", { name: "on", placeholder: "task id", inputmode: "numeric", size: 8, autocomplete: "off" }));
-  const form = trackDirty(h("form", { class: "b-inline-form" }, h("span", { class: "b-small" }, "Waits on #"), input, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add")));
+  const form = h("form", { class: "b-inline-form" }, h("span", { class: "b-small" }, "Waits on #"), input, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add"));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const on = input.value.trim().replace(/^#/, "");
     if (!/^\d+$/.test(on)) return showToast("Enter a task id.", true);
-    busy(form, () => write(base + "/block", { on }, "Dependency added", form).catch(() => {}));
+    busy(form, () => send(base + "/block", { on }, "Dependency added", form));
   });
   return h(
     "div",
@@ -1234,7 +1272,7 @@ function openStepNote(notesBox, s, restoring) {
 function addStepsForm(path) {
   const ta = keep("steps:" + path, h("textarea", { name: "steps", rows: 2, placeholder: "New steps, one per line" }));
   let idem = newIdem();
-  const form = trackDirty(h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add steps"))));
+  const form = h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add steps")));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const steps = splitList(ta.value, "\n");
@@ -1254,7 +1292,7 @@ function addStepsForm(path) {
 function logForm(path) {
   const ta = keep("log:" + path, h("textarea", { name: "body", rows: 2, placeholder: "What happened" }));
   let idem = newIdem();
-  const form = trackDirty(h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add to worklog"))));
+  const form = h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, h("button", { type: "submit", class: "b-btn b-btn-sm" }, "Add to worklog")));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const body = ta.value.trim();
@@ -1274,11 +1312,11 @@ function logForm(path) {
 // --- notes ----------------------------------------------------------------------------
 
 function addNoteForm(path) {
-  const kind = selectEl("kind", NOTE_KINDS, "note");
+  const kind = keep("kind:" + path, selectEl("kind", NOTE_KINDS, "note"));
   kind.setAttribute("aria-label", "Note kind");
   const ta = keep("note:" + path, h("textarea", { name: "body", rows: 3, placeholder: "Add a note: a handoff, a blocker, a question, a decision…" }));
   let idem = newIdem();
-  const form = trackDirty(h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, kind, h("button", { type: "submit", class: "b-btn b-btn-sm b-btn-primary" }, "Add note"))));
+  const form = h("form", { class: "b-add-form" }, ta, h("div", { class: "b-row" }, kind, h("button", { type: "submit", class: "b-btn b-btn-sm b-btn-primary" }, "Add note")));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const body = ta.value.trim();
@@ -1323,7 +1361,7 @@ function noteItem(n, opts, isRoot) {
   const actions = h("div", { class: "b-note-actions" });
   if (!opts.readOnly) {
     if (isRoot) actions.appendChild(h("button", { type: "button", class: "b-link-btn", on: { click: (e) => replyForm(e.target.closest(".b-thread"), n) } }, "Reply"));
-    if (resolved) actions.appendChild(h("button", { type: "button", class: "b-link-btn", on: { click: () => write("notes/" + n.id + "/reopen", {}, "Note reopened").catch(() => {}) } }, "Reopen"));
+    if (resolved) actions.appendChild(h("button", { type: "button", class: "b-link-btn", on: { click: () => send("notes/" + n.id + "/reopen", {}, "Note reopened") } }, "Reopen"));
     else
       actions.appendChild(
         h(
@@ -1371,29 +1409,27 @@ function replyForm(thread, n, restoring) {
   if (!thread || thread.querySelector(".b-reply-form")) return;
   const ta = keep("reply:" + n.id, h("textarea", { name: "body", rows: 2, placeholder: "Reply to note " + n.id }));
   const idem = newIdem();
-  const form = trackDirty(
+  const form = h(
+    "form",
+    { class: "b-add-form b-reply-form" },
+    ta,
     h(
-      "form",
-      { class: "b-add-form b-reply-form" },
-      ta,
+      "div",
+      { class: "b-row" },
+      h("button", { type: "submit", class: "b-btn b-btn-sm b-btn-primary" }, "Reply"),
       h(
-        "div",
-        { class: "b-row" },
-        h("button", { type: "submit", class: "b-btn b-btn-sm b-btn-primary" }, "Reply"),
-        h(
-          "button",
-          {
-            type: "button",
-            class: "b-btn b-btn-sm",
-            on: {
-              click: () => {
-                clearDrafts(form);
-                render({ keepScroll: true, force: true });
-              },
+        "button",
+        {
+          type: "button",
+          class: "b-btn b-btn-sm",
+          on: {
+            click: () => {
+              clearDrafts(form);
+              render({ keepScroll: true, force: true });
             },
           },
-          "Cancel"
-        )
+        },
+        "Cancel"
       )
     )
   );
@@ -1401,7 +1437,7 @@ function replyForm(thread, n, restoring) {
     e.preventDefault();
     const body = ta.value.trim();
     if (!body) return;
-    busy(form, () => write("notes/" + n.id + "/reply", { body, idem }, "Reply added", form).catch(() => {}));
+    busy(form, () => send("notes/" + n.id + "/reply", { body, idem }, "Reply added", form));
   });
   thread.appendChild(form);
   if (!restoring) ta.focus();
@@ -1418,7 +1454,6 @@ async function viewNotes(route) {
   const q = route.q;
   const params = new URLSearchParams();
   for (const k of ["context", "project", "kind"]) if (q.get(k)) params.set(k, q.get(k));
-  const notes = await get("notes?" + params.toString());
   const kinds = new Set(splitList(q.get("kind") || "", ","));
   const form = h("form", { class: "b-filters", on: { submit: (e) => e.preventDefault() } });
   append(form, [
@@ -1438,7 +1473,9 @@ async function viewNotes(route) {
       setQuery({ kind: picked.join(",") });
     } else setQuery({ [f.name]: f.value.trim() });
   });
-  return h("div", { class: "b-page" }, header("Open notes", h("p", { class: "b-sub" }, "Unresolved notes, newest last. Pick no kind to see every kind.")), form, card(`${notes.length} open`, null, noteList(notes, { where: true })));
+  const res = await load(() => get("notes?" + params.toString()));
+  const list = res.error ? card("Open notes", null, res.error) : card(`${res.data.length} open`, null, noteList(res.data, { where: true }));
+  return h("div", { class: "b-page" }, header("Open notes", h("p", { class: "b-sub" }, "Unresolved notes, newest last. Pick no kind to see every kind.")), form, list);
 }
 
 // --- worklog --------------------------------------------------------------------------
@@ -1471,7 +1508,6 @@ async function logPanel(q, fixed, projectPath) {
     const v = (fixed && fixed[k]) || q.get(k);
     if (v) params.set(k, v);
   }
-  const res = await get("log?" + params.toString());
   const form = h("form", { class: "b-filters", on: { submit: (e) => e.preventDefault() } });
   if (!fixed || !fixed.project) {
     append(form, [
@@ -1486,12 +1522,18 @@ async function logPanel(q, fixed, projectPath) {
     field("Until", h("input", { name: "until", value: q.get("until") || "", placeholder: "2026-09-01", size: 10 })),
   ]);
   form.addEventListener("change", (e) => setQuery({ [e.target.name]: e.target.value.trim(), limit: "" }));
-  const events = res.events || [];
-  const more =
-    events.length < (res.total || 0)
-      ? h("button", { type: "button", class: "b-btn", on: { click: () => setQueryKeepScroll({ limit: String(limit + LOG_PAGE) }) } }, `Load older (${res.total - events.length} more)`)
-      : null;
-  const parts = [form, card(`Worklog (${events.length} of ${res.total || 0})`, null, eventList(events), more)];
+  const loaded = await load(() => get("log?" + params.toString()));
+  const parts = [form];
+  if (loaded.error) parts.push(card("Worklog", null, loaded.error));
+  else {
+    const res = loaded.data;
+    const events = res.events || [];
+    const more =
+      events.length < (res.total || 0)
+        ? h("button", { type: "button", class: "b-btn", on: { click: () => setQueryKeepScroll({ limit: String(limit + LOG_PAGE) }) } }, `Load older (${res.total - events.length} more)`)
+        : null;
+    parts.push(card(`Worklog (${events.length} of ${res.total || 0})`, null, eventList(events), more));
+  }
   if (projectPath) parts.push(card("Add a worklog entry to " + projectPath, null, logForm("projects/" + enc(projectPath) + "/log")));
   return h("div", null, parts);
 }
@@ -1553,7 +1595,7 @@ function connectEvents() {
 
 async function probe() {
   try {
-    await get("contexts");
+    await api("/api/browse/contexts", { refresh: true });
   } catch (err) {
     if (err.status === 0 || err.status === 403) {
       state.stopped = true;

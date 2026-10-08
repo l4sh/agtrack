@@ -267,6 +267,58 @@ func TestExtensionlessAssetAndIdleWithOpenStream(t *testing.T) {
 	}
 }
 
+// R6: reads marked X-Agtrack-Refresh (the page's live refresh) are not
+// activity, while the same reads unmarked are.
+func TestIdleIgnoresRefreshReads(t *testing.T) {
+	poll := func(base string, refresh bool, stop <-chan struct{}) {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(40 * time.Millisecond):
+			}
+			req, _ := http.NewRequest("GET", base+"/api/spec/orbiter:api%2Fauth", nil)
+			req.Header.Set("X-Agtrack-Token", "tok")
+			if refresh {
+				req.Header.Set("X-Agtrack-Refresh", "1")
+			}
+			if resp, err := http.DefaultClient.Do(req); err == nil {
+				resp.Body.Close()
+			}
+		}
+	}
+	const idle = 300 * time.Millisecond
+
+	// Unmarked reads every 40ms keep the server up well past its idle timeout.
+	base, _, cancel, done := start(t, idle)
+	stop := make(chan struct{})
+	go poll(base, false, stop)
+	select {
+	case <-done:
+		t.Fatal("user reads did not count as activity")
+	case <-time.After(4 * idle):
+	}
+	close(stop)
+	cancel()
+	<-done
+
+	// The same reads marked as a refresh let it time out.
+	base, _, cancel, done = start(t, idle)
+	defer cancel()
+	stop = make(chan struct{})
+	defer close(stop)
+	go poll(base, true, stop)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("refresh reads kept the server alive past its idle timeout")
+	}
+	// A marked write is still activity: only GETs are refresh reads.
+	if isRefresh(&http.Request{Method: "POST", Header: http.Header{"X-Agtrack-Refresh": {"1"}}}) {
+		t.Error("a POST counted as a refresh read")
+	}
+}
+
 func TestModelCarriesViewer(t *testing.T) {
 	base, _, cancel, _ := start(t, time.Hour)
 	defer cancel()

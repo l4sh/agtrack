@@ -333,6 +333,12 @@ svg {
   color: var(--rose-ink);
   font-size: 18px;
 }
+.b-load-error {
+  padding: 12px 16px;
+}
+.b-load-error strong {
+  color: var(--rose-ink);
+}
 
 /* --- chips, badges ------------------------------------------------------------------ */
 

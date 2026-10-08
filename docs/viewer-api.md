@@ -263,7 +263,11 @@ prints for the corresponding verb.
 In browse mode, omitting `spec=` streams **every** event row after `N`, each with
 `task_id` and `project_id` added to the data shown above. `spec=REF` still narrows the stream
 to one spec. The page re-fetches its current view on any `agtrack` event, debounced by
-300 ms, and holds the refresh while a form has unsaved input.
+300 ms, and holds the refresh while a form control has focus or a dialog is open; text typed
+into an unfocused form is a draft the re-render restores. The reads of such a refresh carry
+`X-Agtrack-Refresh: 1`, and a `GET` with that header does not reset the idle timeout: only
+what the human does counts as activity, so a tab left open on a busy store still lets the
+server stop.
 
 ### Read endpoints
 

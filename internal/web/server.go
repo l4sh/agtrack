@@ -242,6 +242,12 @@ func (s *Server) touch() {
 	s.lastMu.Unlock()
 }
 
+// isRefresh: a read the page made on its own, not on the human's behalf.
+// Only GETs qualify; a write is always activity.
+func isRefresh(r *http.Request) bool {
+	return r.Method == http.MethodGet && r.Header.Get("X-Agtrack-Refresh") == "1"
+}
+
 func (s *Server) idle() bool {
 	s.lastMu.Lock()
 	defer s.lastMu.Unlock()
@@ -277,7 +283,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "forbidden", "unexpected Host header")
 		return
 	}
-	s.touch()
+	// Only what the human does counts as activity: the page marks the reads
+	// of a live refresh (an event arrived) with X-Agtrack-Refresh, so an open
+	// tab left alone still lets the server time out.
+	if !isRefresh(r) {
+		s.touch()
+	}
 	path := r.URL.EscapedPath()
 	switch {
 	case strings.HasPrefix(path, "/assets/"):
