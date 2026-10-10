@@ -253,6 +253,30 @@ func (s *Store) noteRow(r *row.Row) *row.Row {
 	return out
 }
 
+// ActionKinds are the note kinds that wait for someone, so only they are
+// "open" until resolved. A plain note or a decision is a record: it can still
+// be resolved explicitly, but listings of open notes leave it out unless its
+// kind is asked for (agent-features spec I1).
+var ActionKinds = []string{"handoff", "blocker", "question"}
+
+// NeedsAction reports whether a note of this kind waits for someone.
+func NeedsAction(kind string) bool {
+	for _, k := range ActionKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func quotedKinds(ks []string) string {
+	q := make([]string, len(ks))
+	for i, k := range ks {
+		q[i] = "'" + k + "'"
+	}
+	return strings.Join(q, ",")
+}
+
 // NoteFilter narrows NotesFor.
 type NoteFilter struct {
 	Limit    int
@@ -269,6 +293,9 @@ func (s *Store) notesForF(targetType string, targetID int64, f NoteFilter) []*ro
 	args := []any{targetType, targetID}
 	if f.OpenOnly {
 		query += " AND resolved_at IS NULL"
+		if f.Kind == "" && targetType != "spec" && targetType != "spec_anchor" {
+			query += " AND kind IN (" + quotedKinds(ActionKinds) + ")"
+		}
 	}
 	if f.Kind != "" {
 		query += " AND kind = ?"

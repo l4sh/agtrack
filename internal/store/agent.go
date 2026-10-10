@@ -324,6 +324,12 @@ func (s *Store) OpenNotes(projectIDs []int64, taskID int64, kinds []string) (out
 		}
 	}
 	where = append(where, "n.resolved_at IS NULL")
+	if len(kinds) == 0 {
+		// Unasked, "open" means waiting for someone: a plain note or a
+		// decision is a record and never open. Spec comments keep the review
+		// flow, where every released comment needs an answer.
+		where = append(where, "(n.target_type IN ('spec','spec_anchor') OR n.kind IN ("+quotedKinds(ActionKinds)+"))")
+	}
 	if len(kinds) > 0 {
 		where = append(where, "n.kind IN ("+marks(len(kinds))+")")
 		for _, k := range kinds {

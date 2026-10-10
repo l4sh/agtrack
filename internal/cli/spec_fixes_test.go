@@ -366,7 +366,7 @@ func TestResolveSpecNoteResolvesReplies(t *testing.T) {
 	if out := e.ok("note", "resolve", tn); strings.Contains(out, "resolved with it") {
 		t.Errorf("task note cascaded: %q", out)
 	}
-	if n := len(list(e.json("notes", "-t", tid))); n != 1 {
-		t.Errorf("open task notes = %d, want the reply still open", n)
+	if n := len(list(e.json("notes", "-t", tid, "--kind", "note"))); n != 1 {
+		t.Errorf("unresolved task replies = %d, want the reply still unresolved", n)
 	}
 }

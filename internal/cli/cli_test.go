@@ -312,8 +312,17 @@ func TestNoteLifecycle(t *testing.T) {
 	e.ok("task", "add", "x", "--status", "in-progress")
 	e.ok("task", "note", "1", "--kind", "question", "is 60s per-client?")
 	e.ok("note", "reply", "1", "global, per spec")
-	if n := strings.TrimSpace(e.ok("notes", "--count")); n != "2" {
+	// The question is open; its reply is part of the thread, not an item.
+	if n := strings.TrimSpace(e.ok("notes", "--count")); n != "1" {
 		t.Fatalf("open notes = %s", n)
+	}
+	// A plain note is a record: never open, but listed when asked for.
+	e.ok("task", "note", "1", "context for later")
+	if n := strings.TrimSpace(e.ok("notes", "--count")); n != "1" {
+		t.Fatalf("a plain note counted as open: %s", n)
+	}
+	if n := strings.TrimSpace(e.ok("notes", "--kind", "note", "--count")); n != "2" {
+		t.Fatalf("--kind note lists %s, want the reply and the plain note", n)
 	}
 	e.ok("note", "resolve", "1", "--note", "answered")
 	e.ok("note", "resolve", "1") // idempotent

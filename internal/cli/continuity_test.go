@@ -222,7 +222,7 @@ func TestResumeHandoffsEvidenceRulesLessons(t *testing.T) {
 	for _, n := range p["open_notes"].([]any) {
 		open = append(open, obj(n)["body"].(string))
 	}
-	if strings.Join(open, "|") != "taken|plain" {
+	if strings.Join(open, "|") != "taken" { // "plain" is a record, never open
 		t.Errorf("open_notes: %v", open)
 	}
 	rules := p["rules"].([]any)

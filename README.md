@@ -156,8 +156,9 @@ agtrack task done 12                                    # releases the claim
   handoff --close 12.3 "..."` hands off and finishes the step in one transaction.
 - **Dependencies** (`task block 14 --on 12`) keep blocked tasks out of `next`; `task ls
   --ready` lists the doable ones. Blocked-ness is not a status.
-- **Typed notes**: `--kind note|decision|handoff|blocker|question`; `notes -p .` lists every
-  unresolved one; `note resolve 7 --note why`, `note reopen`, `note reply`, `note rm`.
+- **Typed notes**: `--kind note|decision|handoff|blocker|question`. Only handoffs, blockers
+  and questions wait for someone, so only they are open; a `note` or `decision` is a record
+  (list them with `notes --kind note`). `notes -p .` lists every open one; `note resolve 7 --note why`, `note reopen`, `note reply`, `note rm`.
 - **Actors**: optional registry (`actor add <slug> [--kind agent|human] [--alias A]`, `actor alias`,
   `actor ls`, `actor rm`, `actor merge <alias> --into <slug> --yes`). Writes store the canonical
   slug; an unregistered actor warns (`config set actor.strict true` makes it fail), and

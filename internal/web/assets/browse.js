@@ -13,6 +13,9 @@ const LOG_MAX = 1000; // the server refuses a larger limit
 const SVG_NS = "http://www.w3.org/2000/svg";
 const NOTE_KINDS = ["note", "decision", "handoff", "blocker", "question"];
 const ACK_KINDS = ["handoff", "blocker", "question"];
+// Only these kinds ask for action, so only they are open/resolved; a plain
+// note or a decision is a record and has neither state (agent-features I1).
+const ACTION_KINDS = ACK_KINDS;
 const STATUSES = ["todo", "in-progress", "done", "cancelled"];
 const STATUS_LABEL = { todo: "todo", "in-progress": "in progress", done: "done", cancelled: "cancelled" };
 const STATUS_MARK = { todo: "[ ]", "in-progress": "[~]", done: "[x]", cancelled: "[-]" };
@@ -1379,19 +1382,22 @@ function noteThreads(notes, opts) {
     "div",
     { class: "b-threads" },
     roots.map((n) => {
-      const thread = h("div", { class: "b-thread" }, noteItem(n, opts, true), h("div", { class: "b-replies" }, (replies.get(n.id) || []).map((r) => noteItem(r, opts, false))));
+      const thread = h("div", { class: "b-thread" }, noteItem(n, opts, true), h("div", { class: "b-replies" }, (replies.get(n.id) || []).map((r) => noteItem(r, opts, false, n.kind))));
       if (!opts.readOnly && hasDraft("reply:" + n.id)) replyForm(thread, n, true);
       return thread;
     })
   );
 }
 
-function noteItem(n, opts, isRoot) {
+function noteItem(n, opts, isRoot, rootKind) {
   const resolved = !!n.resolved_at;
+  const actionable = ACTION_KINDS.includes(isRoot ? n.kind : rootKind);
   const actions = h("div", { class: "b-note-actions" });
   if (!opts.readOnly) {
     if (isRoot) actions.appendChild(h("button", { type: "button", class: "b-link-btn", on: { click: (e) => replyForm(e.target.closest(".b-thread"), n) } }, "Reply"));
-    if (resolved) actions.appendChild(h("button", { type: "button", class: "b-link-btn", on: { click: () => send("notes/" + n.id + "/reopen", {}, "Note reopened") } }, "Reopen"));
+    if (!actionable && !resolved) {
+      // a record: nothing to resolve
+    } else if (resolved) actions.appendChild(h("button", { type: "button", class: "b-link-btn", on: { click: () => send("notes/" + n.id + "/reopen", {}, "Note reopened") } }, "Reopen"));
     else
       actions.appendChild(
         h(
@@ -1450,7 +1456,7 @@ function noteItem(n, opts, isRoot) {
       isRoot ? kindBadge(n.kind) : null,
       actorEl(n.actor),
       when(n.created_at),
-      resolved ? h("span", { class: "b-pill is-ok", title: "resolved " + fmtTS(n.resolved_at) }, "resolved" + (n.resolved_by ? " by " + n.resolved_by : "")) : isRoot ? h("span", { class: "b-pill" }, "open") : null,
+      resolved ? h("span", { class: "b-pill is-ok", title: "resolved " + fmtTS(n.resolved_at) }, "resolved" + (n.resolved_by ? " by " + n.resolved_by : "")) : isRoot && actionable ? h("span", { class: "b-pill" }, "open") : null,
       ackable && n.acknowledged_at ? h("span", { class: "b-pill is-ok", title: "acknowledged " + fmtTS(n.acknowledged_at) }, "acknowledged" + (n.acknowledged_by ? " by " + n.acknowledged_by : "")) : null,
       ackable && !n.acknowledged_at && !resolved ? h("span", { class: "b-pill is-warn", title: "nobody has acknowledged this yet" }, "unacknowledged") : null,
       opts.where ? noteWhere(n) : null

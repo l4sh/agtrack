@@ -140,8 +140,9 @@ agtrack task done "$id" --note "merged behind a flag"   # releases the claim
   to take. An expired holder may still be editing files - a claim cannot fence a worktree.
 - **Dependencies:** `task block 14 --on 12`; `next` and `task ls --ready` skip blocked work.
   Blocked-ness is not a status.
-- **Notes have kinds**: `note`, `decision`, `handoff`, `blocker`, `question`.
-  `agtrack notes -p .` lists every unresolved one; `note resolve 7 --note why`,
+- **Notes have kinds**: `note`, `decision`, `handoff`, `blocker`, `question`. Only
+  handoffs, blockers and questions wait for someone and stay open until resolved; a `note`
+  or `decision` is a record - write it and leave it. `agtrack notes -p .` lists every open one; `note resolve 7 --note why`,
   `note reopen`, `note reply`, `note rm`.
 - **Pick up a handoff by acknowledging it**: after `resume`, `note ack 7 [--note "on it"]`
   on each handoff, blocker or question you take on. It is idempotent and not a resolve
