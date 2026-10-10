@@ -962,10 +962,70 @@ a:focus-visible {
   background: var(--rose-ink);
 }
 
-@media (max-width: 900px) {
-  .b-task {
-    grid-template-columns: 1fr;
+/* Task details drawer: below 1280px the task's side column opens over the page from the
+   Details button (browse.js, "Task details drawer"); full width below 768px. */
+.b-only-drawers,
+.b-scrim {
+  display: none !important;
+}
+@media (max-width: 1279px) {
+  .b-only-drawers {
+    display: inline-flex !important;
   }
+  .b-task {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .b-task-side {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(380px, 100vw);
+    overflow-y: auto;
+    padding: 16px;
+    background: var(--canvas);
+    border-left: 1px solid var(--line);
+    box-shadow: var(--shadow-pop);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+  }
+  .b-task-side.is-open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s;
+  }
+  .b-drawer-head {
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .b-drawer-head h2 {
+    margin: 0;
+    font-size: 14px;
+  }
+  .b-scrim:not([hidden]) {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(15, 23, 42, 0.25);
+  }
+}
+@media (max-width: 767px) {
+  .b-task-side {
+    width: 100vw;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-task-side,
+  .b-task-side.is-open {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
   .b-event {
     grid-template-columns: 70px 1fr;
   }

@@ -435,7 +435,9 @@ function openDialog(o) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !document.getElementById("dialog").hidden) closeDialog();
+  if (e.key !== "Escape") return;
+  if (!document.getElementById("dialog").hidden) closeDialog();
+  else if (sideDrawer.open && DRAWERS_MQ.matches) setSideDrawer(false, true);
 });
 document.getElementById("dialog").addEventListener("click", (e) => {
   if (e.target.id === "dialog") closeDialog();
@@ -976,9 +978,16 @@ async function viewTask(route) {
     card("History", null, eventList((t.events || []).slice().reverse(), { noTask: true }))
   );
 
+  // Below 1280px the side column is a drawer (see "Task details drawer"). A live refresh
+  // of the same task keeps it open; another task, or a reload, starts closed.
+  if (sideDrawer.task !== id) {
+    sideDrawer.task = id;
+    sideDrawer.open = false;
+  }
   const side = h(
     "div",
-    { class: "b-task-side" },
+    { class: "b-task-side" + (sideDrawer.open ? " is-open" : ""), id: SIDE_ID, role: "region", "aria-label": "Task details" },
+    h("div", { class: "b-drawer-head b-only-drawers" }, h("h2", null, "Details"), h("button", { type: "button", class: "b-btn b-btn-sm", "aria-label": "Close details", on: { click: () => setSideDrawer(false, true) } }, "Close")),
     card("Status", null, statusControls(t, base)),
     card("Claim", null, claimBox(t, base)),
     card("Snooze", null, snoozeBox(t, base)),
@@ -1000,11 +1009,51 @@ async function viewTask(route) {
       "div",
       { class: "b-head" },
       h("div", { class: "b-head-text" }, titleBox, h("div", { class: "b-meta" }, h("span", { class: "b-mono" }, "#" + id), statusBadge(t.status), t.stale_reason ? h("span", { class: "b-pill is-warn", title: "stale: " + t.stale_reason }, "stale: " + t.stale_reason) : null, isParked(t) ? h("span", { class: "b-pill" }, "parked until " + fmtTS(t.snoozed_until)) : null, tagChips(t.tag_list || []))),
-      h("div", { class: "b-head-actions" }, copyBtn("#" + id))
+      h(
+        "div",
+        { class: "b-head-actions" },
+        h("button", { type: "button", class: "b-btn b-only-drawers", "aria-controls": SIDE_ID, "aria-expanded": String(sideDrawer.open), on: { click: () => setSideDrawer(!sideDrawer.open, true) } }, "Details"),
+        copyBtn("#" + id)
+      )
     ),
-    h("div", { class: "b-task" }, main, side)
+    h("div", { class: "b-task" }, main, side),
+    h("div", { class: "b-scrim", hidden: !sideDrawer.open, on: { click: () => setSideDrawer(false, true) } })
   );
 }
+
+// --- Task details drawer --------------------------------------------------------------
+//
+// docs/web-browse-spec.md, "Narrow screens": below 1280px the task's side column (status,
+// claim, tags, …) starts closed and opens over the page from a Details button, with a
+// scrim; the scrim or Esc closes it. Below 768px it is full width. Not remembered across
+// reloads.
+
+const SIDE_ID = "b-task-side";
+const DRAWERS_MQ = window.matchMedia("(max-width: 1279px)");
+const sideDrawer = { task: null, open: false };
+
+function setSideDrawer(open, moveFocus) {
+  const side = document.getElementById(SIDE_ID);
+  sideDrawer.open = open;
+  if (!side) return;
+  const btn = document.querySelector('[aria-controls="' + SIDE_ID + '"]');
+  const scrim = document.querySelector(".b-scrim");
+  const focusInside = side.contains(document.activeElement);
+  side.classList.toggle("is-open", open);
+  if (btn) btn.setAttribute("aria-expanded", String(open));
+  if (scrim) scrim.hidden = !open;
+  if (!moveFocus || !DRAWERS_MQ.matches) return;
+  if (open) {
+    const first = side.querySelector("button, input, select, textarea, a[href]");
+    if (first) first.focus({ preventScroll: true });
+  } else if (focusInside && btn) {
+    btn.focus({ preventScroll: true });
+  }
+}
+
+DRAWERS_MQ.addEventListener("change", () => {
+  if (!DRAWERS_MQ.matches && sideDrawer.open) setSideDrawer(false, false);
+});
 
 // editTitle swaps a title for an inline editor. It sends the title the page last
 // saw; a 409 means someone changed it meanwhile, and both versions are shown.
