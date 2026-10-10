@@ -1,8 +1,13 @@
 // agtrack spec viewer — diagram window. Classic script, loaded before app.js.
 //
 // A click on a rendered Mermaid diagram opens it in a non-modal floating window: draggable,
-// resizable, minimisable to a bottom-left dock, maximisable, with pan/zoom, a source view
-// and PNG export (docs/web-browse-spec.md, "Diagram window").
+// resizable, minimisable to a bottom-left dock, maximisable, dockable to the left or right
+// edge as a split view, with pan/zoom, a source view and PNG export
+// (docs/web-browse-spec.md, "Diagram window").
+//
+// Docking is generic: the manager publishes the docked widths as the CSS variables
+// --dock-left / --dock-right on <html>, toggles html.has-docked, and fires an
+// "agtrack:dock" event on window; the host page makes room for the docked windows.
 //
 // Entry point: window.AgtrackDiagram.update({root, specSlug, h, toast}). app.js calls it
 // after every Mermaid render pass; it decorates the diagrams under `root`, wires the click
@@ -26,6 +31,14 @@
   const Z_BASE = 60; // below dialogs (80) and the toast (90)
   const Z_SPAN = 19;
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const DOCK_MIN_VW = 900; // docking is offered only this wide and up
+  const PHONE_VW = 768; // below this, floating windows open maximised
+  const DOCK_DEFAULT = 40; // % of the viewport width a docked window takes
+  const DOCK_MIN = 25;
+  const DOCK_MAX = 75;
+  const DOCK_DOC_MIN = 20; // with both sides docked, the document keeps at least this
+  const DOCK_KEY_STEP = 2;
+  const Z_DOCKED = 35; // under the drawers' scrim (40) and drawers (50)
 
   const ICONS = {
     expand: "M4 14v6h6M20 10V4h-6M4 20l6-6M20 4l-6 6",
@@ -33,6 +46,9 @@
     max: "M5 5h14v14H5z",
     restore: "M8 8V4h12v12h-4M4 8h12v12H4z",
     close: "M6 6l12 12M18 6L6 18",
+    dockLeft: "M4 4h16v16H4zM10 4v16",
+    dockRight: "M4 4h16v16H4zM14 4v16",
+    undock: "M8 8h12v12H8zM4 16V4h12",
   };
 
   /** @type {{root: Element, specSlug: string, h: Function, toast: Function} | null} */
@@ -44,6 +60,12 @@
   const stack = [];
   let dock = null;
   let lastRect = null;
+  /** side → docked window record (or null) */
+  const docked = { left: null, right: null };
+  /** side → width of a docked window, in % of the viewport width */
+  const dockPct = { left: DOCK_DEFAULT, right: DOCK_DEFAULT };
+  /** side → splitter element */
+  const splitters = { left: null, right: null };
   let seq = 0;
 
   const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
@@ -171,10 +193,25 @@
     return { w: document.documentElement.clientWidth, h: document.documentElement.clientHeight };
   }
 
+  /** Where docked windows start: the host's --dock-top, else its --topbar-h, else 0. */
+  function dockTop() {
+    const cs = getComputedStyle(document.documentElement);
+    return parseFloat(cs.getPropertyValue("--dock-top")) || parseFloat(cs.getPropertyValue("--topbar-h")) || 0;
+  }
+
+  function dockWidth(side) {
+    return Math.round((viewport().w * dockPct[side]) / 100);
+  }
+
   function currentRect(w) {
+    const v = viewport();
     if (w.max) {
-      const v = viewport();
       return { x: EDGE, y: EDGE, w: Math.max(MIN_W, v.w - 2 * EDGE), h: Math.max(MIN_H, v.h - 2 * EDGE) };
+    }
+    if (w.dock) {
+      const top = dockTop();
+      const width = dockWidth(w.dock);
+      return { x: w.dock === "left" ? 0 : v.w - width, y: top, w: width, h: Math.max(0, v.h - top) };
     }
     return w.rect;
   }
@@ -197,6 +234,14 @@
     s.width = r.w + "px";
     s.height = r.h + "px";
     w.el.classList.toggle("is-max", w.max);
+    w.el.classList.toggle("is-docked", !!w.dock);
+    w.el.classList.toggle("is-docked-left", w.dock === "left");
+    w.el.classList.toggle("is-docked-right", w.dock === "right");
+    // A docked window keeps Undock, Maximise and Close; a floating one offers docking.
+    w.btnDockLeft.hidden = !!w.dock;
+    w.btnDockRight.hidden = !!w.dock;
+    w.btnMin.hidden = !!w.dock;
+    w.btnUndock.hidden = !w.dock;
     w.btnMax.setAttribute("aria-label", w.max ? "Restore" : "Maximise");
     w.btnMax.title = w.max ? "Restore" : "Maximise";
     w.btnMax.replaceChildren(icon(w.max ? "restore" : "max"));
@@ -205,7 +250,8 @@
 
   function restack() {
     stack.forEach((w, i) => {
-      w.el.style.zIndex = String(Z_BASE + Math.min(i, Z_SPAN));
+      // A docked window is part of the page layout: it sits under drawers and floating windows.
+      w.el.style.zIndex = String(w.dock && !w.max ? Z_DOCKED : Z_BASE + Math.min(i, Z_SPAN));
     });
     if (dock) dock.style.zIndex = String(Z_BASE + Z_SPAN);
   }
@@ -254,6 +300,134 @@
   function toggleMax(w) {
     w.max = !w.max;
     applyRect(w);
+    restack();
+  }
+
+  // ------------------------------------------------------------------------------------
+  // Docking: split view
+  // ------------------------------------------------------------------------------------
+
+  function canDock() {
+    return viewport().w >= DOCK_MIN_VW;
+  }
+
+  /** Clamp a side's width to 25–75 %, leaving the document its share when both are docked. */
+  function clampPct(side, pct) {
+    const other = side === "left" ? "right" : "left";
+    const hi = docked[other] ? Math.min(DOCK_MAX, 100 - DOCK_DOC_MIN - dockPct[other]) : DOCK_MAX;
+    return clamp(Math.round(pct * 10) / 10, DOCK_MIN, Math.max(DOCK_MIN, hi));
+  }
+
+  function dockWindow(w, side) {
+    if (!canDock() || w.dock === side) return;
+    if (w.minimised) restoreFromDock(w);
+    w.max = false;
+    if (w.dock) docked[w.dock] = null;
+    const prev = docked[side];
+    if (prev && prev !== w) {
+      // One window per side: the one that was there goes back to floating.
+      prev.dock = null;
+      applyRect(prev);
+    }
+    docked[side] = w;
+    w.dock = side;
+    layoutDock();
+    focusWindow(w, true);
+  }
+
+  function undock(w) {
+    if (!w.dock) return;
+    docked[w.dock] = null;
+    w.dock = null;
+    layoutDock();
+    applyRect(w);
+    focusWindow(w, true);
+  }
+
+  function setDockPct(side, pct) {
+    dockPct[side] = clampPct(side, pct);
+    layoutDock();
+  }
+
+  function splitterFor(side) {
+    if (splitters[side]) return splitters[side];
+    const sp = h("div", {
+      class: "dgw-splitter dgw-splitter-" + side,
+      role: "separator",
+      tabindex: 0,
+      "aria-orientation": "vertical",
+      "aria-valuemin": String(DOCK_MIN),
+      "aria-valuemax": String(DOCK_MAX),
+      "aria-label": "Resize the window docked " + side,
+      title: "Drag to resize; double-click to reset",
+    });
+    let drag = null;
+    sp.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      sp.setPointerCapture(e.pointerId);
+      drag = e.pointerId;
+      document.documentElement.classList.add("dgw-resizing");
+      e.preventDefault();
+    });
+    sp.addEventListener("pointermove", (e) => {
+      if (drag !== e.pointerId) return;
+      const vw = viewport().w;
+      setDockPct(side, ((side === "left" ? e.clientX : vw - e.clientX) / vw) * 100);
+    });
+    const end = (e) => {
+      if (drag !== e.pointerId) return;
+      drag = null;
+      document.documentElement.classList.remove("dgw-resizing");
+    };
+    sp.addEventListener("pointerup", end);
+    sp.addEventListener("pointercancel", end);
+    sp.addEventListener("dblclick", () => setDockPct(side, DOCK_DEFAULT));
+    sp.addEventListener("keydown", (e) => {
+      // Arrow keys move the splitter itself: → widens a left window and narrows a right one.
+      const grow = side === "left" ? 1 : -1;
+      let pct = null;
+      if (e.key === "ArrowLeft") pct = dockPct[side] - grow * DOCK_KEY_STEP;
+      else if (e.key === "ArrowRight") pct = dockPct[side] + grow * DOCK_KEY_STEP;
+      else if (e.key === "Home") pct = DOCK_MIN;
+      else if (e.key === "End") pct = DOCK_MAX;
+      if (pct == null) return;
+      e.preventDefault();
+      setDockPct(side, pct);
+    });
+    splitters[side] = sp;
+    document.body.appendChild(sp);
+    return sp;
+  }
+
+  /** Lay out the docked windows, their splitters and the host page's room for them. */
+  function layoutDock() {
+    const root = document.documentElement;
+    const top = dockTop();
+    const vw = viewport().w;
+    for (const side of ["left", "right"]) {
+      const w = docked[side];
+      if (!w) {
+        root.style.removeProperty("--dock-" + side);
+        if (splitters[side]) {
+          splitters[side].remove();
+          splitters[side] = null;
+        }
+        continue;
+      }
+      dockPct[side] = clampPct(side, dockPct[side]);
+      const width = dockWidth(side);
+      root.style.setProperty("--dock-" + side, width + "px");
+      const sp = splitterFor(side);
+      sp.style.top = top + "px";
+      sp.style.left = (side === "left" ? width : vw - width) + "px";
+      sp.setAttribute("aria-valuenow", String(Math.round(dockPct[side])));
+      sp.setAttribute("aria-valuetext", Math.round(dockPct[side]) + "% of the width");
+      sp.setAttribute("aria-controls", w.el.id);
+      applyRect(w);
+    }
+    root.classList.toggle("has-docked", !!(docked.left || docked.right));
+    restack();
+    window.dispatchEvent(new CustomEvent("agtrack:dock", { detail: { left: !!docked.left, right: !!docked.right } }));
   }
 
   function closeWindow(w) {
@@ -263,6 +437,11 @@
     if (w.chip) w.chip.remove();
     clearTimeout(w.flagTimer);
     w.el.remove();
+    if (w.dock) {
+      docked[w.dock] = null;
+      w.dock = null;
+      layoutDock();
+    }
     restack();
     if (!windows.size) lastRect = null;
     const info = ctx && collect(ctx.root).get(w.key);
@@ -385,7 +564,7 @@
   function wireDrag(w) {
     let drag = null;
     w.bar.addEventListener("pointerdown", (e) => {
-      if ((e.pointerType === "mouse" && e.button !== 0) || e.target.closest("button") || w.max) return;
+      if ((e.pointerType === "mouse" && e.button !== 0) || e.target.closest("button") || w.max || w.dock) return;
       w.bar.setPointerCapture(e.pointerId);
       drag = { id: e.pointerId, dx: e.clientX - w.rect.x, dy: e.clientY - w.rect.y };
     });
@@ -404,7 +583,7 @@
   function wireResize(w) {
     let rs = null;
     w.grip.addEventListener("pointerdown", (e) => {
-      if ((e.pointerType === "mouse" && e.button !== 0) || w.max) return;
+      if ((e.pointerType === "mouse" && e.button !== 0) || w.max || w.dock) return;
       w.grip.setPointerCapture(e.pointerId);
       rs = { id: e.pointerId, x: e.clientX, y: e.clientY, w: w.rect.w, h: w.rect.h };
       e.preventDefault();
@@ -653,7 +832,9 @@
       iw: prepared.w,
       ih: prepared.h,
       rect,
-      max: false,
+      // On a phone a floating window opens maximised; Restore still returns to `rect`.
+      max: v.w < PHONE_VW,
+      dock: null,
       minimised: false,
       sourceView: false,
       exporting: false,
@@ -669,12 +850,15 @@
     const id = "dgw-title-" + ++seq;
     w.titleEl = h("span", { class: "dgw-title", id, text: w.title });
     w.flagEl = h("span", { class: "dgw-flag", "aria-live": "polite" });
+    w.btnDockLeft = h("button", { type: "button", class: "dgw-btn dgw-dock-btn", "aria-label": "Dock left", title: "Dock left (Alt+←)", on: { click: () => dockWindow(w, "left") } }, icon("dockLeft"));
+    w.btnDockRight = h("button", { type: "button", class: "dgw-btn dgw-dock-btn", "aria-label": "Dock right", title: "Dock right (Alt+→)", on: { click: () => dockWindow(w, "right") } }, icon("dockRight"));
+    w.btnUndock = h("button", { type: "button", class: "dgw-btn", "aria-label": "Undock", title: "Undock (Alt+↓)", hidden: true, on: { click: () => undock(w) } }, icon("undock"));
     w.btnMin = h("button", { type: "button", class: "dgw-btn", "aria-label": "Minimise", title: "Minimise", on: { click: () => minimise(w) } }, icon("min"));
     w.btnMax = h("button", { type: "button", class: "dgw-btn", "aria-label": "Maximise", title: "Maximise", on: { click: () => toggleMax(w) } }, icon("max"));
     const btnClose = h("button", { type: "button", class: "dgw-btn dgw-close", "aria-label": "Close", title: "Close", on: { click: () => closeWindow(w) } }, icon("close"));
     w.bar = h("div", { class: "dgw-bar", on: { dblclick: (e) => !e.target.closest("button") && toggleMax(w) } },
       h("div", { class: "dgw-heading" }, w.titleEl, w.flagEl),
-      h("div", { class: "dgw-ctl" }, w.btnMin, w.btnMax, btnClose));
+      h("div", { class: "dgw-ctl" }, w.btnDockLeft, w.btnDockRight, w.btnUndock, w.btnMin, w.btnMax, btnClose));
 
     w.btnOut = h("button", { type: "button", class: "dgw-tool", "aria-label": "Zoom out", title: "Zoom out (-)", text: "−", on: { click: () => zoomCentre(w, 1 / ZOOM_STEP) } });
     w.btnPct = h("button", {
@@ -703,6 +887,7 @@
     w.grip = h("div", { class: "dgw-grip", "aria-hidden": "true" });
 
     w.el = h("div", {
+      id: "dgw-" + seq,
       class: "dgw",
       role: "dialog",
       "aria-modal": "false",
@@ -730,6 +915,15 @@
   }
 
   function onKey(w, e) {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      if (e.key === "ArrowLeft" && canDock()) dockWindow(w, "left");
+      else if (e.key === "ArrowRight" && canDock()) dockWindow(w, "right");
+      else if (e.key === "ArrowDown" && w.dock) undock(w);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "Escape") {
       if (w.sourceView) setSourceView(w, false);
@@ -827,10 +1021,19 @@
   }
 
   window.addEventListener("resize", () => {
+    // Too narrow to split: every docked window goes back to floating.
+    const undocking = !canDock() && (docked.left || docked.right);
+    if (undocking) {
+      for (const side of ["left", "right"]) {
+        if (docked[side]) docked[side].dock = null;
+        docked[side] = null;
+      }
+    }
     for (const w of windows.values()) {
       w.rect = clampRect(w.rect);
       applyRect(w);
     }
+    if (undocking || docked.left || docked.right) layoutDock();
   });
 
   window.AgtrackDiagram = {

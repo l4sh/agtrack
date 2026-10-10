@@ -528,7 +528,7 @@ function renderOutline(doc) {
           click: (ev) => {
             ev.preventDefault();
             jumpToSection(s.slug);
-            closeDrawers();
+            closeDrawersToDoc();
           },
         },
       },
@@ -569,7 +569,7 @@ el.tocFilter.addEventListener("keydown", (ev) => {
       el.tocFilter.value = "";
       applyTocFilter();
       el.tocFilter.blur();
-      closeDrawers();
+      closeDrawersToDoc();
     }
   } else if (ev.key === "Escape") {
     el.tocFilter.value = "";
@@ -1108,7 +1108,7 @@ function renderDiffsRail() {
             click: () => {
               setView("diff");
               jumpToSection(c.slug);
-              closeDrawers();
+              closeDrawersToDoc();
             },
           },
         })
@@ -1648,41 +1648,97 @@ function setTab(tab) {
 for (const t of TABS) $("tab-" + t).addEventListener("click", () => setTab(t));
 el.btnOpenDiffView.addEventListener("click", () => {
   setView("diff");
-  closeDrawers();
+  closeDrawersToDoc();
 });
 
-function openRail() {
-  el.app.classList.add("rail-open");
-  el.btnRail.setAttribute("aria-expanded", "true");
-  syncScrim();
+// --- Drawers -----------------------------------------------------------------------
+//
+// Below 1280px, and while a diagram window is docked (diagram.js sets html.has-docked),
+// the outline and the notes rail are drawers: closed on load, opened one at a time over
+// the document with a scrim, closed by the scrim, Esc or choosing a section. Their state
+// is not remembered, so a narrow screen always starts on the document.
+
+const DRAWERS_MQ = window.matchMedia("(max-width: 1279px)");
+const DRAWERS = {
+  outline: { cls: "outline-open", btn: () => el.btnOutline, panel: () => el.outline },
+  rail: { cls: "rail-open", btn: () => el.btnRail, panel: () => el.rail },
+};
+
+function drawerMode() {
+  return el.app.classList.contains("drawers");
 }
 
-function closeDrawers() {
+function openDrawer() {
+  for (const [name, d] of Object.entries(DRAWERS)) if (el.app.classList.contains(d.cls)) return name;
+  return null;
+}
+
+function syncDrawerMode() {
+  const on = DRAWERS_MQ.matches || document.documentElement.classList.contains("has-docked");
+  if (on === drawerMode()) return;
+  if (!on) closeDrawers(false);
+  // Switching layouts is instant; only opening and closing a drawer slides.
+  el.app.classList.add("drawers-switch");
+  el.app.classList.toggle("drawers", on);
+  void el.app.offsetWidth;
+  el.app.classList.remove("drawers-switch");
+}
+
+/** Open one drawer (closing the other) and move focus into it. */
+function showDrawer(name, focusTarget) {
+  closeDrawers(false);
+  const d = DRAWERS[name];
+  el.app.classList.add(d.cls);
+  d.btn().setAttribute("aria-expanded", "true");
+  syncScrim();
+  if (!drawerMode()) return;
+  const target = focusTarget || d.panel().querySelector(name === "outline" ? "#toc-filter" : ".rail-tab.is-active");
+  if (target) target.focus({ preventScroll: true });
+}
+
+function openRail() {
+  showDrawer("rail");
+}
+
+/**
+ * Close whichever drawer is open. With returnFocus, focus that was inside the drawer goes
+ * back to the button that opens it.
+ */
+function closeDrawers(returnFocus = true) {
+  const open = openDrawer();
+  const focusInside = open && DRAWERS[open].panel().contains(document.activeElement);
   el.app.classList.remove("rail-open", "outline-open");
   el.btnRail.setAttribute("aria-expanded", "false");
   el.btnOutline.setAttribute("aria-expanded", "false");
   syncScrim();
+  if (returnFocus && focusInside && drawerMode()) DRAWERS[open].btn().focus({ preventScroll: true });
+}
+
+/** Close the drawer after navigating from it (a section, a diff): focus goes to the document. */
+function closeDrawersToDoc() {
+  const wasOpen = drawerMode() && openDrawer();
+  closeDrawers(false);
+  if (wasOpen) el.canvas.focus({ preventScroll: true });
 }
 
 function syncScrim() {
-  el.scrim.hidden = !(el.app.classList.contains("rail-open") || el.app.classList.contains("outline-open"));
+  el.scrim.hidden = !openDrawer();
 }
+
+DRAWERS_MQ.addEventListener("change", syncDrawerMode);
+window.addEventListener("agtrack:dock", syncDrawerMode);
+syncDrawerMode();
 
 el.btnRail.addEventListener("click", () => {
   if (el.app.classList.contains("rail-open")) closeDrawers();
   else openRail();
 });
-el.btnRailClose.addEventListener("click", closeDrawers);
+el.btnRailClose.addEventListener("click", () => closeDrawers());
 el.btnOutline.addEventListener("click", () => {
-  const open = !el.app.classList.contains("outline-open");
-  closeDrawers();
-  if (open) {
-    el.app.classList.add("outline-open");
-    el.btnOutline.setAttribute("aria-expanded", "true");
-  }
-  syncScrim();
+  if (el.app.classList.contains("outline-open")) closeDrawers();
+  else showDrawer("outline");
 });
-el.scrim.addEventListener("click", closeDrawers);
+el.scrim.addEventListener("click", () => closeDrawers());
 el.specRef.addEventListener("click", () => copyRef(session.specRef));
 el.specRef.addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" || ev.key === " ") {
@@ -1798,7 +1854,13 @@ el.commentFab.addEventListener("click", openCommentDialogFromSelection);
 
 function openCommentDialogFromSelection() {
   if (!pendingSelection) return;
-  openCommentDialog(pendingSelection);
+  const selection = pendingSelection;
+  // With drawers, commenting opens the Notes drawer under the composer.
+  if (drawerMode()) {
+    setTab("notes");
+    showDrawer("rail");
+  }
+  openCommentDialog(selection);
 }
 
 // ---------------------------------------------------------------------------
@@ -1955,11 +2017,7 @@ function isTyping() {
 }
 
 function focusTocFilter() {
-  if (window.matchMedia("(max-width: 800px)").matches) {
-    el.app.classList.add("outline-open");
-    el.btnOutline.setAttribute("aria-expanded", "true");
-    syncScrim();
-  }
+  if (drawerMode()) showDrawer("outline");
   el.tocFilter.focus();
   el.tocFilter.select();
 }
