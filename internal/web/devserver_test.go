@@ -47,6 +47,19 @@ func TestDevServer(t *testing.T) {
 //	AGTRACK_CHROME=<chromium or chrome-headless-shell executable, optional> \
 //	go test -tags devui -run TestDiagramWindowBrowser -v ./internal/web
 func TestDiagramWindowBrowser(t *testing.T) {
+	runBrowserScript(t, "diagram-window.js")
+}
+
+// TestSplitViewBrowser drives docking (split view) and the narrow-screen drawers
+// (testdata/split-view.js) the same way, at 1400, 1100 and 390 px wide.
+func TestSplitViewBrowser(t *testing.T) {
+	runBrowserScript(t, "split-view.js")
+}
+
+// runBrowserScript runs a Playwright script from testdata against the fixture
+// server, with the page URL as its argument.
+func runBrowserScript(t *testing.T, script string) {
+	t.Helper()
 	pwDir := os.Getenv("AGTRACK_PW_DIR")
 	if pwDir == "" {
 		t.Skip("AGTRACK_PW_DIR not set (directory whose node_modules holds playwright)")
@@ -61,7 +74,7 @@ func TestDiagramWindowBrowser(t *testing.T) {
 		t.Fatalf("AGTRACK_PW_DIR is set but playwright is not installed in %s", pwDir)
 	}
 	url := startDevServer(t)
-	cmd := exec.Command(node, filepath.Join("testdata", "diagram-window.js"), url)
+	cmd := exec.Command(node, filepath.Join("testdata", script), url)
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	t.Logf("%s", out)
