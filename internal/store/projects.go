@@ -349,6 +349,55 @@ func (s *Store) UpdateProject(project *row.Row, fields []Field) (r *row.Row, err
 	return s.getProject(project.Int("id")), nil
 }
 
+// MoveProject re-homes a project and its subprojects. dest is a context name
+// (the project becomes top-level there) or `context/project` (it becomes that
+// project's subproject). Everything attached to a project refers to it by id,
+// so tasks, specs, repos, rules and lessons follow; pins on the moved projects
+// carry their context pin along.
+func (s *Store) MoveProject(project *row.Row, dest, rename string) (r *row.Row, err error) {
+	defer guard(&err)
+	ctxName, parentName, nested := strings.Cut(dest, "/")
+	ctx := s.getContext(ctxName, true)
+	var parentID any
+	if nested {
+		parent := s.one("SELECT * FROM projects WHERE context_id = ? AND parent_id IS NULL AND name = ?", ctx.Int("id"), parentName)
+		if parent == nil {
+			fail(errs.NotFound("project", dest, "no such project: %s (a subproject's parent must be a top-level project)", dest))
+		}
+		if parent.Int("id") == project.Int("id") {
+			fail(errs.New("cannot move %s into itself", s.projectPath(project)))
+		}
+		if n := len(s.descendantIDs(project.Int("id"))) - 1; n > 0 {
+			fail(errs.Conflict("%s has %d subproject(s); projects nest one level, so move them out first", s.projectPath(project), n))
+		}
+		parentID = parent.Int("id")
+	}
+	name := project.Str("name")
+	if rename != "" {
+		name = rename
+	}
+	from := s.projectPath(project)
+	var pinned []any
+	for _, id := range s.descendantIDs(project.Int("id")) {
+		pinned = append(pinned, fmt.Sprint(id))
+	}
+	s.tx(func() {
+		if _, e := s.execC("UPDATE projects SET context_id = ?, parent_id = ?, name = ?, updated_at = ? WHERE id = ?",
+			ctx.Int("id"), parentID, name, refs.NowISO(), project.Int("id")); e != nil {
+			fail(errs.Conflict("project already exists: %s/%s", dest, name))
+		}
+		s.exec("UPDATE projects SET context_id = ? WHERE parent_id = ?", ctx.Int("id"), project.Int("id"))
+		// An actor pinned to a moved project keeps working in it: its context
+		// pin moves too (a project pin outside the pinned context is ignored).
+		for _, m := range s.q("SELECT key FROM meta WHERE (key = 'current_project' OR key LIKE 'current_project:%') AND value IN ("+marks(len(pinned))+")", pinned...) {
+			key := "current_context" + strings.TrimPrefix(m.Str("key"), "current_project")
+			s.setMeta(key, strp(ctx.Str("name")))
+		}
+		s.event("project", project.Int("id"), "moved", from+" -> "+s.projectPath(s.getProject(project.Int("id"))), 0, project.Int("id"), "")
+	})
+	return s.getProject(project.Int("id")), nil
+}
+
 // DeleteProject removes a project; with force, its subprojects and tasks.
 func (s *Store) DeleteProject(project *row.Row, force bool) (err error) {
 	defer guard(&err)

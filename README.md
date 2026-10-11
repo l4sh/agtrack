@@ -138,6 +138,11 @@ agtrack task done 12                                    # releases the claim
   drops a project pin that lies in another context; an unqualified write with no
   resolvable project fails instead of guessing. `-p .` resolves the project linked to the
   cwd's git remote.
+- **Moving things.** `task set 12 --move home/infra` moves a task to any project, in any
+  context. `project set work/app --move home` re-homes a project, with its subprojects, tasks,
+  specs, repo links, rules and lessons; `--move home/infra` makes it a subproject of `infra`
+  instead (projects nest one level, so a project that has subprojects cannot become one).
+  Pins on a moved project follow it.
 - **Retries are safe** with `--idem KEY` on any create: a retry with the same key reprints
   the first result and writes nothing; the same key with a different request is refused
   (`request_key_reused`).

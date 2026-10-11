@@ -338,7 +338,30 @@ func projectSet(c *Ctx) error {
 	if err != nil {
 		return err
 	}
-	if project, err = c.S.UpdateProject(project, fields); err != nil {
+	err = c.S.Tx(func() error {
+		if c.Has("move") {
+			// The move takes the new name with it, so a rename into a
+			// destination that already holds the old name does not collide.
+			var rename string
+			var rest []store.Field
+			for _, f := range fields {
+				if f.Name == "name" {
+					rename = f.Value.(string)
+				} else {
+					rest = append(rest, f)
+				}
+			}
+			if project, err = c.S.MoveProject(project, c.Str("move"), rename); err != nil {
+				return err
+			}
+			fields = rest
+		}
+		if len(fields) > 0 || !c.Has("move") {
+			project, err = c.S.UpdateProject(project, fields)
+		}
+		return err
+	})
+	if err != nil {
 		return err
 	}
 	short, _ := c.S.ShortPath(project)
