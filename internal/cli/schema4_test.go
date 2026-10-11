@@ -85,3 +85,27 @@ func TestResumeStaleFromClosure(t *testing.T) {
 		t.Errorf("closed task still stale: %v", s)
 	}
 }
+
+// `check` with no scope flag answers for the project linked to the cwd's repo,
+// ahead of the actor's pin and a bare -c (hooks call it without -p).
+func TestCheckResolvesCwdProject(t *testing.T) {
+	e := newEnv(t)
+	e.actor = "human"
+	e.ok("ctx", "add", "w")
+	e.ok("project", "add", "shop")
+	e.ok("project", "add", "other", "--use") // the pin points elsewhere
+	e.ok("project", "repo", "add", "shop", "https://github.com/acme/shop.git")
+	e.ok("rule", "add", "-p", "shop", "deny", "pr", "--quote", "no PRs here")
+
+	repo := t.TempDir()
+	git(t, repo, "init", "-q")
+	git(t, repo, "remote", "add", "origin", "https://github.com/acme/shop.git")
+	t.Chdir(repo)
+
+	for _, args := range [][]string{{"check", "pr"}, {"-c", "w", "check", "pr"}} {
+		_, _, code := e.run(args...)
+		if code != ExitCheckDeny {
+			t.Errorf("%v: exit %d, want %d (deny from the cwd repo's project)", args, code, ExitCheckDeny)
+		}
+	}
+}

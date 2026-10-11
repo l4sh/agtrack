@@ -169,6 +169,14 @@ func resolvePoint(c *Ctx) (store.Point, error) {
 		return store.Point{ProjectID: p.Int("id")}, nil
 	case c.Bool("global"):
 		return store.Point{}, nil
+	}
+	// No scope flag: the project linked to the cwd's repo comes first, as in
+	// resume, so `check` in a hook answers for the repo it runs in. With -c,
+	// only a project in that context counts.
+	if p := c.cwdProject(); p != nil {
+		return store.Point{ProjectID: p.Int("id")}, nil
+	}
+	switch {
 	case c.Context != "":
 		ctx, err := c.S.GetContext(c.Context, true)
 		if err != nil {
@@ -437,4 +445,30 @@ func cmdCheck(c *Ctx) error {
 		return exitCode(code)
 	}
 	return nil
+}
+
+// cwdProject is the one project linked to the cwd's origin remote (within -c
+// when given), or nil when there is none or the remote is ambiguous.
+func (c *Ctx) cwdProject() *row.Row {
+	remote := c.S.CwdRepo()
+	if remote == "" {
+		return nil
+	}
+	matches, err := c.S.FindProjectsByRepo(remote)
+	if err != nil {
+		return nil
+	}
+	var pick *row.Row
+	for _, m := range matches {
+		if c.Context != "" {
+			if path, err := c.S.ProjectPath(m); err != nil || !strings.HasPrefix(path, c.Context+"/") {
+				continue
+			}
+		}
+		if pick != nil {
+			return nil
+		}
+		pick = m
+	}
+	return pick
 }
