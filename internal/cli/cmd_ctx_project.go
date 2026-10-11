@@ -368,6 +368,47 @@ func projectSet(c *Ctx) error {
 	return c.mutated("project "+short, project)
 }
 
+func projectMerge(c *Ctx) error {
+	if c.Str("into") == "" {
+		return errs.Usage("--into REF is required")
+	}
+	src, err := c.resolveProject(c.Str("ref"), true)
+	if err != nil {
+		return err
+	}
+	dst, err := c.resolveProject(c.Str("into"), true)
+	if err != nil {
+		return err
+	}
+	from, _ := c.S.ProjectPath(src)
+	to, _ := c.S.ProjectPath(dst)
+	counts, err := c.S.MergeProject(src, dst, !c.Bool("yes"))
+	if err != nil {
+		return err
+	}
+	moved := row.New()
+	var parts []string
+	for _, k := range store.MergeKeys {
+		moved.Set(k, counts[k])
+		if counts[k] > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", counts[k], k))
+		}
+	}
+	summary := strings.Join(parts, ", ")
+	if summary == "" {
+		summary = "nothing attached"
+	}
+	obj := row.Of("merged", from, "into", to, "applied", c.Bool("yes"), "moved", moved)
+	if !c.Bool("yes") {
+		if c.structured() {
+			return c.emitObject(obj)
+		}
+		fmt.Fprintf(c.Out, "would merge %s into %s: %s\n(pass --yes to do it; %s is deleted afterwards)\n", from, to, summary, from)
+		return nil
+	}
+	return c.mutated(fmt.Sprintf("merged %s into %s: %s", from, to, summary), obj)
+}
+
 func projectRm(c *Ctx) error {
 	project, err := c.resolveProject(c.Str("ref"), true)
 	if err != nil {

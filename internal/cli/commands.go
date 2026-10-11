@@ -172,6 +172,8 @@ func Tree() *argp.Command {
 			{Name: "use", Help: "pin a project so later commands can omit --project", Run: Handler(projectUse), Args: []argp.Arg{{Name: "ref"}}},
 			{Name: "set", Help: "rename, retitle, archive or move", Run: Handler(projectSet), Args: []argp.Arg{{Name: "ref"}},
 				Flags: append(setFlags(), argp.Flag{Long: "--move", Metavar: "DEST", Help: "move it, with its subprojects and everything in them: CONTEXT makes it top-level there, CONTEXT/PROJECT a subproject of PROJECT"})},
+			{Name: "merge", Help: "fold a project into another: its tasks, specs, repos, notes, worklog, rules and lessons move, then it is deleted", Run: Handler(projectMerge),
+				Args: []argp.Arg{{Name: "ref"}}, Flags: []argp.Flag{{Long: "--into", Metavar: "REF", Help: "the project that receives everything"}, {Long: "--yes", Kind: argp.Bool, Help: "do it; without it, only show what would move"}}},
 			{Name: "rm", Aliases: []string{"delete"}, Help: "delete a project", Run: Handler(projectRm), Args: []argp.Arg{{Name: "ref"}},
 				Flags: []argp.Flag{{Long: "--force", Kind: argp.Bool, Help: "delete its subprojects and tasks too"}}},
 			{Name: "repo", Help: "link git remotes to a project", Run: Handler(projectRepo),

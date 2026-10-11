@@ -142,7 +142,9 @@ agtrack task done 12                                    # releases the claim
   context. `project set work/app --move home` re-homes a project, with its subprojects, tasks,
   specs, repo links, rules and lessons; `--move home/infra` makes it a subproject of `infra`
   instead (projects nest one level, so a project that has subprojects cannot become one).
-  Pins on a moved project follow it.
+  Pins on a moved project follow it. `project merge platform:tools --into platform` folds
+  one project into another instead — tasks, specs, repo links, notes, worklog, rules,
+  lessons and pins — and deletes the emptied source; it previews until you add `--yes`.
 - **Retries are safe** with `--idem KEY` on any create: a retry with the same key reprints
   the first result and writes nothing; the same key with a different request is refused
   (`request_key_reused`).

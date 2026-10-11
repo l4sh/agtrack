@@ -16,7 +16,7 @@ agtrack 2.0 — the Go rewrite of agtrack 1.0 (Python).
   tasks in `next`, `task done-check`, evidence on done, `task snooze`, `note ack`,
   `task transfer`, an actor registry, `batch`, automatic branch/commit artifacts, `pr sync`,
   `hooks print`, `doctor`, `info --usage`, `project set --move` (across contexts, with
-  subprojects), standing rules with `check` (exit 20/21/22) and
+  subprojects), `project merge`, standing rules with `check` (exit 20/21/22) and
   shared lessons.
 - `agtrack serve`: the whole store in a browser — browse and edit tasks, steps and notes,
   approve rules, verify lessons — with one server per database, reused by `spec serve`.
