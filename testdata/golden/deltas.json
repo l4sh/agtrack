@@ -1,7 +1,9 @@
 {
  "argparse_edges#14": "new surface: jsonl format and new commands appear in argparse choice lists",
  "argparse_edges#9": "new surface: jsonl format and new commands appear in argparse choice lists",
+ "backfill_subtask_and_ordering#8": "E3/A1: closing a task's last open step prints 'all steps closed' and a next-action hint",
  "backfill_task_add#10": "D12: structured output drops derived duplicates (created, updated, started, closed, mark, path, context, when, date, recorded)",
+ "backfill_task_add#7": "A4: task show lists evidence ('none' on a done task without any)",
  "ctx_lifecycle#15": "D12: nested collections drop their own derived duplicates",
  "ctx_lifecycle#4": "yaml: scalars that would re-type (timestamps, numbers, ' #') are quoted; still valid YAML with the same keys (spec \u00a74.2)",
  "d1_stale_pin_bug#3": "D1: ctx use drops the project pin from the departed context; the unqualified write fails instead of misfiling",
@@ -23,7 +25,7 @@
  "overview_commands#14": "v2: version 2.x and schema v3",
  "overview_commands#15": "v2: version 2.x and schema v3",
  "overview_commands#17": "D8: repo links keep their host (host/owner/name)",
- "overview_commands#6": "D12: structured output drops derived duplicates (created, updated, started, closed, mark, path, context, when, date, recorded)",
+ "overview_commands#6": "D12: structured output drops derived duplicates (created, updated, started, closed, mark, path, context, when, date, recorded); A2: next rows gain age, last_event, open_steps, stale_reason",
  "overview_commands#9": "D12: structured output drops derived duplicates (created, updated, started, closed, mark, path, context, when, date, recorded)",
  "pr_lifecycle#14": "D8: pull request repos keep their host (host/owner/name)",
  "pr_lifecycle#5": "D8: pull request repos keep their host (host/owner/name)",
@@ -59,6 +61,8 @@
  "repo_and_pr_url_parsing#6": "D8: repo links keep their host (host/owner/name)",
  "repo_and_pr_url_parsing#7": "D8: repo links keep their host (host/owner/name)",
  "subtask_lifecycle#6": "D12: structured output drops derived duplicates (created, updated, started, closed, mark, path, context, when, date, recorded)",
+ "subtask_status_and_cascade#13": "E3/A1: closing a task's last open step prints 'all steps closed' and a next-action hint",
+ "subtask_status_and_cascade#8": "E3/A1: closing a task's last open step prints 'all steps closed' and a next-action hint",
  "tag_overview#8": "D12: nested collections drop their own derived duplicates",
  "task_lifecycle#19": "D12: structured output drops derived duplicates (created, updated, started, closed, mark, path, context, when, date, recorded)"
 }

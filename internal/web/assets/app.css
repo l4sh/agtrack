@@ -1,85 +1,5 @@
-/* agtrack spec viewer — "Clarion Spec Canvas". Plain CSS, no runtime, no external requests:
-   fonts are vendored under vendor/fonts (see vendor/fonts/VERSIONS). */
-
-@font-face {
-  font-family: "Inter Variable";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url("/assets/vendor/fonts/inter-latin-wght-normal.woff2") format("woff2-variations"),
-    url("/assets/vendor/fonts/inter-latin-wght-normal.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: "JetBrains Mono Variable";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 800;
-  src: url("/assets/vendor/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations"),
-    url("/assets/vendor/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-:root {
-  color-scheme: light;
-
-  /* slate neutrals */
-  --text: #0f172a;
-  --text-2: #334155;
-  --text-3: #475569;
-  --text-muted: #64748b;
-  --text-faint: #94a3b8;
-  --line: #e2e8f0;
-  --line-strong: #cbd5e1;
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --surface-3: #f1f5f9;
-  --canvas: #f1f5f9;
-
-  /* accents */
-  --indigo: #4f46e5;
-  --indigo-hover: #4338ca;
-  --indigo-ink: #4338ca;
-  --indigo-soft: #eef2ff;
-  --indigo-line: #c7d2fe;
-  --emerald: #059669;
-  --emerald-ink: #047857;
-  --emerald-soft: #ecfdf5;
-  --emerald-line: #a7f3d0;
-  --amber: #d97706;
-  --amber-ink: #b45309;
-  --amber-soft: #fffbeb;
-  --amber-line: #fde68a;
-  --rose: #e11d48;
-  --rose-ink: #be123c;
-  --rose-soft: #fff1f2;
-  --rose-line: #fecdd3;
-
-  --radius-badge: 4px;
-  --radius: 8px;
-  --radius-sheet: 12px;
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-sheet: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
-  --shadow-pop: 0 10px 30px -10px rgba(15, 23, 42, 0.3), 0 2px 6px rgba(15, 23, 42, 0.08);
-
-  --font: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-
-  --topbar-h: 56px;
-  --outline-w: 256px;
-  --rail-w: 384px;
-  --sheet-w: 760px;
-
-  /* reading scale — the Comfort Layout raises these */
-  --doc-size: 15px;
-  --doc-leading: 1.7;
-  --doc-gap: 40px;
-  --sheet-pad-x: 48px;
-  --sheet-pad-y: 48px;
-}
+/* agtrack spec viewer — "Clarion Spec Canvas". Plain CSS, no runtime, no external requests.
+   Design tokens (:root) and @font-face live in base.css, which loads first. */
 
 :root.comfort {
   --doc-size: 17px;
@@ -505,8 +425,7 @@ kbd {
   color: var(--text);
 }
 
-.only-narrow,
-.only-medium {
+.only-drawers {
   display: none !important;
 }
 
@@ -2044,33 +1963,69 @@ mark.hl.is-flash {
   }
 }
 
-@media (max-width: 1199px) {
-  .only-medium {
-    display: inline-flex !important;
+/* Drawers. app.js sets .app.drawers below 1280px, and while a diagram window is docked:
+   the outline and the notes rail start closed and open one at a time over the document,
+   with a scrim. A closed drawer is visibility:hidden so its controls leave the tab order. */
+.drawers .only-drawers {
+  display: inline-flex !important;
+}
+.drawers .outline,
+.drawers .rail {
+  position: fixed;
+  top: var(--topbar-h);
+  bottom: 0;
+  z-index: 50;
+  box-shadow: var(--shadow-pop);
+  visibility: hidden;
+  transition: transform 0.2s ease, visibility 0s linear 0.2s;
+}
+.drawers .outline {
+  left: 0;
+  width: min(var(--outline-w) + 24px, 88vw);
+  transform: translateX(-100%);
+}
+.drawers .rail {
+  right: 0;
+  width: min(var(--rail-w), 100vw);
+  transform: translateX(100%);
+}
+.drawers.outline-open .outline,
+.drawers.rail-open .rail {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.2s ease, visibility 0s;
+}
+.drawers-switch .outline,
+.drawers-switch .rail {
+  transition: none !important;
+}
+.drawers .scrim {
+  display: block;
+  position: fixed;
+  inset: var(--topbar-h) 0 0 0;
+  background: rgba(15, 23, 42, 0.25);
+  z-index: 40;
+}
+.drawers .rail-tabs {
+  gap: 16px;
+}
+
+@media (max-width: 767px) {
+  /* Phone: full-width drawers, and the comment composer is a bottom sheet. */
+  .drawers .outline,
+  .drawers .rail {
+    width: 100vw;
   }
-  .rail {
-    position: fixed;
-    top: var(--topbar-h);
-    right: 0;
-    bottom: 0;
-    z-index: 50;
-    width: min(var(--rail-w), 100vw);
-    transform: translateX(100%);
-    transition: transform 0.2s ease;
-    box-shadow: var(--shadow-pop);
+  #comment-dialog {
+    align-items: flex-end;
+    padding: 0;
   }
-  .rail-open .rail {
-    transform: none;
-  }
-  .scrim {
-    display: block;
-    position: fixed;
-    inset: var(--topbar-h) 0 0 0;
-    background: rgba(15, 23, 42, 0.25);
-    z-index: 40;
-  }
-  .rail-tabs {
-    gap: 16px;
+  #comment-dialog .dialog {
+    width: 100%;
+    max-height: 85dvh;
+    border-bottom: 0;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
 }
 
@@ -2085,25 +2040,8 @@ mark.hl.is-flash {
     --sheet-pad-y: 28px;
     --doc-gap: 36px;
   }
-  .only-narrow {
-    display: inline-flex !important;
-  }
   .hide-sm {
     display: none !important;
-  }
-  .outline {
-    position: fixed;
-    top: var(--topbar-h);
-    left: 0;
-    bottom: 0;
-    z-index: 50;
-    width: min(var(--outline-w) + 24px, 88vw);
-    transform: translateX(-100%);
-    transition: transform 0.2s ease;
-    box-shadow: var(--shadow-pop);
-  }
-  .outline-open .outline {
-    transform: none;
   }
   .topbar {
     gap: 8px;
@@ -2174,5 +2112,349 @@ mark.hl.is-flash {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* Diagram window */
+.diagram {
+  position: relative;
+}
+.diagram.is-expandable {
+  cursor: zoom-in;
+}
+.diagram-expand {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.diagram:hover .diagram-expand,
+.diagram-expand:focus-visible {
+  opacity: 1;
+}
+.diagram-expand:hover {
+  color: var(--indigo-ink);
+  border-color: var(--indigo-line);
+}
+.diagram-expand svg,
+.dgw-btn svg,
+.dgw-chip svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (hover: none) {
+  .diagram-expand {
+    opacity: 1;
+  }
+}
+
+.dgw {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+  min-height: 240px;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+  outline: none;
+}
+.dgw[hidden],
+.dgw-canvas[hidden],
+.dgw-source[hidden] {
+  display: none;
+}
+.dgw.is-front {
+  box-shadow: var(--shadow-pop);
+  border-color: var(--indigo-line);
+}
+.dgw-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 40px;
+  padding: 0 8px 0 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.dgw.is-max .dgw-bar {
+  cursor: default;
+}
+.dgw-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.dgw-title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dgw-flag {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.dgw-flag.is-updated {
+  color: var(--emerald-ink);
+}
+.dgw-ctl {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+.dgw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dgw-btn:hover {
+  color: var(--text);
+  background: var(--line);
+}
+.dgw-close:hover {
+  color: var(--rose-ink);
+  background: var(--rose-soft);
+}
+.dgw-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.dgw-tool {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dgw-tool:hover:not(:disabled) {
+  color: var(--indigo-ink);
+  border-color: var(--indigo-line);
+}
+.dgw-tool:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+.dgw-tool[aria-pressed="true"] {
+  color: var(--indigo-ink);
+  background: var(--indigo-soft);
+  border-color: var(--indigo-line);
+}
+.dgw-pct {
+  min-width: 52px;
+  font-variant-numeric: tabular-nums;
+}
+.dgw-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--line-strong);
+}
+.dgw-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--surface);
+}
+.dgw-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.dgw-canvas.is-panning {
+  cursor: grabbing;
+}
+.dgw-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.dgw-stage svg {
+  display: block;
+  max-width: none;
+}
+.dgw-source {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre;
+  background: var(--surface-2);
+}
+.dgw-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(135deg, transparent 50%, var(--line-strong) 50%, var(--line-strong) 58%, transparent 58%, transparent 72%, var(--line-strong) 72%, var(--line-strong) 80%, transparent 80%);
+}
+.dgw.is-max .dgw-grip {
+  display: none;
+}
+.dgw-dock {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: calc(100vw - 24px);
+}
+.dgw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  box-shadow: var(--shadow-pop);
+  cursor: pointer;
+}
+.dgw-chip:hover {
+  border-color: var(--indigo-line);
+  color: var(--indigo-ink);
+}
+.dgw-chip-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dgw-tool[hidden] {
+  display: none;
+}
+
+/* Diagram window: docking (split view). diagram.js publishes --dock-left / --dock-right on
+   <html> and sets html.has-docked; the workspace gives the docked windows their room. */
+.workspace {
+  margin-left: var(--dock-left, 0px);
+  margin-right: var(--dock-right, 0px);
+}
+.dgw.is-docked {
+  min-width: 0;
+  min-height: 0;
+  border-radius: 0;
+  border-top: 0;
+  box-shadow: none;
+}
+.dgw.is-docked-left {
+  border-left: 0;
+}
+.dgw.is-docked-right {
+  border-right: 0;
+}
+.dgw.is-docked .dgw-bar {
+  cursor: default;
+}
+.dgw.is-docked .dgw-grip {
+  display: none;
+}
+.dgw.is-docked.is-max {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-pop);
+}
+.dgw-splitter {
+  position: fixed;
+  bottom: 0;
+  z-index: 36; /* just above a docked window, under the drawers' scrim */
+  width: 9px;
+  margin-left: -4px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.dgw-splitter::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: var(--line-strong);
+  transition: background 0.12s, width 0.12s, left 0.12s;
+}
+.dgw-splitter:hover::after,
+.dgw-splitter:focus-visible::after,
+.dgw-resizing .dgw-splitter::after {
+  left: 3px;
+  width: 3px;
+  background: var(--indigo);
+}
+.dgw-resizing,
+.dgw-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+@media (max-width: 899px) {
+  /* Too narrow to split: no docking (diagram.js also undocks on shrink). */
+  .dgw-dock-btn,
+  .dgw-splitter {
+    display: none !important;
   }
 }

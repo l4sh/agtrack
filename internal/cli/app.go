@@ -47,6 +47,7 @@ backfilling:
 exit codes:
   0 ok   1 error   2 usage   3 not found   4 conflict   5 database   130 interrupted
   spec await/watch: 10 comments  11 timeout  12 spec changed  13 channel lost
+  watch --until stale: 14   check: 20 deny  21 hard deny  22 needs approval
 
 start here: ` + "`agtrack grammar`" + ` (one screen), then ` + "`agtrack resume`" + `.
 `
@@ -55,6 +56,7 @@ start here: ` + "`agtrack grammar`" + ` (one screen), then ` + "`agtrack resume`
 type Streams struct {
 	Out io.Writer
 	Err io.Writer
+	In  io.Reader // nil = os.Stdin
 	// ColorAuto is the auto-detected colour decision for Out (Main decides it
 	// from os.Stdout; the buffered wrapper hides the terminal from render).
 	ColorAuto bool
@@ -127,6 +129,10 @@ func Run(argv []string, st Streams) (code int) {
 	}
 	defer d.Close()
 	c.S = store.New(d, c.Actor)
+	if err := c.checkActor(res); err != nil {
+		return reportError(st, format, err, p, argv, c.DBPath)
+	}
+	c.S.Session = c.Session
 	c.S.Context = c.Context
 	c.S.CwdRepo = cwdRepo
 	if c.idemKey != "" {
@@ -139,13 +145,17 @@ func Run(argv []string, st Streams) (code int) {
 			c.receipt = rc
 		}
 	}
-	return finish(st, format, h(c), c.DBPath, p, argv)
+	err = h(c)
+	if err == nil {
+		c.FlushHint()
+	}
+	return finish(st, format, err, c.DBPath, p, argv)
 }
 
 // needsNoDB are commands that explain syntax without opening a database
 // (design §4.9: describe must not create a database to explain itself).
 var needsNoDB = map[string]bool{"grammar": true, "describe": true,
-	"skill install": true, "skill status": true, "skill uninstall": true, "skill print": true}
+	"hooks print": true, "skill install": true, "skill status": true, "skill uninstall": true, "skill print": true}
 
 func finish(st Streams, format string, err error, dbPath string, p *argp.Parser, argv []string) int {
 	if err == nil {
@@ -162,7 +172,7 @@ func dbErr(err error) error {
 }
 
 func newCtx(res *argp.Result, st Streams) (*Ctx, error) {
-	c := &Ctx{V: res.Values, Given: res.Given, Path: res.Path, Out: st.Out, Err: st.Err}
+	c := &Ctx{V: res.Values, Given: res.Given, Path: res.Path, Out: st.Out, Err: st.Err, In: st.In}
 	c.DBPath = strOr(res.Values["db"])
 	c.Context = strOr(res.Values["context"])
 	c.Extended = boolOr(res.Values["extended"])
@@ -204,6 +214,8 @@ func newCtx(res *argp.Result, st Streams) (*Ctx, error) {
 	if c.Actor == "" {
 		c.Actor = envOr("AGTRACK_ACTOR", "AGENT")
 	}
+	c.ActorGiven = c.Actor != ""
+	c.Session, c.SessionSource = detectSession(strOr(res.Values["session"]))
 	if n, ok := res.Values["max_bytes"].(int); ok {
 		c.MaxBytes = n
 	}
@@ -335,4 +347,21 @@ func isSQLiteError(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "SQLITE_") || strings.Contains(msg, "unable to open database") ||
 		strings.Contains(msg, "database is locked") || strings.Contains(msg, "disk I/O error")
+}
+
+// sessionEnv lists where a session id comes from, in order (agent-features
+// spec B1): agtrack's own variable, then what the harnesses export.
+var sessionEnv = []string{"AGTRACK_SESSION", "CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID"}
+
+// detectSession returns the session id writes are stamped with and its source.
+func detectSession(flag string) (id, source string) {
+	if flag = strings.TrimSpace(flag); flag != "" {
+		return flag, "--session"
+	}
+	for _, k := range sessionEnv {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return v, "$" + k
+		}
+	}
+	return "", ""
 }

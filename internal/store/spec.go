@@ -392,6 +392,15 @@ func (s *Store) specFile(sp *row.Row, repoRoot string) (root, path string) {
 	return root, filepath.Join(root, filepath.FromSlash(rel))
 }
 
+// SpecFileRoot is the checkout a spec's file is read from and pinned in when
+// the invoking checkout is repoRoot: repoRoot itself when the file is in it,
+// else the root recorded with the spec.
+func (s *Store) SpecFileRoot(sp *row.Row, repoRoot string) (root string, err error) {
+	defer guard(&err)
+	root, _ = s.specFile(sp, repoRoot)
+	return root, nil
+}
+
 func gitCommonDir(dir string) string {
 	d, ok := gitOut(dir, "rev-parse", "--git-common-dir")
 	if !ok || d == "" {

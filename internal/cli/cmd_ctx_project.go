@@ -338,11 +338,75 @@ func projectSet(c *Ctx) error {
 	if err != nil {
 		return err
 	}
-	if project, err = c.S.UpdateProject(project, fields); err != nil {
+	err = c.S.Tx(func() error {
+		if c.Has("move") {
+			// The move takes the new name with it, so a rename into a
+			// destination that already holds the old name does not collide.
+			var rename string
+			var rest []store.Field
+			for _, f := range fields {
+				if f.Name == "name" {
+					rename = f.Value.(string)
+				} else {
+					rest = append(rest, f)
+				}
+			}
+			if project, err = c.S.MoveProject(project, c.Str("move"), rename); err != nil {
+				return err
+			}
+			fields = rest
+		}
+		if len(fields) > 0 || !c.Has("move") {
+			project, err = c.S.UpdateProject(project, fields)
+		}
+		return err
+	})
+	if err != nil {
 		return err
 	}
 	short, _ := c.S.ShortPath(project)
 	return c.mutated("project "+short, project)
+}
+
+func projectMerge(c *Ctx) error {
+	if c.Str("into") == "" {
+		return errs.Usage("--into REF is required")
+	}
+	src, err := c.resolveProject(c.Str("ref"), true)
+	if err != nil {
+		return err
+	}
+	dst, err := c.resolveProject(c.Str("into"), true)
+	if err != nil {
+		return err
+	}
+	from, _ := c.S.ProjectPath(src)
+	to, _ := c.S.ProjectPath(dst)
+	counts, err := c.S.MergeProject(src, dst, !c.Bool("yes"))
+	if err != nil {
+		return err
+	}
+	moved := row.New()
+	var parts []string
+	for _, k := range store.MergeKeys {
+		moved.Set(k, counts[k])
+		if counts[k] > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", counts[k], k))
+		}
+	}
+	summary := strings.Join(parts, ", ")
+	if summary == "" {
+		summary = "nothing attached"
+	}
+	obj := row.Of("merged", from, "into", to, "applied", c.Bool("yes"), "moved", moved)
+	if !c.Bool("yes") {
+		if c.structured() {
+			return c.emitObject(obj)
+		}
+		fmt.Fprintf(c.Out, "would merge %s into %s: %s\n(pass --yes to do it; %s is deleted afterwards)\n", from, to, summary, from)
+		return nil
+	}
+	return c.mutated(fmt.Sprintf("merged %s into %s: %s", from, to, summary), obj)
 }
 
 func projectRm(c *Ctx) error {
@@ -541,10 +605,26 @@ func noteAdd(c *Ctx) error {
 			return err
 		}
 	}
+	if c.Has("close") {
+		if kind == "" {
+			kind = "handoff"
+		}
+		if kind != "handoff" {
+			return errs.New("--close goes with --kind handoff")
+		}
+	}
 	ids, err := c.record("note", func() ([]int64, error) {
-		note, err := c.S.AddNote(store.NewNote{
+		in := store.NewNote{
 			TargetType: t.typ, TargetID: t.id, Body: c.Str("body"), TaskID: t.task, ProjectID: t.project, At: at, Kind: kind,
-		})
+		}
+		if c.Has("close") {
+			note, _, err := c.S.CloseWithNote(in, c.Str("close"))
+			if err != nil {
+				return nil, err
+			}
+			return []int64{note.Int("id")}, nil
+		}
+		note, err := c.S.AddNote(in)
 		if err != nil {
 			return nil, err
 		}
@@ -564,6 +644,9 @@ func noteLs(c *Ctx) error {
 	rows, err := c.S.NotesFor(t.typ, t.id, store.NoteFilter{OpenOnly: c.Bool("open"), Kind: c.Str("kind")})
 	if err != nil {
 		return err
+	}
+	if c.Bool("unacked") {
+		rows = unackedOnly(rows)
 	}
 	return c.emit(rows, "note", len(rows))
 }

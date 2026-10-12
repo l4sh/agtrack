@@ -111,10 +111,17 @@ func taskLs(c *Ctx) error {
 		Context: c.Context, Project: project, Direct: c.Bool("direct"), Statuses: statuses,
 		Tags: c.Tags("tag"), TagsAll: c.Bool("tags_all"), Grep: c.Str("grep"), Since: since,
 		Repo: c.Str("repo"), Limit: c.Int("limit"), Order: c.Str("order"), AllContexts: c.Bool("all_contexts"),
-		Unclaimed: c.Bool("unclaimed"), Ready: c.Bool("ready"), Blocked: c.Bool("blocked"),
+		Unclaimed: c.Bool("unclaimed"), Ready: c.Bool("ready"), Blocked: c.Bool("blocked"), MissingArtifact: c.Str("missing_artifact"),
 	})
 	if err != nil {
 		return err
+	}
+	if c.Format == "table" {
+		for _, r := range rows {
+			if p := parkedNote(r); p != "" {
+				r.Set("title", r.Str("title")+"  ("+p+")")
+			}
+		}
 	}
 	return c.emit(rows, "task", total)
 }
@@ -169,6 +176,25 @@ func taskShow(c *Ctx) error {
 			lines = append(lines, line)
 		}
 		sections = append(sections, render.Section{Label: "artifacts", Value: lines})
+	}
+	if ev, _ := c.S.EvidenceFor(task.Int("id")); len(ev) > 0 || task.Str("status") == "done" {
+		var lines []string
+		for _, e := range ev {
+			line := e.Str("kind") + ":" + e.Str("value")
+			if !e.IsNull("subtask_id") {
+				line += "  (step)"
+			}
+			lines = append(lines, line)
+		}
+		if len(lines) == 0 {
+			lines = []string{"none"}
+		} else {
+			detail.Set("evidence", ev)
+		}
+		sections = append(sections, render.Section{Label: "evidence", Value: lines})
+	}
+	if until := parkedNote(task); until != "" {
+		sections = append(sections, render.Section{Label: "parked", Value: strings.TrimPrefix(until, "parked ")})
 	}
 	if c.Extended {
 		for _, e := range detail.Get("events").([]*row.Row) {
@@ -240,12 +266,21 @@ func taskStatus(c *Ctx, status string) error {
 		task    *row.Row
 		changed bool
 	}
+	evs, err := c.evidenceArgs()
+	if err != nil {
+		return err
+	}
 	var done []outcome
 	err = c.S.Tx(func() error {
 		for _, task := range tasks {
 			task, changed, err := c.S.SetTaskStatus(task.Int("id"), status, at)
 			if err != nil {
 				return err
+			}
+			if changed && status == "done" {
+				if err := c.S.AddEvidence(task.Int("id"), 0, c.gitDone(task, evs)); err != nil {
+					return err
+				}
 			}
 			if tags := c.Tags("tag"); len(tags) > 0 {
 				if _, err := c.S.AttachTags("task", task.Int("id"), tags, task.Int("id"), task.Int("project_id"), !changed); err != nil {
@@ -264,6 +299,14 @@ func taskStatus(c *Ctx, status string) error {
 	})
 	if err != nil {
 		return err
+	}
+	if status == "in-progress" {
+		for _, o := range done {
+			c.gitStart(o.task)
+		}
+	}
+	if status == "done" && len(done) == 1 && done[0].changed {
+		c.taskDoneHint(done[0].task.Int("id"))
 	}
 	var results []*row.Row
 	for _, o := range done {
@@ -297,7 +340,7 @@ func taskSet(c *Ctx) error {
 		}
 		fields = append(fields, store.Field{Name: "project_id", Value: p.Int("id")})
 	}
-	if task, err = c.S.UpdateTask(task, fields); err != nil {
+	if task, err = c.S.UpdateTask(task, fields, c.expectTitle); err != nil {
 		return err
 	}
 	obj, _ := c.S.TaskDict(task)
@@ -438,13 +481,19 @@ func subtaskStatus(c *Ctx, status string) error {
 		}
 		subs = append(subs, sub)
 	}
+	evs, err := c.evidenceArgs()
+	if err != nil {
+		return err
+	}
 	var done []store.SubtaskStatusResult
+	var infos []closeInfo
 	err = c.S.Tx(func() error {
 		for _, sub := range subs {
 			res, err := c.S.SetSubtaskStatus(sub.Int("id"), status, !c.Bool("no_cascade"), at)
 			if err != nil {
 				return err
 			}
+			info := closeInfo{}
 			task, err := c.S.GetTaskID(res.Subtask.Int("task_id"))
 			if err != nil {
 				return err
@@ -460,16 +509,44 @@ func subtaskStatus(c *Ctx, status string) error {
 					return err
 				}
 			}
+			if res.Changed && store.Closed(status) {
+				if info, err = c.stepClosed(res.Subtask, at, evs); err != nil {
+					return err
+				}
+			}
 			done = append(done, res)
+			infos = append(infos, info)
 		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	var results []*row.Row
 	for _, res := range done {
+		if status == "in-progress" && res.TaskMoved {
+			if task, err := c.S.GetTaskID(res.Subtask.Int("task_id")); err == nil {
+				c.gitStart(task)
+			}
+		}
+	}
+	var results []*row.Row
+	for i, res := range done {
 		s := res.Subtask
+		info := infos[i]
+		var closeLine string
+		if info.taskID != 0 {
+			var d *row.Row
+			if c.structured() {
+				d, _ = c.S.SubtaskDetail(s)
+			}
+			closeLine = c.describeClose(info, d)
+			if d != nil {
+				d.Set("changed", res.Changed)
+				d.Set("task_moved", res.TaskMoved)
+				results = append(results, c.lean(d, "subtask").(*row.Row))
+				continue
+			}
+		}
 		if c.structured() {
 			d, _ := c.S.SubtaskDetail(s)
 			d.Set("changed", res.Changed)
@@ -477,6 +554,9 @@ func subtaskStatus(c *Ctx, status string) error {
 			results = append(results, c.lean(d, "subtask").(*row.Row))
 		} else if !c.Quiet {
 			c.printf("%d.%d %s %s\n", s.Int("task_id"), s.Int("position"), refs.StatusMark[status], s.Str("title"))
+			if closeLine != "" {
+				c.println(closeLine)
+			}
 		}
 	}
 	if c.structured() && !c.Quiet {
@@ -513,7 +593,7 @@ func subtaskSet(c *Ctx) error {
 	if c.Has("title") {
 		fields = append(fields, store.Field{Name: "title", Value: c.Str("title")})
 	}
-	if sub, err = c.S.UpdateSubtask(sub, fields); err != nil {
+	if sub, err = c.S.UpdateSubtask(sub, fields, c.expectTitle); err != nil {
 		return err
 	}
 	d, _ := c.S.SubtaskDetail(sub)

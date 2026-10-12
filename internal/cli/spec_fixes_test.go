@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -299,5 +300,73 @@ func TestReviewAwaitSeesExistingState(t *testing.T) {
 	out, _, code = e.run("spec", "await", "auth", "--timeout", "5s", "--interval", "50ms")
 	if code != 0 || !strings.Contains(out, "result: approved") || time.Since(start) > 3*time.Second {
 		t.Errorf("existing approval: %d %q", code, out)
+	}
+}
+
+// web-browse spec §3: resolving a spec note resolves its open replies at any
+// depth, each with its own event; reopening touches the parent alone; task
+// notes do not cascade.
+func TestResolveSpecNoteResolvesReplies(t *testing.T) {
+	e := newSpecEnv(t)
+	e.ok("spec", "add", e.file)
+	e.ok("spec", "note", "auth#tokens__rotation", "per client?")
+	root := obj(list(e.json("spec", "notes", "auth#tokens__rotation"))[0])["id"].(float64)
+	rootID := strconv.Itoa(int(root))
+	e.ok("note", "reply", rootID, "first reply")
+	e.ok("note", "reply", rootID, "second reply")
+	var replies []string
+	for _, n := range list(e.json("spec", "notes", "auth#tokens__rotation")) {
+		if id := strconv.Itoa(int(obj(n)["id"].(float64))); id != rootID {
+			replies = append(replies, id)
+		}
+	}
+	if len(replies) != 2 {
+		t.Fatalf("replies %v", replies)
+	}
+	e.ok("note", "reply", replies[0], "nested reply")
+	e.ok("note", "resolve", replies[1], "--note", "answered on its own")
+
+	out := e.ok("note", "resolve", rootID, "--note", "settled")
+	if !strings.Contains(out, "2 replies resolved with it") {
+		t.Errorf("resolve output %q", out)
+	}
+	for _, n := range list(e.json("spec", "notes", "auth#tokens__rotation")) {
+		m := obj(n)
+		if m["resolved_at"] == nil {
+			t.Errorf("note %v still open", m["id"])
+		}
+	}
+	if got := obj(e.json("note", "show", replies[1]))["resolution"]; got != "answered on its own" {
+		t.Errorf("earlier resolution overwritten: %v", got)
+	}
+	evs := 0
+	for _, ev := range list(e.json("log", "-n", "50")) {
+		if m := obj(ev); m["action"] == "note-resolved" && m["detail"] == "resolved with #"+rootID {
+			evs++
+		}
+	}
+	if evs != 2 {
+		t.Errorf("cascade events = %d, want 2", evs)
+	}
+
+	e.ok("note", "reopen", rootID)
+	open := 0
+	for _, n := range list(e.json("spec", "notes", "auth#tokens__rotation")) {
+		if obj(n)["resolved_at"] == nil {
+			open++
+		}
+	}
+	if open != 1 {
+		t.Errorf("reopen reopened %d notes, want only the parent", open)
+	}
+
+	tid := strconv.Itoa(int(obj(e.json("task", "add", "impl"))["id"].(float64)))
+	tn := strconv.Itoa(int(obj(e.json("task", "note", tid, "--kind", "question", "task question"))["id"].(float64)))
+	e.ok("note", "reply", tn, "task reply")
+	if out := e.ok("note", "resolve", tn); strings.Contains(out, "resolved with it") {
+		t.Errorf("task note cascaded: %q", out)
+	}
+	if n := len(list(e.json("notes", "-t", tid, "--kind", "note"))); n != 1 {
+		t.Errorf("unresolved task replies = %d, want the reply still unresolved", n)
 	}
 }

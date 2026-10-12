@@ -29,6 +29,7 @@ var Globals = []argp.Flag{
 	{Long: "--no-color", Kind: argp.Bool},
 	{Long: "--quiet", Short: "-q", Kind: argp.Bool, Help: "identifiers only: a bare id from a create, ids from a listing, nothing from a mutation"},
 	{Long: "--actor", Metavar: "NAME", Help: "attribute writes to this actor (default $AGTRACK_ACTOR)"},
+	{Long: "--session", Metavar: "ID", Help: "session id stamped on writes (default $AGTRACK_SESSION, else the harness's session id)"},
 	{Long: "--max-bytes", Kind: argp.PositiveInt, Metavar: "N", Help: "bound the output; omitted records are listed in a manifest, never dropped silently"},
 	{Long: "--idem", Metavar: "KEY", Help: "idempotency key for a create: a retry with the same key reprints the first result"},
 }
@@ -52,8 +53,13 @@ func noteVerbs(noun, refHelp string, taggable bool) []*argp.Command {
 			Args: []argp.Arg{{Name: "ref", Help: refHelp}},
 			Flags: append([]argp.Flag{
 				{Long: "--open", Kind: argp.Bool, Help: "unresolved only"},
+				{Long: "--unacked", Kind: argp.Bool, Help: "handoffs, blockers and questions nobody has acknowledged"},
 				{Long: "--kind", Help: "only this kind"},
 			}, listFlags()...)},
+	}
+	if noun == "task" {
+		cmds[0].Flags = append(cmds[0].Flags, argp.Flag{Long: "--close", Metavar: "REF",
+			Help: "with --kind handoff: also finish this step (12.3) or the task itself, in one transaction"})
 	}
 	if taggable {
 		cmds = append(cmds,
@@ -90,6 +96,16 @@ func statusVerbs(group string, set func(*Ctx, string) error, cascade bool) []*ar
 		}
 		if cascade {
 			flags = append(flags, argp.Flag{Long: "--no-cascade", Kind: argp.Bool, Help: "do not pull the parent task into in-progress"})
+		}
+		if v.verb == "start" || v.verb == "done" {
+			flags = append(flags, argp.Flag{Long: "--no-git", Kind: argp.Bool, Help: "do not record branch/worktree/commit artifacts from the cwd checkout"})
+		}
+		if v.verb == "done" {
+			flags = append(flags, argp.Flag{Long: "--evidence", Kind: argp.Append, Metavar: "KIND:VALUE",
+				Help: "proof of completion: commit|branch|pr|test|file|url|note:VALUE; repeatable"})
+			if cascade {
+				flags = append(flags, argp.Flag{Long: "--close-parent", Kind: argp.Bool, Help: "also close the task if this was its last open step"})
+			}
 		}
 		refHelp := "task id"
 		if group == "sub" {
@@ -154,7 +170,10 @@ func Tree() *argp.Command {
 					{Long: "--archived", Kind: argp.Bool}, {Long: "--all-contexts", Kind: argp.Bool}}, listFlags()...)},
 			{Name: "show", Help: "project detail", Run: Handler(projectShow), Args: []argp.Arg{{Name: "ref"}}},
 			{Name: "use", Help: "pin a project so later commands can omit --project", Run: Handler(projectUse), Args: []argp.Arg{{Name: "ref"}}},
-			{Name: "set", Help: "rename, retitle or archive", Run: Handler(projectSet), Args: []argp.Arg{{Name: "ref"}}, Flags: setFlags()},
+			{Name: "set", Help: "rename, retitle, archive or move", Run: Handler(projectSet), Args: []argp.Arg{{Name: "ref"}},
+				Flags: append(setFlags(), argp.Flag{Long: "--move", Metavar: "DEST", Help: "move it, with its subprojects and everything in them: CONTEXT makes it top-level there, CONTEXT/PROJECT a subproject of PROJECT"})},
+			{Name: "merge", Help: "fold a project into another: its tasks, specs, repos, notes, worklog, rules and lessons move, then it is deleted", Run: Handler(projectMerge),
+				Args: []argp.Arg{{Name: "ref"}}, Flags: []argp.Flag{{Long: "--into", Metavar: "REF", Help: "the project that receives everything"}, {Long: "--yes", Kind: argp.Bool, Help: "do it; without it, only show what would move"}}},
 			{Name: "rm", Aliases: []string{"delete"}, Help: "delete a project", Run: Handler(projectRm), Args: []argp.Arg{{Name: "ref"}},
 				Flags: []argp.Flag{{Long: "--force", Kind: argp.Bool, Help: "delete its subprojects and tasks too"}}},
 			{Name: "repo", Help: "link git remotes to a project", Run: Handler(projectRepo),
@@ -193,6 +212,7 @@ func Tree() *argp.Command {
 				{Long: "--unclaimed", Kind: argp.Bool, Help: "only tasks nobody holds a live claim on"},
 				{Long: "--ready", Kind: argp.Bool, Help: "only tasks with no unmet blocker"},
 				{Long: "--blocked", Kind: argp.Bool, Help: "only tasks waiting on an unmet blocker"},
+				{Long: "--missing-artifact", Choices: []string{"branch", "pr"}, Help: "only tasks with no branch artifact / no linked PR"},
 			}, listFlags()...)},
 		{Name: "show", Help: "one task with its steps, notes and PRs (-x adds history)", Run: Handler(taskShow), Args: []argp.Arg{{Name: "ref"}}},
 	}
@@ -202,9 +222,22 @@ func Tree() *argp.Command {
 			Flags: []argp.Flag{{Long: "--title", Kind: argp.NArgsPlus}, {Long: "--move", Metavar: "REF", Help: "move to another project"}}},
 		&argp.Command{Name: "rm", Aliases: []string{"delete"}, Help: "delete tasks", Run: Handler(taskRm), Args: []argp.Arg{{Name: "ref", NArgs: "+"}},
 			Flags: []argp.Flag{{Long: "--force", Kind: argp.Bool, Help: "delete its steps, notes and PR links too"}}},
+		&argp.Command{Name: "snooze", Help: "park a task until a date or duration (hidden from next)", Run: Handler(taskSnooze), Args: []argp.Arg{{Name: "ref"}},
+			Flags: []argp.Flag{{Long: "--until", Metavar: "DATE|DURATION", Help: "2026-10-20, 3d, 12h, 2w"}, {Long: "--note"}}},
+		&argp.Command{Name: "unsnooze", Help: "clear a task's park", Run: Handler(taskUnsnooze), Args: []argp.Arg{{Name: "ref"}}},
+		&argp.Command{Name: "done-check", Help: "in-progress tasks that look finished or stale, with the command for each", Run: Handler(taskDoneCheck),
+			Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--all-contexts", Kind: argp.Bool},
+				{Long: "--stale-after", Metavar: "Nd", Help: "idle threshold in days (default config next.stale_days, 7)"},
+				{Long: "--apply", Kind: argp.Bool, Help: "close the all-steps-done candidates (needs a terminal confirmation, or --yes)"},
+				{Long: "--yes", Kind: argp.Bool, Help: "confirm --apply without a terminal"}}, listFlags()...)},
 		&argp.Command{Name: "claim", Help: "take an advisory, expiring claim on a task", Run: Handler(taskClaim), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "claim lifetime: 45m, 2h, 1d; 0 = no expiry (default 2h)"},
-				{Long: "--steal", Kind: argp.Bool, Help: "take over another actor's live claim"}}},
+				{Long: "--steal", Kind: argp.Bool, Help: "take over another actor's live claim"},
+				{Long: "--no-git", Kind: argp.Bool, Help: "do not record branch/worktree artifacts from the cwd checkout"}}},
+		&argp.Command{Name: "transfer", Help: "hand a task to another actor: release, claim for them and a handoff note, atomically", Run: Handler(taskTransfer), Args: []argp.Arg{{Name: "ref"}},
+			Flags: []argp.Flag{{Long: "--to", Metavar: "ACTOR", Help: "receiving actor (required)"}, {Long: "--note", Help: "the handoff note (default: who handed over to whom)"},
+				{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "the new claim's lifetime"},
+				{Long: "--force", Kind: argp.Bool, Help: "transfer someone else's live claim"}}},
 		&argp.Command{Name: "release", Help: "drop your claim on a task", Run: Handler(taskRelease), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--force", Kind: argp.Bool, Help: "release someone else's claim"}}},
 		&argp.Command{Name: "block", Help: "record that a task waits on another", Run: Handler(taskBlock), Args: []argp.Arg{{Name: "ref"}},
@@ -220,6 +253,7 @@ func Tree() *argp.Command {
 			Args:  []argp.Arg{{Name: "ref"}, {Name: "section"}},
 			Flags: []argp.Flag{{Long: "--verdict", Choices: []string{"still-valid", "needs-work"}, Default: "still-valid"}, {Long: "--reason"}, {Long: "--version", Kind: argp.Int}}},
 	)
+	taskSubs = append(taskSubs, continuityTaskVerbs()...)
 	taskSubs = append(taskSubs, noteVerbs("task", "task id", true)...)
 	task := &argp.Command{Name: "task", Aliases: []string{"tasks", "t"}, Help: "tasks: the unit of work, one per project", SubRequired: true, Subs: taskSubs}
 
@@ -232,6 +266,11 @@ func Tree() *argp.Command {
 		{Name: "show", Help: "subtask detail", Run: Handler(subtaskShow), Args: []argp.Arg{{Name: "ref"}}},
 	}
 	subSubs = append(subSubs, statusVerbs("sub", subtaskStatus, true)...)
+	subSubs = append(subSubs, &argp.Command{Name: "next", Help: "close the in-progress step and start the next one", Run: Handler(subtaskNext),
+		Args: []argp.Arg{{Name: "task", Help: "task id"}},
+		Flags: []argp.Flag{{Long: "--close-parent", Kind: argp.Bool, Help: "close the task when no step is left"}, {Long: "--note", Help: "note on the closed step (and the task when it closes)"},
+			{Long: "--evidence", Kind: argp.Append, Metavar: "KIND:VALUE"},
+			{Long: "--no-git", Kind: argp.Bool, Help: "do not record the commit artifact when the task closes"}}})
 	subSubs = append(subSubs,
 		&argp.Command{Name: "set", Help: "retitle a step", Run: Handler(subtaskSet), Args: []argp.Arg{{Name: "ref"}},
 			Flags: []argp.Flag{{Long: "--title", Kind: argp.NArgsPlus}}},
@@ -255,6 +294,8 @@ func Tree() *argp.Command {
 			{Name: "ls", Aliases: []string{"list"}, Help: "list PRs, or find the task behind one", Run: Handler(prLs),
 				Flags: append([]argp.Flag{{Long: "--task", Short: "-t", Metavar: "ID"}, {Long: "--repo", Metavar: "URL"}, {Long: "--number", Kind: argp.Int},
 					{Long: "--url"}, {Long: "--state"}, {Long: "--all-contexts", Kind: argp.Bool}}, listFlags()...)},
+			{Name: "sync", Help: "read each linked PR's state with `gh pr view` (read only) and list open tasks whose PR merged", Run: Handler(prSync),
+				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--all-contexts", Kind: argp.Bool}}},
 			{Name: "state", Help: "update a PR state", Run: Handler(prState), Args: []argp.Arg{{Name: "id", Help: "pr record id"}, {Name: "new_state"}}},
 			{Name: "rm", Aliases: []string{"delete"}, Help: "unlink a PR", Run: Handler(prRm), Args: []argp.Arg{{Name: "id"}}},
 		}}
@@ -276,43 +317,75 @@ func Tree() *argp.Command {
 			{Name: "rm", Aliases: []string{"delete"}, Help: "delete a note", Run: Handler(noteRm), Args: []argp.Arg{{Name: "id"}}},
 			{Name: "reply", Help: "reply to a note thread", Run: Handler(noteReply), Args: []argp.Arg{{Name: "id"}, {Name: "body", NArgs: "+"}}},
 			{Name: "show", Help: "a note with its thread", Run: Handler(noteShow), Args: []argp.Arg{{Name: "id"}}},
+			{Name: "ack", Help: "acknowledge handoffs, blockers or questions (not the same as resolving them)", Run: Handler(noteAck),
+				Args:  []argp.Arg{{Name: "id", NArgs: "+"}},
+				Flags: []argp.Flag{{Long: "--note", Help: "reply recorded with the acknowledgement"}}},
 		}}
 
 	notes := &argp.Command{Name: "notes", Help: "unresolved notes across a project (handoffs, blockers, questions, spec comments)", Run: Handler(notesOpen),
 		Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
-			{Long: "--kind", Metavar: "LIST", Help: "comma separated kinds"}, {Long: "--open", Kind: argp.Bool, Help: "unresolved only (the default; kept for symmetry)"}}, listFlags()...)}
+			{Long: "--kind", Metavar: "LIST", Help: "comma separated kinds"}, {Long: "--open", Kind: argp.Bool, Help: "unresolved only (the default; kept for symmetry)"},
+			{Long: "--unacked", Kind: argp.Bool, Help: "handoffs, blockers and questions nobody has acknowledged"}}, listFlags()...)}
+
+	claims := &argp.Command{Name: "claims", Help: "live claims: holder, session, age, last seen, last event", Run: Handler(claimsLs),
+		Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
+			{Long: "--stale", Metavar: "DURATION", Help: "only holders quiet for longer than this (15m, 2h)"}}, listFlags()...)}
 
 	config := &argp.Command{Name: "config", Help: "preferences stored in the database", SubRequired: true,
 		Subs: []*argp.Command{
 			{Name: "get", Help: "print a setting", Run: Handler(configGet), Args: []argp.Arg{{Name: "key", NArgs: "?"}}},
-			{Name: "set", Help: "change a setting (review.release manual|auto)", Run: Handler(configSet), Args: []argp.Arg{{Name: "key"}, {Name: "value"}}},
+			{Name: "set", Help: "change a setting (known: review.release, actor.strict, actor.required, rules.approvers, next.stale_days, lessons.stale_days, git.auto)", Run: Handler(configSet), Args: []argp.Arg{{Name: "key"}, {Name: "value"}}},
 		}}
 
 	root := &argp.Command{Name: "agtrack", Help: "Context / project / task / subtask tracker for agents and humans.", Epilog: Epilog, SubRequired: true,
-		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, specTree(), skillTree(),
+		Subs: []*argp.Command{ctx, project, task, sub, tag, pr, logCmd, note, notes, claims, specTree(), skillTree(), hooksCommand(),
+			{Name: "doctor", Help: "read-only health check: stale tasks and claims, unacked handoffs, actor drift, missing PRs, stale lessons, proposed rules; each finding names a fix", Run: Handler(cmdDoctor),
+				Flags: append([]argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--all-contexts", Kind: argp.Bool},
+					{Long: "--strict", Kind: argp.Bool, Help: "exit 4 when there are findings"},
+					{Long: "--stale-after", Metavar: "Nd", Help: "idle days before a task is stale (default: next.stale_days)"},
+					{Long: "--claim-quiet", Metavar: "DURATION", Default: "1h", Help: "a live claim quiet for longer than this is stale (default 1h)"}}, listFlags()...)},
 			{Name: "next", Help: "what is in progress, with its open steps", Run: Handler(cmdNext),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--todo", Kind: argp.Bool, Help: "include todo tasks"},
 					{Long: "--limit", Short: "-n", Kind: argp.PositiveInt}, {Long: "--all-contexts", Kind: argp.Bool},
 					{Long: "--claim", Kind: argp.Bool, Help: "claim the first unclaimed, unblocked task (implies --todo)"},
 					{Long: "--ttl", Metavar: "DURATION", Default: "2h", Help: "claim lifetime with --claim"},
-					{Long: "--blocked", Kind: argp.Bool, Help: "include tasks waiting on an unmet blocker"}}},
+					{Long: "--no-git", Kind: argp.Bool, Help: "with --claim: do not record git artifacts"},
+					{Long: "--blocked", Kind: argp.Bool, Help: "include tasks waiting on an unmet blocker"},
+					{Long: "--stale", Kind: argp.Bool, Help: "only stale tasks (all steps done, idle, claim expired)"},
+					{Long: "--stale-after", Metavar: "Nd", Help: "idle threshold in days; implies --stale (default config next.stale_days, 7)"},
+					{Long: "--parked", Kind: argp.Bool, Help: "list parked (snoozed) tasks instead"}}},
 			{Name: "resume", Help: "the working-state packet a cold agent reads first", Run: Handler(cmdResume),
-				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
-					{Long: "--complete", Kind: argp.Bool, Help: "everything in scope, uncapped, including linked spec text"}}},
+				Flags: resumeFlags(), Output: resumeOutput},
+			{Name: "batch", Help: "run many operations from JSON lines in one transaction", Run: Handler(cmdBatch),
+				Flags: []argp.Flag{{Long: "--file", Metavar: "PATH", Help: "read ops from this file instead of stdin"},
+					{Long: "--continue", Kind: argp.Bool, Help: "keep going after a failing op (it alone is undone); default is to roll everything back"}},
+				Epilog: batchEpilog, Output: batchOutput},
 			{Name: "summary", Help: "counts per project plus current work", Run: Handler(cmdSummary), Flags: []argp.Flag{{Long: "--all-contexts", Kind: argp.Bool}}},
 			{Name: "here", Help: "which project the current repository belongs to", Run: Handler(cmdHere)},
 			{Name: "watch", Help: "stream new worklog events, one line each, until a timeout", Run: Handler(cmdWatch),
 				Flags: []argp.Flag{{Long: "--project", Short: "-p", Metavar: "REF"}, {Long: "--task", Short: "-t", Metavar: "ID"},
 					{Long: "--action", Metavar: "LIST"}, {Long: "--actor-not", Metavar: "NAME", Help: "suppress events by this actor; `self` = your actor"},
+					{Long: "--session-not", Metavar: "ID", Help: "suppress events from this session; `self` = your session"},
 					{Long: "--after", Kind: argp.Int, Metavar: "CURSOR", Help: "start after this event id (default: now)"},
 					{Long: "--timeout", Metavar: "DURATION", Default: "1h"}, {Long: "--interval", Metavar: "DURATION", Default: "1s"},
-					{Long: "--until", Metavar: "ACTIONS", Help: "exit 0 after an event with one of these actions"},
+					{Long: "--until", Metavar: "ACTIONS", Help: "exit 0 after an event with one of these actions; `stale` exits 14 when a claim goes quiet"},
+					{Long: "--stale", Metavar: "DURATION", Default: "15m", Help: "with --until stale: how long a claim holder may stay quiet"},
 					{Long: "--all-contexts", Kind: argp.Bool}}},
+			{Name: "serve", Help: "browse and edit the store in a browser (127.0.0.1 only)", Run: Handler(cmdServe),
+				Flags: []argp.Flag{{Long: "--port", Kind: argp.Int, Default: 0, Help: "port (default: random)"},
+					{Long: "--idle", Metavar: "DURATION", Default: "2h", Help: "exit after this long without requests; 0 = never"},
+					{Long: "--open", Kind: argp.Bool, Help: "open the page in a browser"},
+					{Long: "--as", Metavar: "NAME", Default: "human", Help: "actor for edits made in the browser (default human; must differ from yours)"},
+					{Long: "--new", Kind: argp.Bool, Help: "start another server even if one is running"},
+					{Long: "--restart", Kind: argp.Bool, Help: "stop the running server and start a fresh one"}}},
 			{Name: "dump", Help: "human-readable export of a whole context (yaml by default); not a backup format", Run: Handler(cmdDump), Flags: []argp.Flag{{Long: "--all-contexts", Kind: argp.Bool}}},
-			{Name: "info", Help: "database path, version and row counts", Run: Handler(cmdInfo)},
+			{Name: "info", Help: "database path, version and row counts", Run: Handler(cmdInfo),
+				Flags: []argp.Flag{{Long: "--usage", Kind: argp.Bool, Help: "event counts per actor and per command family, plus events with no actor"},
+					{Long: "--since", Metavar: "DURATION", Help: "with --usage: only events from the last 30d, 12h, ... (default all)"}}},
 			{Name: "grammar", Help: "the reference grammar, statuses, formats, exit codes and core commands", Run: Handler(cmdGrammar)},
 			{Name: "describe", Help: "a command's arguments as JSON", Run: Handler(cmdDescribe), Args: []argp.Arg{{Name: "command", NArgs: "*"}}},
-			config,
+			config, actorTree(),
+			ruleTree(), rulesCmd(), checkCmd(), lessonTree(), lessonsCmd(),
 		}}
 	return root
 }

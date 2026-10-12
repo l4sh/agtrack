@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"path"
 	"runtime"
@@ -59,22 +60,48 @@ type Backend interface {
 	SpecVersions(specID int64) ([]*row.Row, error)
 }
 
+// Modes of a serving session.
+const (
+	// ModeSpec (`spec serve`) is bound to one spec and refuses API calls for
+	// any other.
+	ModeSpec = "spec"
+	// ModeBrowse (`agtrack serve`) resolves any spec per request and serves
+	// the browse app at /.
+	ModeBrowse = "browse"
+)
+
 // Options configure one serving session.
 type Options struct {
-	Store    Backend
-	SpecID   int64
-	SpecRef  string
-	Addr     string        // default 127.0.0.1:0
-	Idle     time.Duration // default 30m
-	Out      io.Writer     // where the URL line goes
-	Open     bool          // try to open a browser
-	RepoRoot string        // for pin write-back
-	Token    string        // tests only; default: fresh random
+	// Mode is ModeSpec (the default) or ModeBrowse.
+	Mode string
+	// Store serves the spec API. In ModeSpec it is bound to SpecID/SpecRef;
+	// in ModeBrowse the spec is resolved per request through Browse.
+	Store   Backend
+	SpecID  int64
+	SpecRef string
+	// Browse backs the browse app and its API (ModeBrowse only).
+	Browse Browse
+	// Context is the context the browse app opens on (ModeBrowse only).
+	Context   string
+	Addr      string        // default 127.0.0.1:0
+	Idle      time.Duration // default 30m
+	IdleNever bool          // no idle timeout (`agtrack serve --idle 0`)
+	Out       io.Writer     // where the URL line goes
+	Open      bool          // try to open a browser
+	RepoRoot  string        // for pin write-back
+	Token     string        // tests only; default: fresh random
 	// Viewer is the actor browser actions are attributed to (`spec serve
 	// --as`); the page uses it to tell the reviewer's notes from agents'.
 	Viewer string
 	// Ready, if set, receives the base URL once listening (tests).
 	Ready func(url string)
+	// OnListen, if set, runs once listening, before the URL is printed, with
+	// the bound port and the session token (`agtrack serve` records them so a
+	// later `serve` or `spec serve` reuses this server).
+	OnListen func(port int, token string) error
+	// Build identifies the running binary; GET /api/ping reports it so a
+	// reuser can tell when the server predates a rebuild.
+	Build string
 }
 
 // Server is one session.
@@ -114,6 +141,12 @@ func Serve(ctx context.Context, o Options) error {
 		// Never 0.0.0.0: on a café network that difference is the whole exposure.
 		return errs.New("the viewer binds 127.0.0.1 only (got %s)", host)
 	}
+	if o.Mode == "" {
+		o.Mode = ModeSpec
+	}
+	if o.Mode == ModeBrowse && o.Browse == nil {
+		return errs.New("browse mode needs a browse backend")
+	}
 	if o.Idle <= 0 {
 		o.Idle = 30 * time.Minute
 	}
@@ -135,11 +168,30 @@ func Serve(ctx context.Context, o Options) error {
 	s := &Server{o: o, token: tok, assets: sub, stop: make(chan struct{}),
 		hosts: map[string]bool{fmt.Sprintf("127.0.0.1:%d", port): true, fmt.Sprintf("localhost:%d", port): true},
 		last:  time.Now()}
+	if o.OnListen != nil {
+		if err := o.OnListen(port, tok); err != nil {
+			ln.Close()
+			return err
+		}
+	}
 	base := fmt.Sprintf("http://127.0.0.1:%d", port)
-	link := fmt.Sprintf("%s/s/%s?t=%s", base, url.PathEscape(o.SpecRef), tok)
-	if o.Out != nil {
-		fmt.Fprintf(o.Out, "serving %s at %s\n", o.SpecRef, link)
-		fmt.Fprintf(o.Out, "idle timeout %s; comments reach agents via `agtrack spec watch|await %s`\n", o.Idle, o.SpecRef)
+	var link string
+	if o.Mode == ModeBrowse {
+		link = fmt.Sprintf("%s/?t=%s", base, tok)
+		if o.Out != nil {
+			fmt.Fprintf(o.Out, "serving agtrack at %s\n", link)
+			idle := "idle timeout " + o.Idle.String()
+			if o.IdleNever {
+				idle = "no idle timeout"
+			}
+			fmt.Fprintf(o.Out, "%s; browser edits are events by %s (agents see them with `agtrack watch --actor-not self`); spec comments reach `agtrack spec watch|await`\n", idle, o.Viewer)
+		}
+	} else {
+		link = fmt.Sprintf("%s/s/%s?t=%s", base, url.PathEscape(o.SpecRef), tok)
+		if o.Out != nil {
+			fmt.Fprintf(o.Out, "serving %s at %s\n", o.SpecRef, link)
+			fmt.Fprintf(o.Out, "idle timeout %s; comments reach agents via `agtrack spec watch|await %s`\n", o.Idle, o.SpecRef)
+		}
 	}
 	if o.Open {
 		openBrowser(link)
@@ -163,6 +215,10 @@ func Serve(ctx context.Context, o Options) error {
 			s.shutdown(srv)
 			return nil
 		case <-s.stop:
+			// POST /api/shutdown (the only closer before shutdown itself).
+			if o.Out != nil {
+				fmt.Fprintln(o.Out, "shutdown requested; viewer stopped")
+			}
 			s.shutdown(srv)
 			return nil
 		case <-tick.C:
@@ -190,13 +246,22 @@ func (s *Server) touch() {
 	s.lastMu.Unlock()
 }
 
+// isRefresh: a read the page made on its own, not on the human's behalf.
+// Only GETs qualify; a write is always activity.
+func isRefresh(r *http.Request) bool {
+	return r.Method == http.MethodGet && r.Header.Get("X-Agtrack-Refresh") == "1"
+}
+
 func (s *Server) idle() bool {
 	s.lastMu.Lock()
 	defer s.lastMu.Unlock()
 	// An open tab's event stream does not count as activity: a forgotten
 	// browser tab must not keep a mutating server alive forever.
-	return time.Since(s.last) > s.o.Idle
+	return !s.o.IdleNever && time.Since(s.last) > s.o.Idle
 }
+
+// OpenBrowser opens link in the desktop browser, best effort.
+func OpenBrowser(link string) { openBrowser(link) }
 
 func openBrowser(link string) {
 	var cmd *exec.Cmd
@@ -222,26 +287,46 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "forbidden", "unexpected Host header")
 		return
 	}
-	s.touch()
+	// Only what the human does counts as activity: the page marks the reads
+	// of a live refresh (an event arrived) with X-Agtrack-Refresh, so an open
+	// tab left alone still lets the server time out.
+	if !isRefresh(r) {
+		s.touch()
+	}
 	path := r.URL.EscapedPath()
 	switch {
 	case strings.HasPrefix(path, "/assets/"):
 		s.serveAsset(w, r, strings.TrimPrefix(r.URL.Path, "/assets/"))
 	case strings.HasPrefix(path, "/s/"):
-		if s.authQuery(r) {
-			// The page strips ?t= from the address bar; a strict, HttpOnly
-			// session cookie lets a reload (or a second tab) keep working.
-			http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: s.token, Path: "/",
-				HttpOnly: true, SameSite: http.SameSiteStrictMode})
-		} else if !s.authCookie(r) {
+		s.servePage(w, r, "index.html")
+	case path == "/" && s.o.Mode == ModeBrowse:
+		s.servePage(w, r, "browse.html")
+	case path == "/api/ping":
+		// Liveness for `agtrack serve` reuse: token in the header only.
+		if !s.authHeader(r) {
 			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
 			return
 		}
-		if r.Method != http.MethodGet {
-			writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "GET only")
+		writeJSON(w, http.StatusOK, row.Of("pid", int64(os.Getpid()), "mode", s.o.Mode, "viewer", s.o.Viewer, "build", s.o.Build))
+	case path == "/api/shutdown":
+		// `agtrack serve --restart`: stop this server without signalling a
+		// pid. Token in the header only, and a JSON POST like every write.
+		if r.Method != http.MethodPost {
+			writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "POST only")
 			return
 		}
-		s.serveAsset(w, r, "index.html")
+		if !s.authHeader(r) {
+			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+			return
+		}
+		if !requireJSON(w, r) {
+			return
+		}
+		writeJSON(w, http.StatusAccepted, row.Of("stopping", true, "pid", int64(os.Getpid())))
+		if fl, ok := w.(http.Flusher); ok {
+			fl.Flush()
+		}
+		s.stopOnce.Do(func() { close(s.stop) })
 	case path == "/api/events":
 		if !s.authQuery(r) && !s.authHeader(r) && !s.authCookie(r) {
 			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
@@ -256,9 +341,36 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.api(w, r, strings.TrimPrefix(path, "/api/spec/"))
+	case strings.HasPrefix(path, "/api/browse/") && s.o.Mode == ModeBrowse:
+		// Same posture as the spec API: header or SameSite=Strict cookie,
+		// and POSTs must be application/json.
+		if !s.authHeader(r) && !s.authCookie(r) {
+			writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+			return
+		}
+		s.browseAPI(w, r, strings.TrimPrefix(path, "/api/browse/"))
 	default:
 		writeErr(w, http.StatusNotFound, "not_found", "no such page")
 	}
+}
+
+// servePage serves an HTML page: the token in ?t= (first load) or the
+// session cookie, GET only.
+func (s *Server) servePage(w http.ResponseWriter, r *http.Request, name string) {
+	if s.authQuery(r) {
+		// The page strips ?t= from the address bar; a strict, HttpOnly
+		// session cookie lets a reload (or a second tab) keep working.
+		http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: s.token, Path: "/",
+			HttpOnly: true, SameSite: http.SameSiteStrictMode})
+	} else if !s.authCookie(r) {
+		writeErr(w, http.StatusForbidden, "forbidden", "missing or wrong token")
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "GET only")
+		return
+	}
+	s.serveAsset(w, r, name)
 }
 
 func (s *Server) tokenOK(got string) bool {
@@ -329,23 +441,54 @@ func storeErr(w http.ResponseWriter, err error) {
 
 // --- API -------------------------------------------------------------------------------
 
+// resolveSpec maps a spec ref from a URL to its id. In ModeSpec the server
+// is bound to one spec and anything else is 404; in ModeBrowse the ref is
+// resolved through the CLI's resolver. project is the spec's project
+// (context-qualified) in ModeBrowse, for the page's link back to the app.
+func (s *Server) resolveSpec(w http.ResponseWriter, ref string) (id int64, project string, ok bool) {
+	if s.o.Mode != ModeBrowse {
+		if ref != s.o.SpecRef {
+			writeErr(w, http.StatusNotFound, "not_found", "this viewer serves "+s.o.SpecRef)
+			return 0, "", false
+		}
+		return s.o.SpecID, "", true
+	}
+	var err error
+	s.withLock(func() { id, project, err = s.o.Browse.ResolveSpec(ref) })
+	if err != nil {
+		storeErr(w, err)
+		return 0, "", false
+	}
+	return id, project, true
+}
+
+// requireJSON enforces the CSRF posture on POSTs: a cross-site form cannot
+// send application/json without a preflight, and there is no CORS.
+func requireJSON(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return true
+	}
+	ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if ct != "application/json" {
+		writeErr(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "POST bodies must be application/json")
+		return false
+	}
+	return true
+}
+
 // api routes /api/spec/{spec}[/tasks|/diff|/note|/note/{id}/resolve|/release|/approve].
-// The server is bound to one spec; {spec} must name it.
+// Under spec serve the server is bound to one spec and {spec} must name it.
 func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
 	specPart, tail, _ := strings.Cut(rest, "/")
 	ref, err := url.PathUnescape(specPart)
-	if err != nil || ref != s.o.SpecRef {
-		writeErr(w, http.StatusNotFound, "not_found", "this viewer serves "+s.o.SpecRef)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "no such spec")
 		return
 	}
-	if r.Method == http.MethodPost {
-		ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
-		if ct != "application/json" {
-			writeErr(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "POST bodies must be application/json")
-			return
-		}
+	id, project, ok := s.resolveSpec(w, ref)
+	if !ok || !requireJSON(w, r) {
+		return
 	}
-	id := s.o.SpecID
 	switch {
 	case tail == "" && r.Method == http.MethodGet:
 		s.locked(w, func() (any, error) {
@@ -353,7 +496,12 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, rest string) {
 			if err != nil {
 				return nil, err
 			}
-			return m.Set("viewer", row.Of("actor", s.o.Viewer)), nil
+			m.Set("viewer", row.Of("actor", s.o.Viewer))
+			if s.o.Mode == ModeBrowse {
+				// The page shows its "← agtrack" link only when this is present.
+				m.Set("serve", row.Of("project", project))
+			}
+			return m, nil
 		})
 	case tail == "tasks" && r.Method == http.MethodGet:
 		s.locked(w, func() (any, error) { return s.o.Store.SpecTasks(id) })
@@ -593,9 +741,16 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "error", "streaming unsupported")
 		return
 	}
-	if ref := r.URL.Query().Get("spec"); ref != "" && ref != s.o.SpecRef {
-		writeErr(w, http.StatusNotFound, "not_found", "this viewer serves "+s.o.SpecRef)
-		return
+	// One spec's events, or (browse mode, no spec=) every event.
+	specID, all := s.o.SpecID, false
+	if ref := r.URL.Query().Get("spec"); ref != "" {
+		id, _, ok := s.resolveSpec(w, ref)
+		if !ok {
+			return
+		}
+		specID = id
+	} else if s.o.Mode == ModeBrowse {
+		all = true
 	}
 	after, _ := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
 	if v := r.Header.Get("Last-Event-ID"); v != "" {
@@ -632,7 +787,13 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		case <-poll.C:
 			var evs []*row.Row
 			var err error
-			s.withLock(func() { evs, err = s.o.Store.SpecEventsAfter(s.o.SpecID, after, 200) })
+			s.withLock(func() {
+				if all {
+					evs, err = s.o.Browse.EventsAfter(after, 200)
+				} else {
+					evs, err = s.o.Store.SpecEventsAfter(specID, after, 200)
+				}
+			})
 			if err != nil {
 				fmt.Fprintf(w, "event: error\ndata: %s\n\n", render.JSONCompact(row.Of("message", err.Error())))
 				fl.Flush()
@@ -642,6 +803,10 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 				after = e.Int("id")
 				data := row.Of("id", e.Int("id"), "action", e.Str("action"), "actor", e.Get("actor"),
 					"target", e.Get("target"), "detail", e.Get("detail"))
+				if all {
+					data.Set("task_id", e.Get("task_id"))
+					data.Set("project_id", e.Get("project_id"))
+				}
 				fmt.Fprintf(w, "id: %d\nevent: agtrack\ndata: %s\n\n", after, render.JSONCompact(data))
 			}
 			if len(evs) > 0 {

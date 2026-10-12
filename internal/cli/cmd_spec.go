@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -95,7 +96,8 @@ func specTree() *argp.Command {
 				Flags: []argp.Flag{{Long: "--port", Kind: argp.Int, Default: 0, Help: "port (default: random)"},
 					{Long: "--idle", Metavar: "DURATION", Default: "30m", Help: "exit after this long without requests"},
 					{Long: "--open", Kind: argp.Bool, Help: "open the page in a browser"},
-					{Long: "--as", Metavar: "NAME", Default: "human", Help: "actor for comments and approvals made in the browser (default human; must differ from yours)"}}},
+					{Long: "--as", Metavar: "NAME", Default: "human", Help: "actor for comments and approvals made in the browser (default human; must differ from yours)"},
+					{Long: "--new", Kind: argp.Bool, Help: "start a viewer for this spec even if agtrack serve is running"}}},
 		}}
 }
 
@@ -1632,7 +1634,62 @@ func specServe(c *Ctx) error {
 	if err != nil {
 		return err
 	}
+	// A running `agtrack serve` with the same --as serves every spec: hand
+	// out its link instead of starting a second server. The review signal is
+	// the database row, so watch/await work the same either way.
+	if rec := liveServeRecord(serveRecordPath(c.DBPath)); rec != nil && rec.As == o.Viewer && !c.Bool("new") {
+		reuse, why, err := c.canReuseFor(rec, sp, o.RepoRoot)
+		if err != nil {
+			return err
+		}
+		if !reuse {
+			c.warnf("%s; starting a viewer here", why)
+			return web.Serve(context.Background(), o)
+		}
+		p, err := c.S.GetProject(sp.Int("project_id"))
+		if err != nil {
+			return err
+		}
+		path, err := c.S.ProjectPath(p)
+		if err != nil {
+			return err
+		}
+		link := fmt.Sprintf("%s/s/%s?t=%s", rec.base(), url.PathEscape(path+"/"+sp.Str("slug")), rec.Token)
+		fmt.Fprintf(c.Out, "serving %s at %s\n", o.SpecRef, link)
+		fmt.Fprintf(c.Out, "reusing agtrack serve (pid %d); comments reach agents via `agtrack spec watch|await %s`\n", rec.PID, o.SpecRef)
+		if c.Bool("open") {
+			web.OpenBrowser(link)
+		}
+		return nil
+	}
 	return web.Serve(context.Background(), o)
+}
+
+// canReuseFor decides whether `spec serve` from the checkout root may hand
+// out a running browse server's link (R7). A viewer reads the spec's file and
+// writes section pins back in its own checkout, so a server started in
+// another checkout of the same repo (a worktree) would pin there instead.
+// It is reused when it runs in this checkout, or when the spec's file is not
+// in this checkout anyway; otherwise why says what differs.
+func (c *Ctx) canReuseFor(rec *serveRecord, sp *row.Row, root string) (reuse bool, why string, err error) {
+	if rec.Root == root {
+		return true, "", nil
+	}
+	if root == "" {
+		return true, "", nil
+	}
+	fileRoot, err := c.S.SpecFileRoot(sp, root)
+	if err != nil {
+		return false, "", err
+	}
+	if fileRoot != root {
+		return true, "", nil
+	}
+	ran := rec.Root
+	if ran == "" {
+		ran = "an unrecorded checkout"
+	}
+	return false, fmt.Sprintf("agtrack serve (pid %d) runs in %s, but %s is in this checkout (%s)", rec.PID, ran, sp.Str("source_path"), root), nil
 }
 
 // serveOptions builds the viewer session. Browser actions are attributed to
@@ -1640,15 +1697,10 @@ func specServe(c *Ctx) error {
 // never to the agent that started the server, whose `--actor-not self`
 // would otherwise hide every human comment and approval.
 func (c *Ctx) serveOptions(sp *row.Row, idle time.Duration) (web.Options, error) {
-	as := strings.TrimSpace(c.Str("as"))
-	if as == "" {
-		as = "human"
+	ws, as, err := c.browserStore()
+	if err != nil {
+		return web.Options{}, err
 	}
-	if as == c.Actor {
-		return web.Options{}, errs.New("--as %s is also the serving actor: browser comments would be attributed to it (and hidden by its --actor-not self); pick another name", as)
-	}
-	ws := store.New(c.S.DB, as)
-	ws.CwdRepo = c.S.CwdRepo
 	return web.Options{Store: ws, SpecID: sp.Int("id"), SpecRef: c.Str("spec"),
 		Addr: fmt.Sprintf("127.0.0.1:%d", c.Int("port")), Idle: idle, Out: c.Out, Open: c.Bool("open"), RepoRoot: cwdRoot(), Viewer: as}, nil
 }

@@ -21,6 +21,7 @@ const (
 	ExitTimeout     = 11
 	ExitSpecChanged = 12
 	ExitLost        = 13
+	// ExitStale is in cmd_coord.go: 14, a watched claim went quiet.
 )
 
 // exitCode is an error that carries a specific exit status but prints
@@ -181,6 +182,20 @@ func (c *Ctx) actorNot() string {
 	if v == "self" {
 		return c.Actor
 	}
+	// An alias names its canonical actor: events carry the slug.
+	if v != "" && c.S != nil {
+		if slug, _, _, err := c.S.ResolveActor(v); err == nil {
+			return slug
+		}
+	}
+	return v
+}
+
+func (c *Ctx) sessionNot() string {
+	v := c.Str("session_not")
+	if v == "self" {
+		return c.Session
+	}
 	return v
 }
 
@@ -197,9 +212,12 @@ func cmdWatch(c *Ctx) error {
 	if err != nil || interval <= 0 {
 		interval = time.Second
 	}
-	f := store.EventFilter{Context: c.Context, AllContexts: c.Bool("all_contexts"), ActorNot: c.actorNot()}
+	f := store.EventFilter{Context: c.Context, AllContexts: c.Bool("all_contexts"), ActorNot: c.actorNot(), SessionNot: c.sessionNot()}
 	if c.Str("actor_not") == "self" && c.Actor == "" {
 		fmt.Fprintln(c.Err, "agtrack: warning: --actor-not self has no effect without AGTRACK_ACTOR or --actor")
+	}
+	if c.Str("session_not") == "self" && c.Session == "" {
+		fmt.Fprintln(c.Err, "agtrack: warning: --session-not self has no effect without a session (AGTRACK_SESSION or --session)")
 	}
 	if c.Has("task") {
 		if f.Task, err = c.S.GetTask(c.Str("task"), true); err != nil {
@@ -224,6 +242,18 @@ func cmdWatch(c *Ctx) error {
 		until[a] = true
 	}
 	w := &watchLoop{c: c, filter: f, after: after, timeout: timeout, interval: interval}
+	if until["stale"] {
+		delete(until, "stale")
+		quiet, err := parseDuration(c.Str("stale"))
+		if err != nil || quiet <= 0 {
+			return errs.New("--until stale needs a positive --stale duration (15m, 2h)")
+		}
+		cf, err := claimScope(c)
+		if err != nil {
+			return err
+		}
+		w.onTick = staleTick(c, cf, quiet)
+	}
 	if len(until) > 0 {
 		w.onEvent = func(e *row.Row) (string, int, *row.Row) {
 			if until[e.Str("action")] {

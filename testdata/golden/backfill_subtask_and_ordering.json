@@ -179,7 +179,7 @@
    "now": "2026-09-01T12:08:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "1.2 [x] s2\n",
+   "stdout": "1.2 [x] s2\nall steps closed; task 1 still in-progress\n→ agtrack task done 1\n",
    "tags": [
     "parity"
    ]
@@ -198,7 +198,7 @@
    "now": "2026-09-01T12:09:00Z",
    "stderr": "",
    "stdin": "",
-   "stdout": "task: #1 [~] parent\nstatus: in-progress\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nstarted: 2026-08-04 00:00\nsubtasks:\n  1.1      [x] s1\n  1.2      [x] s2\nhistory:\n  2026-08-01 00:00  #1     created parent  (recorded 2026-09-01)\n  2026-08-02 00:00  1.1    created s1  (recorded 2026-09-01)\n  2026-08-03 00:00  1.2    created s2  (recorded 2026-09-01)\n  2026-08-04 00:00  1.1    status todo -> done  (recorded 2026-09-01)\n  2026-08-04 00:00  #1     status todo -> in-progress  (recorded 2026-09-01)\n  2026-08-05 00:00  1.2    status todo -> done  (recorded 2026-09-01)\n",
+   "stdout": "task: #1 [~] parent\nstatus: in-progress\nproject: acme/orbiter\ncreated: 2026-08-01 00:00\nstarted: 2026-08-04 00:00\nsubtasks:\n  1.1      [x] s1\n  1.2      [x] s2\nhistory:\n  2026-08-01 00:00  #1     created parent  (recorded 2026-09-01)\n  2026-08-02 00:00  1.1    created s1  (recorded 2026-09-01)\n  2026-08-03 00:00  1.2    created s2  (recorded 2026-09-01)\n  2026-08-04 00:00  1.1    status todo -\u003e done  (recorded 2026-09-01)\n  2026-08-04 00:00  #1     status todo -\u003e in-progress  (recorded 2026-09-01)\n  2026-08-05 00:00  1.2    status todo -\u003e done  (recorded 2026-09-01)\n",
    "tags": [
     "parity"
    ]

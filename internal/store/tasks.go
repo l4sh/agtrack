@@ -19,6 +19,13 @@ func taskRow(r *row.Row) *row.Row {
 		out.Set("claimed_by", r.Get("claimed_by"))
 		out.Set("claimed_at", r.Get("claimed_at"))
 		out.Set("claim_expires_at", r.Get("claim_expires_at"))
+		if r.Has("claim_session") && !r.IsNull("claim_session") {
+			out.Set("claim_session", r.Get("claim_session"))
+		}
+	}
+	if r.Has("snoozed_until") && !r.IsNull("snoozed_until") {
+		out.Set("snoozed_until", r.Get("snoozed_until"))
+		out.Set("snooze_note", r.Get("snooze_note"))
 	}
 	return out
 }
@@ -182,7 +189,7 @@ func (s *Store) setTaskStatus(taskID int64, status, at string) (*row.Row, bool) 
 			status, stampAt, started, closedAt, taskID)
 		if status == "done" {
 			// A finished task releases its claim (design §4.6).
-			s.exec("UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, claim_expires_at = NULL WHERE id = ?", taskID)
+			s.exec("UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, claim_expires_at = NULL, claim_session = NULL, claim_last_seen = NULL WHERE id = ?", taskID)
 			// Finishing re-stamps what the task agreed to in its spec links (design §5.7).
 			s.restampTaskLinks(taskID)
 		}
@@ -191,8 +198,10 @@ func (s *Store) setTaskStatus(taskID int64, status, at string) (*row.Row, bool) 
 	return s.getTaskID(taskID, "", true), true
 }
 
-// UpdateTask retitles or moves a task.
-func (s *Store) UpdateTask(task *row.Row, fields []Field) (r *row.Row, err error) {
+// UpdateTask retitles or moves a task. A non-nil expectTitle is a
+// compare-and-set precondition checked inside the write transaction: a task
+// whose stored title differs is a conflict carrying `current` and `yours`.
+func (s *Store) UpdateTask(task *row.Row, fields []Field, expectTitle *string) (r *row.Row, err error) {
 	defer guard(&err)
 	pid := task.Int("project_id")
 	for _, f := range fields {
@@ -201,6 +210,7 @@ func (s *Store) UpdateTask(task *row.Row, fields []Field) (r *row.Row, err error
 		}
 	}
 	s.tx(func() {
+		s.expectTitle("tasks", "task", task.Int("id"), expectTitle, fields)
 		s.updateRow("tasks", task.Int("id"), fields)
 		s.event("task", task.Int("id"), "updated", describeFields(fields), task.Int("id"), pid, "")
 	})
@@ -257,6 +267,11 @@ type TaskFilter struct {
 	Ready       bool // no unmet `blocks` prerequisite
 	Blocked     bool // only tasks with an unmet prerequisite
 	ClaimedBy   string
+	// ExcludeSnoozed hides parked tasks (snoozed_until in the future);
+	// OnlySnoozed shows only them (A5).
+	ExcludeSnoozed, OnlySnoozed bool
+	// MissingArtifact keeps tasks with no "branch" artifact or no linked "pr" (F1).
+	MissingArtifact string
 }
 
 // ListTasks lists tasks as flat listing rows. total is the number of matches
@@ -341,12 +356,26 @@ func (s *Store) listTasks(f TaskFilter) ([]*row.Row, int) {
 		where = append(where, "t.claimed_by = ? AND (t.claim_expires_at IS NULL OR t.claim_expires_at > ?)")
 		args = append(args, f.ClaimedBy, now)
 	}
+	if f.ExcludeSnoozed {
+		where = append(where, "(t.snoozed_until IS NULL OR t.snoozed_until <= ?)")
+		args = append(args, now)
+	}
+	if f.OnlySnoozed {
+		where = append(where, "t.snoozed_until > ?")
+		args = append(args, now)
+	}
 	const unmet = "EXISTS (SELECT 1 FROM task_deps d JOIN tasks b ON b.id = d.depends_on_id WHERE d.task_id = t.id AND d.kind = 'blocks' AND b.status <> 'done')"
 	if f.Ready {
 		where = append(where, "NOT "+unmet)
 	}
 	if f.Blocked {
 		where = append(where, unmet)
+	}
+	switch f.MissingArtifact {
+	case "branch":
+		where = append(where, "NOT EXISTS (SELECT 1 FROM artifacts a WHERE a.task_id = t.id AND a.kind = 'branch')")
+	case "pr":
+		where = append(where, "NOT EXISTS (SELECT 1 FROM pull_requests r WHERE r.task_id = t.id)")
 	}
 	from := " FROM tasks t JOIN projects p ON p.id = t.project_id"
 	if len(where) > 0 {

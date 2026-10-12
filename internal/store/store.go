@@ -24,6 +24,8 @@ import (
 type Store struct {
 	DB    *db.DB
 	Actor string // "" = unattributed
+	// Session is the harness session stamped on events and claims ("" = none).
+	Session string
 	// Context is the invocation's explicit -c, if any; it bounds the pins.
 	Context string
 	// CwdRepo returns the origin remote of the cwd repository, or "". The CLI
@@ -33,7 +35,9 @@ type Store struct {
 
 // New wraps an open database.
 func New(d *db.DB, actor string) *Store {
-	return &Store{DB: d, Actor: actor, CwdRepo: func() string { return "" }}
+	s := &Store{DB: d, Actor: actor, CwdRepo: func() string { return "" }}
+	s.CanonicalizeActor() // D1: an alias is rewritten to its registered slug on the way in
+	return s
 }
 
 // panicErr carries an error through the internal panic path.
@@ -129,6 +133,10 @@ func (s *Store) tx(fn func()) {
 // Used by the CLI to make a whole invocation atomic (D5).
 func (s *Store) Tx(fn func() error) error { return s.DB.Tx(fn) }
 
+// Savepoint is Tx for a unit that may fail on its own: inside an open
+// transaction a failure undoes only that unit (batch --continue).
+func (s *Store) Savepoint(fn func() error) error { return s.DB.Savepoint(fn) }
+
 // NewUID returns a random RFC 4122 v4 uuid.
 func NewUID() string {
 	var b [16]byte
@@ -174,11 +182,19 @@ func (s *Store) event(targetType string, targetID int64, action string, detail a
 	if at == "" {
 		at = now
 	}
-	return s.insert(
+	id := s.insert(
 		"INSERT INTO events (at, recorded_at, actor, target_type, target_id,"+
-			" action, detail, task_id, project_id, uid) VALUES (?,?,?,?,?,?,?,?,?,?)",
+			" action, detail, task_id, project_id, uid, session) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 		at, now, nullable(s.Actor), targetType, targetID, action, detail,
-		nullableID(taskID), nullableID(projectID), NewUID())
+		nullableID(taskID), nullableID(projectID), NewUID(), nullable(s.Session))
+	// Claim liveness (C3): any write by the holder refreshes last_seen, and a
+	// claim with no session yet (a transfer) adopts the holder's first one.
+	if taskID > 0 && s.Actor != "" {
+		s.exec(`UPDATE tasks SET claim_last_seen = ?, claim_session = COALESCE(claim_session, ?)
+WHERE id = ? AND claimed_by = ? AND (claim_session IS NULL OR claim_session = ? OR ? IS NULL)`,
+			now, nullable(s.Session), taskID, s.Actor, nullable(s.Session), nullable(s.Session))
+	}
+	return id
 }
 
 // Event is the exported form of event, run in its own transaction.
@@ -230,6 +246,31 @@ func (s *Store) updateRow(table string, id int64, fields []Field) {
 	}
 	args = append(args, refs.NowISO(), id)
 	s.exec("UPDATE "+table+" SET "+strings.Join(sets, ", ")+", updated_at = ? WHERE id = ?", args...)
+}
+
+// expectTitle is the compare-and-set precondition of a title edit, run inside
+// the caller's write transaction so no other write lands between the check
+// and the update. A nil expect checks nothing.
+func (s *Store) expectTitle(table, noun string, id int64, expect *string, fields []Field) {
+	if expect == nil {
+		return
+	}
+	cur := s.one("SELECT title FROM "+table+" WHERE id = ?", id)
+	if cur == nil {
+		fail(errs.NotFound(noun, fmt.Sprint(id), "no such %s: %d", noun, id))
+	}
+	if cur.Str("title") == *expect {
+		return
+	}
+	yours := ""
+	for _, f := range fields {
+		if f.Name == "title" {
+			yours, _ = f.Value.(string)
+		}
+	}
+	e := errs.Conflict("the %s's title changed since the page loaded it", noun)
+	e.Extra = map[string]any{"current": cur.Str("title"), "yours": yours}
+	fail(e)
 }
 
 func describeFields(fields []Field) string {

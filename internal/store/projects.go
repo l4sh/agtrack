@@ -349,6 +349,117 @@ func (s *Store) UpdateProject(project *row.Row, fields []Field) (r *row.Row, err
 	return s.getProject(project.Int("id")), nil
 }
 
+// MoveProject re-homes a project and its subprojects. dest is a context name
+// (the project becomes top-level there) or `context/project` (it becomes that
+// project's subproject). Everything attached to a project refers to it by id,
+// so tasks, specs, repos, rules and lessons follow; pins on the moved projects
+// carry their context pin along.
+func (s *Store) MoveProject(project *row.Row, dest, rename string) (r *row.Row, err error) {
+	defer guard(&err)
+	ctxName, parentName, nested := strings.Cut(dest, "/")
+	ctx := s.getContext(ctxName, true)
+	var parentID any
+	if nested {
+		parent := s.one("SELECT * FROM projects WHERE context_id = ? AND parent_id IS NULL AND name = ?", ctx.Int("id"), parentName)
+		if parent == nil {
+			fail(errs.NotFound("project", dest, "no such project: %s (a subproject's parent must be a top-level project)", dest))
+		}
+		if parent.Int("id") == project.Int("id") {
+			fail(errs.New("cannot move %s into itself", s.projectPath(project)))
+		}
+		if n := len(s.descendantIDs(project.Int("id"))) - 1; n > 0 {
+			fail(errs.Conflict("%s has %d subproject(s); projects nest one level, so move them out first", s.projectPath(project), n))
+		}
+		parentID = parent.Int("id")
+	}
+	name := project.Str("name")
+	if rename != "" {
+		name = rename
+	}
+	from := s.projectPath(project)
+	var pinned []any
+	for _, id := range s.descendantIDs(project.Int("id")) {
+		pinned = append(pinned, fmt.Sprint(id))
+	}
+	s.tx(func() {
+		if _, e := s.execC("UPDATE projects SET context_id = ?, parent_id = ?, name = ?, updated_at = ? WHERE id = ?",
+			ctx.Int("id"), parentID, name, refs.NowISO(), project.Int("id")); e != nil {
+			fail(errs.Conflict("project already exists: %s/%s", dest, name))
+		}
+		s.exec("UPDATE projects SET context_id = ? WHERE parent_id = ?", ctx.Int("id"), project.Int("id"))
+		// An actor pinned to a moved project keeps working in it: its context
+		// pin moves too (a project pin outside the pinned context is ignored).
+		for _, m := range s.q("SELECT key FROM meta WHERE (key = 'current_project' OR key LIKE 'current_project:%') AND value IN ("+marks(len(pinned))+")", pinned...) {
+			key := "current_context" + strings.TrimPrefix(m.Str("key"), "current_project")
+			s.setMeta(key, strp(ctx.Str("name")))
+		}
+		s.event("project", project.Int("id"), "moved", from+" -> "+s.projectPath(s.getProject(project.Int("id"))), 0, project.Int("id"), "")
+	})
+	return s.getProject(project.Int("id")), nil
+}
+
+// MergeKeys orders the per-kind counts MergeProject returns.
+var MergeKeys = []string{"tasks", "specs", "repos", "notes", "tags", "events", "rules", "lessons", "pins"}
+
+// MergeProject folds src into dst: its tasks, specs, repo links, notes, tags,
+// worklog events, scoped rules and lessons, and pins move to dst, and src is
+// deleted. With dry it only counts. A subproject-bearing src is refused (merge
+// or move its subprojects first), as is a spec slug both projects use.
+func (s *Store) MergeProject(src, dst *row.Row, dry bool) (counts map[string]int64, err error) {
+	defer guard(&err)
+	sid, did := src.Int("id"), dst.Int("id")
+	if sid == did {
+		fail(errs.New("cannot merge %s into itself", s.projectPath(src)))
+	}
+	if n := len(s.descendantIDs(sid)) - 1; n > 0 {
+		fail(errs.Conflict("%s has %d subproject(s); merge or move them first", s.projectPath(src), n))
+	}
+	var clash []string
+	for _, r := range s.q("SELECT slug FROM specs WHERE project_id = ? AND slug IN (SELECT slug FROM specs WHERE project_id = ?) ORDER BY slug", sid, did) {
+		clash = append(clash, r.Str("slug"))
+	}
+	if len(clash) > 0 {
+		fail(errs.Conflict("both projects have spec(s) %s; rename one first", strings.Join(clash, ", ")))
+	}
+	pin := fmt.Sprint(sid)
+	counts = map[string]int64{
+		"tasks":   s.count("SELECT COUNT(*) FROM tasks WHERE project_id = ?", sid),
+		"specs":   s.count("SELECT COUNT(*) FROM specs WHERE project_id = ?", sid),
+		"repos":   s.count("SELECT COUNT(*) FROM project_repos WHERE project_id = ?", sid),
+		"notes":   s.count("SELECT COUNT(*) FROM notes WHERE target_type = 'project' AND target_id = ?", sid),
+		"tags":    s.count("SELECT COUNT(*) FROM taggings WHERE target_type = 'project' AND target_id = ?", sid),
+		"events":  s.count("SELECT COUNT(*) FROM events WHERE project_id = ?", sid),
+		"rules":   s.count("SELECT COUNT(*) FROM rules WHERE scope_type = 'project' AND scope_id = ?", sid),
+		"lessons": s.count("SELECT COUNT(*) FROM lessons WHERE scope_type = 'project' AND scope_id = ?", sid),
+		"pins":    s.count("SELECT COUNT(*) FROM meta WHERE (key = 'current_project' OR key LIKE 'current_project:%') AND value = ?", pin),
+	}
+	if dry {
+		return counts, nil
+	}
+	from, to := s.projectPath(src), s.projectPath(dst)
+	ctx := s.one("SELECT name FROM contexts WHERE id = ?", dst.Int("context_id"))
+	s.tx(func() {
+		s.exec("UPDATE tasks SET project_id = ? WHERE project_id = ?", did, sid)
+		s.exec("UPDATE specs SET project_id = ? WHERE project_id = ?", did, sid)
+		// A remote both projects link stays linked once, on dst.
+		s.exec("DELETE FROM project_repos WHERE project_id = ? AND slug IN (SELECT slug FROM project_repos WHERE project_id = ?)", sid, did)
+		s.exec("UPDATE project_repos SET project_id = ? WHERE project_id = ?", did, sid)
+		s.exec("UPDATE notes SET target_id = ? WHERE target_type = 'project' AND target_id = ?", did, sid)
+		s.exec("INSERT OR IGNORE INTO taggings (tag_id, target_type, target_id, created_at) SELECT tag_id, 'project', ?, created_at FROM taggings WHERE target_type = 'project' AND target_id = ?", did, sid)
+		s.exec("DELETE FROM taggings WHERE target_type = 'project' AND target_id = ?", sid)
+		s.exec("UPDATE events SET project_id = ? WHERE project_id = ?", did, sid)
+		s.exec("UPDATE rules SET scope_id = ? WHERE scope_type = 'project' AND scope_id = ?", did, sid)
+		s.exec("UPDATE lessons SET scope_id = ? WHERE scope_type = 'project' AND scope_id = ?", did, sid)
+		for _, m := range s.q("SELECT key FROM meta WHERE (key = 'current_project' OR key LIKE 'current_project:%') AND value = ?", pin) {
+			s.setMeta(m.Str("key"), strp(fmt.Sprint(did)))
+			s.setMeta("current_context"+strings.TrimPrefix(m.Str("key"), "current_project"), strp(ctx.Str("name")))
+		}
+		s.exec("DELETE FROM projects WHERE id = ?", sid)
+		s.event("project", did, "merged", from+" -> "+to, 0, did, "")
+	})
+	return counts, nil
+}
+
 // DeleteProject removes a project; with force, its subprojects and tasks.
 func (s *Store) DeleteProject(project *row.Row, force bool) (err error) {
 	defer guard(&err)

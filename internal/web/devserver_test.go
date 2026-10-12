@@ -11,7 +11,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +31,62 @@ import (
 // go test's default -timeout would otherwise kill the listener after 10m,
 // hence -timeout 0. Stop it with Ctrl+C.
 func TestDevServer(t *testing.T) {
+	url := startDevServer(t)
+	t.Logf("devui: fixture server ready\n  %s", url)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	<-ctx.Done()
+}
+
+// TestDiagramWindowBrowser drives the diagram window (assets/diagram.js) in a
+// real headless Chromium through Playwright, against the fixture server. It
+// skips unless node, the playwright npm package and a Chromium are available:
+//
+//	AGTRACK_PW_DIR=<dir with node_modules/playwright> \
+//	AGTRACK_CHROME=<chromium or chrome-headless-shell executable, optional> \
+//	go test -tags devui -run TestDiagramWindowBrowser -v ./internal/web
+func TestDiagramWindowBrowser(t *testing.T) {
+	runBrowserScript(t, "diagram-window.js")
+}
+
+// TestSplitViewBrowser drives docking (split view) and the narrow-screen drawers
+// (testdata/split-view.js) the same way, at 1400, 1100 and 390 px wide.
+func TestSplitViewBrowser(t *testing.T) {
+	runBrowserScript(t, "split-view.js")
+}
+
+// runBrowserScript runs a Playwright script from testdata against the fixture
+// server, with the page URL as its argument.
+func runBrowserScript(t *testing.T, script string) {
+	t.Helper()
+	pwDir := os.Getenv("AGTRACK_PW_DIR")
+	if pwDir == "" {
+		t.Skip("AGTRACK_PW_DIR not set (directory whose node_modules holds playwright)")
+	}
+	// AGTRACK_PW_DIR asks for the run (CI sets it): a broken setup fails
+	// rather than skipping, so the browser checks cannot go quietly missing.
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Fatal("AGTRACK_PW_DIR is set but node was not found")
+	}
+	if _, err := os.Stat(filepath.Join(pwDir, "node_modules", "playwright")); err != nil {
+		t.Fatalf("AGTRACK_PW_DIR is set but playwright is not installed in %s", pwDir)
+	}
+	url := startDevServer(t)
+	cmd := exec.Command(node, filepath.Join("testdata", script), url)
+	cmd.Env = os.Environ()
+	out, err := cmd.CombinedOutput()
+	t.Logf("%s", out)
+	if err != nil {
+		t.Fatalf("browser checks failed: %v", err)
+	}
+}
+
+// startDevServer serves the fixtures on a loopback port and returns the page
+// URL (with the capability token). The listener closes when t finishes.
+func startDevServer(t *testing.T) string {
+	t.Helper()
 	doc := mustReadJSONObject(t, "assets/dev/fixture.json")
 	tasks := mustReadJSONObject(t, "assets/dev/fixture-tasks.json")
 	diff := mustReadJSONObject(t, "assets/dev/fixture-diff.json")
@@ -59,12 +117,7 @@ func TestDevServer(t *testing.T) {
 		_ = httpSrv.Serve(ln)
 	}()
 	t.Cleanup(func() { _ = httpSrv.Close() })
-
-	t.Logf("devui: fixture server ready\n  %s", url)
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-	<-ctx.Done()
+	return url
 }
 
 // --- fake backend ---------------------------------------------------------

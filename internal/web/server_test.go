@@ -162,6 +162,10 @@ func TestSecurityGates(t *testing.T) {
 		{"asset", "GET", base + "/assets/app.js", "", "", "", "", 200},
 		{"dev fixtures are not served", "GET", base + "/assets/dev/fixture.json", "", "", "", "", 404},
 		{"traversal", "GET", base + "/assets/../server.go", "", "", "", "", 404},
+		// spec serve has no browse app: / and /api/browse/ do not exist.
+		{"no browse page in spec mode", "GET", base + "/?t=tok", "", "", "", "", 404},
+		{"no browse api in spec mode", "GET", base + "/api/browse/contexts", "", "tok", "", "", 404},
+		{"events for another spec", "GET", base + "/api/events?spec=other&t=tok", "", "", "", "", 404},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -260,6 +264,104 @@ func TestExtensionlessAssetAndIdleWithOpenStream(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("an open event stream kept the server alive past its idle timeout")
+	}
+}
+
+// R6: reads marked X-Agtrack-Refresh (the page's live refresh) are not
+// activity, while the same reads unmarked are.
+func TestIdleIgnoresRefreshReads(t *testing.T) {
+	poll := func(base string, refresh bool, stop <-chan struct{}) {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(40 * time.Millisecond):
+			}
+			req, _ := http.NewRequest("GET", base+"/api/spec/orbiter:api%2Fauth", nil)
+			req.Header.Set("X-Agtrack-Token", "tok")
+			if refresh {
+				req.Header.Set("X-Agtrack-Refresh", "1")
+			}
+			if resp, err := http.DefaultClient.Do(req); err == nil {
+				resp.Body.Close()
+			}
+		}
+	}
+	const idle = 300 * time.Millisecond
+
+	// Unmarked reads every 40ms keep the server up well past its idle timeout.
+	base, _, cancel, done := start(t, idle)
+	stop := make(chan struct{})
+	go poll(base, false, stop)
+	select {
+	case <-done:
+		t.Fatal("user reads did not count as activity")
+	case <-time.After(4 * idle):
+	}
+	close(stop)
+	cancel()
+	<-done
+
+	// The same reads marked as a refresh let it time out.
+	base, _, cancel, done = start(t, idle)
+	defer cancel()
+	stop = make(chan struct{})
+	defer close(stop)
+	go poll(base, true, stop)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("refresh reads kept the server alive past its idle timeout")
+	}
+	// A marked write is still activity: only GETs are refresh reads.
+	if isRefresh(&http.Request{Method: "POST", Header: http.Header{"X-Agtrack-Refresh": {"1"}}}) {
+		t.Error("a POST counted as a refresh read")
+	}
+}
+
+// R12: POST /api/shutdown stops the server; token header and JSON only.
+func TestShutdownEndpoint(t *testing.T) {
+	base, _, cancel, done := start(t, time.Hour)
+	defer cancel()
+	sd := base + "/api/shutdown"
+	for _, c := range []struct {
+		name, method, url, token, ctype string
+		want                            int
+	}{
+		{"get", "GET", sd, "tok", "", 405},
+		{"no token", "POST", sd, "", "application/json", 403},
+		{"query token", "POST", sd + "?t=tok", "", "application/json", 403},
+		{"wrong token", "POST", sd, "nope", "application/json", 403},
+		{"form post", "POST", sd, "tok", "application/x-www-form-urlencoded", 415},
+	} {
+		if got, body := do(t, c.method, c.url, "", c.token, c.ctype, "{}"); got != c.want {
+			t.Errorf("%s: %d, want %d: %s", c.name, got, c.want, body)
+		}
+	}
+	// The cookie alone is not enough either.
+	req, _ := http.NewRequest("POST", sd, strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: "tok"})
+	if resp, err := http.DefaultClient.Do(req); err != nil || resp.StatusCode != 403 {
+		t.Errorf("cookie-only shutdown: %v %v", resp, err)
+	} else {
+		resp.Body.Close()
+	}
+	select {
+	case <-done:
+		t.Fatal("a refused shutdown stopped the server")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if got, body := do(t, "POST", sd, "", "tok", "application/json", "{}"); got != 202 || !strings.Contains(body, `"stopping":true`) {
+		t.Fatalf("shutdown: %d %s", got, body)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the server did not stop after an accepted shutdown")
 	}
 }
 

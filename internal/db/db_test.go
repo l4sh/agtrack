@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"sync"
@@ -72,6 +73,40 @@ func TestTxRollsBack(t *testing.T) {
 	}
 }
 
+func TestSavepointUndoesOnlyItself(t *testing.T) {
+	d, err := Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	err = d.Tx(func() error {
+		d.Exec("INSERT INTO meta (key, value) VALUES ('a', '1')")
+		if d.Savepoint(func() error {
+			d.Exec("INSERT INTO meta (key, value) VALUES ('b', '1')")
+			return os.ErrInvalid
+		}) == nil {
+			t.Error("savepoint swallowed the error")
+		}
+		if !d.InTx() {
+			t.Error("outer transaction lost")
+		}
+		return d.Savepoint(func() error {
+			d.Exec("INSERT INTO meta (key, value) VALUES ('c', '1')")
+			return nil
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	d.QueryRow("SELECT COUNT(*) FROM meta WHERE key IN ('a','c')").Scan(&n)
+	var b int
+	d.QueryRow("SELECT COUNT(*) FROM meta WHERE key='b'").Scan(&b)
+	if n != 2 || b != 0 {
+		t.Fatalf("a,c=%d b=%d", n, b)
+	}
+}
+
 // AGTRACK_TEST_V2_DB points at a *copy* of a real v2 database.
 func TestOpensRealV2Copy(t *testing.T) {
 	src := os.Getenv("AGTRACK_TEST_V2_DB")
@@ -95,5 +130,55 @@ func TestOpensRealV2Copy(t *testing.T) {
 	d.QueryRow("SELECT COUNT(*) FROM events WHERE uid IS NULL").Scan(&missing)
 	if missing != 0 {
 		t.Fatal("uid backfill incomplete")
+	}
+}
+
+// v3 -> v4 (agent-features spec "Schema v4"): the v3 file is backed up first,
+// rows survive, and the new columns and tables exist.
+func TestMigratesV3ToV4WithBackup(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v3.db")
+	raw, err := sql.Open("sqlite", DSN(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range append(append([]string{}, schemaV2...), migration3...) {
+		if _, err := raw.Exec(s); err != nil {
+			t.Fatalf("%s: %v", firstLine(s), err)
+		}
+	}
+	if _, err := raw.Exec(`INSERT INTO contexts (name, created_at, updated_at) VALUES ('w', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec("PRAGMA user_version = 3"); err != nil {
+		t.Fatal(err)
+	}
+	raw.Close()
+
+	d, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if v, _ := d.UserVersion(); v != SchemaVersion || SchemaVersion != 4 {
+		t.Fatalf("version %d, SchemaVersion %d", v, SchemaVersion)
+	}
+	if _, err := os.Stat(path + ".v3.bak"); err != nil {
+		t.Errorf("no v3 backup: %v", err)
+	}
+	var n int
+	if err := d.QueryRow("SELECT COUNT(*) FROM contexts").Scan(&n); err != nil || n != 1 {
+		t.Errorf("contexts after migration: %d (%v)", n, err)
+	}
+	for _, q := range []string{
+		"SELECT session FROM events",
+		"SELECT claim_session, claim_last_seen, snoozed_until, snooze_note FROM tasks",
+		"SELECT acknowledged_at, acknowledged_by FROM notes",
+		"SELECT * FROM task_evidence", "SELECT * FROM checkpoints", "SELECT * FROM actors",
+		"SELECT * FROM actor_aliases", "SELECT * FROM rules", "SELECT * FROM rule_events",
+		"SELECT * FROM lessons", "SELECT * FROM lesson_triggers", "SELECT * FROM lessons_fts",
+	} {
+		if _, err := d.Exec(q); err != nil {
+			t.Errorf("%s: %v", q, err)
+		}
 	}
 }

@@ -53,12 +53,17 @@ func taskClaim(c *Ctx) error {
 		return err
 	}
 	t := res.Task
+	c.gitStart(t)
+	c.ackHint(t.Int("project_id"), t.Int("id"))
 	text := fmt.Sprintf("#%d claimed by %s", t.Int("id"), t.Str("claimed_by"))
 	if exp := t.Str("claim_expires_at"); exp != "" {
 		text += " until " + refs.FmtTS(exp, false, false)
 	}
 	if res.Stolen != "" {
 		text += " (taken from " + res.Stolen + ")"
+	}
+	if exp := t.Str("claim_expires_at"); exp != "" && exp <= refs.ToUTCISO(refs.Now().Add(10*time.Minute)) {
+		c.Hint(fmt.Sprintf("agtrack task claim %d --ttl 1h", t.Int("id")))
 	}
 	obj, _ := c.S.TaskDict(t)
 	obj.Set("stolen_from", nilIfEmpty(res.Stolen))
@@ -80,6 +85,21 @@ func taskRelease(c *Ctx) error {
 		text = fmt.Sprintf("#%d was not claimed", t.Int("id"))
 	}
 	return c.mutated(text, row.Of("id", t.Int("id"), "released", changed))
+}
+
+// ackHint points a claimer at an unacknowledged handoff on the task it just
+// took (E3). Hint is first-wins, so any hint set earlier stays.
+func (c *Ctx) ackHint(projectID, taskID int64) {
+	notes, err := c.S.UnackedHandoffs(projectID, taskID)
+	if err != nil {
+		return
+	}
+	for _, n := range notes {
+		if n.Str("kind") == "handoff" && n.Str("target_type") != "project" {
+			c.Hint(fmt.Sprintf("agtrack note ack %d", n.Int("id")))
+			return
+		}
+	}
 }
 
 // nextClaim folds find-and-take into one round trip: the first unclaimed,
@@ -107,7 +127,15 @@ func nextClaim(c *Ctx, f store.TaskFilter) error {
 	if err != nil {
 		return err
 	}
-	for _, t := range append(mine, candidates...) {
+	// A claim this actor holds from another live session is that session's
+	// work, not a task to resume here (B1).
+	var resumable []*row.Row
+	for _, t := range mine {
+		if claimMine(c, t) {
+			resumable = append(resumable, t)
+		}
+	}
+	for _, t := range append(resumable, candidates...) {
 		res, err := c.S.ClaimDoable(t.Int("id"), ttl)
 		if err != nil {
 			if e, ok := errs.As(err); ok && e.Code == errs.ExitConflict {
@@ -115,6 +143,8 @@ func nextClaim(c *Ctx, f store.TaskFilter) error {
 			}
 			return err
 		}
+		c.gitStart(res.Task)
+		c.ackHint(res.Task.Int("project_id"), res.Task.Int("id"))
 		obj, _ := c.S.TaskDict(res.Task)
 		subs, _, _ := c.S.ListSubtasks(t.Int("id"), refs.OpenStatuses, 0)
 		if c.structured() {
@@ -305,15 +335,27 @@ func noteResolve(c *Ctx) error {
 	if err != nil {
 		return err
 	}
-	n, changed, err := c.S.ResolveNote(id, c.Str("note"), false)
+	wasOpen := false
+	if n, err := c.S.GetNote(id); err == nil {
+		wasOpen = n.IsNull("resolved_at")
+	}
+	n, changed, cascaded, err := c.S.ResolveNoteThread(id, c.Str("note"), false)
 	if err != nil {
 		return err
 	}
 	text := fmt.Sprintf("note %d resolved", id)
-	if !changed {
+	if !wasOpen {
 		text = fmt.Sprintf("note %d was already resolved", id)
 	}
-	return c.mutated(text, row.Of("id", id, "resolved_at", n.Get("resolved_at"), "resolved_by", n.Get("resolved_by"), "changed", changed))
+	switch cascaded {
+	case 0:
+	case 1:
+		text += "; 1 reply resolved with it"
+	default:
+		text += fmt.Sprintf("; %d replies resolved with it", cascaded)
+	}
+	return c.mutated(text, row.Of("id", id, "resolved_at", n.Get("resolved_at"), "resolved_by", n.Get("resolved_by"), "changed", changed,
+		"replies_resolved", int64(cascaded)))
 }
 
 func noteReopen(c *Ctx) error {
@@ -410,6 +452,11 @@ func noteShow(c *Ctx) error {
 			state += ": " + n.Str("resolution")
 		}
 	}
+	if !n.IsNull("acknowledged_at") {
+		state += "; acknowledged by " + n.Str("acknowledged_by") + " " + refs.FmtTS(n.Str("acknowledged_at"), false, false)
+	} else if store.Ackable[n.Str("kind")] {
+		state += "; not acknowledged"
+	}
 	return c.detail(obj, "note", []render.Section{
 		{Label: "note", Value: fmt.Sprintf("%d [%s] on %s %d", id, n.Str("kind"), n.Str("target_type"), n.Int("target_id"))},
 		{Label: "by", Value: n.Str("actor")},
@@ -456,6 +503,9 @@ func notesOpen(c *Ctx) error {
 	if err != nil {
 		return err
 	}
+	if c.Bool("unacked") {
+		rows = unackedOnly(rows)
+	}
 	return c.emit(rows, "note", len(rows))
 }
 
@@ -472,26 +522,75 @@ func normalizeNoteKind(k string) (string, error) {
 
 // --- config ---------------------------------------------------------------------------------
 
-var configKeys = map[string][]string{
-	"review.release": {"manual", "auto"},
+// configKey describes one known setting: its default and how a value is
+// validated. Other features read these through store.Config.
+type configKey struct {
+	def     string
+	allowed []string // enum values (compared lowercase); nil = use check
+	check   func(v string) (string, error)
+	fold    bool // lowercase the value before checking
 }
+
+func positiveDays(v string) (string, error) {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 1 {
+		return "", errs.New("expected a whole number of days, 1 or more")
+	}
+	return strconv.Itoa(n), nil
+}
+
+// actorList validates a comma separated list of actor names (case kept).
+func actorList(v string) (string, error) {
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		if p = strings.TrimSpace(p); p == "" {
+			continue
+		}
+		if strings.ContainsAny(p, " \t") {
+			return "", errs.New("actor names cannot contain whitespace: %q", p)
+		}
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return "", errs.New("expected at least one actor, comma separated")
+	}
+	return strings.Join(out, ","), nil
+}
+
+var boolValues = []string{"false", "true"}
+
+var configKeys = map[string]configKey{
+	"review.release":     {def: "manual", allowed: []string{"manual", "auto"}, fold: true},
+	"actor.strict":       {def: "false", allowed: boolValues, fold: true},
+	"actor.required":     {def: "false", allowed: boolValues, fold: true},
+	"rules.approvers":    {def: store.DefaultApprovers, check: actorList},
+	"next.stale_days":    {def: "7", check: positiveDays},
+	"lessons.stale_days": {def: "90", check: positiveDays},
+	"git.auto":           {def: "true", allowed: boolValues, fold: true},
+}
+
+// configOrder is the order `config get` lists settings in.
+var configOrder = []string{"review.release", "actor.strict", "actor.required", "rules.approvers", "next.stale_days", "lessons.stale_days", "git.auto"}
+
+const configKnown = "review.release, actor.strict, actor.required, rules.approvers, next.stale_days, lessons.stale_days, git.auto"
 
 func configGet(c *Ctx) error {
 	keys := []string{c.Str("key")}
 	if keys[0] == "" {
-		keys = []string{"review.release"}
+		keys = configOrder
 	}
 	out := row.New()
 	for _, k := range keys {
-		if _, ok := configKeys[k]; !ok {
-			return errs.New("unknown setting: %s (known: review.release)", k)
+		spec, ok := configKeys[k]
+		if !ok {
+			return errs.New("unknown setting: %s (known: %s)", k, configKnown)
 		}
 		v, ok, err := c.S.GetMeta("config:" + k)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			v = configKeys[k][0]
+			v = spec.def
 		}
 		out.Set(k, v)
 	}
@@ -509,17 +608,28 @@ func configGet(c *Ctx) error {
 }
 
 func configSet(c *Ctx) error {
-	k, v := c.Str("key"), strings.ToLower(c.Str("value"))
-	allowed, ok := configKeys[k]
+	k, v := c.Str("key"), c.Str("value")
+	spec, ok := configKeys[k]
 	if !ok {
-		return errs.New("unknown setting: %s (known: review.release)", k)
+		return errs.New("unknown setting: %s (known: %s)", k, configKnown)
 	}
-	valid := false
-	for _, a := range allowed {
-		valid = valid || a == v
+	if spec.fold {
+		v = strings.ToLower(v)
 	}
-	if !valid {
-		return errs.New("invalid value for %s: %s (expected %s)", k, v, strings.Join(allowed, " or "))
+	if spec.allowed != nil {
+		valid := false
+		for _, a := range spec.allowed {
+			valid = valid || a == v
+		}
+		if !valid {
+			return errs.New("invalid value for %s: %s (expected %s)", k, v, strings.Join(spec.allowed, " or "))
+		}
+	} else {
+		nv, err := spec.check(v)
+		if err != nil {
+			return errs.New("invalid value for %s: %s (%s)", k, v, err.Error())
+		}
+		v = nv
 	}
 	if err := c.S.SetMeta("config:"+k, &v); err != nil {
 		return err
@@ -543,6 +653,8 @@ scope     project pin is per actor (AGTRACK_ACTOR); ` + "`ctx use`" + ` drops a 
           an unqualified write with no resolvable project fails, it never guesses
 exit      0 ok  1 error  2 usage  3 not found  4 conflict  5 database  130 interrupted
           spec await/watch: 0 approved  10 comments  11 timeout  12 spec changed  13 channel lost
+          watch --until stale: 14 a watched claim went quiet
+          check: 0 allow  20 deny  21 hard deny  22 needs approval
 errors    under -f json|yaml|jsonl: one object on stderr {"error","code","message","ref",...}
 retries   --idem KEY on any create: a retry reprints the first result, never double-writes
 
@@ -553,6 +665,16 @@ the six commands an agent actually uses
   agtrack sub start 12.1 / sub done 12.1  move a step (pulls a todo task into in-progress)
   agtrack task note 12 --kind handoff "what the next agent needs"
   agtrack log add -t 12 "milestone or blocker, and why"
+  agtrack note ack 41                     take on a handoff (resolve closes it later); notes --unacked lists the waiting ones
+  agtrack task note 12 --kind handoff --close 12.3 "…"   hand off and finish the step in one write
+  agtrack claims --stale 15m              who holds what and who has gone quiet; task transfer 12 --to X hands one over
+
+standing rules and lessons (scopes: -g global, -c CTX, -p REF, -t ID; default the cwd project)
+  agtrack check push                      before commit/push/pr/release/install/delete/external-post; obey the exit code
+  agtrack rule add deny push -p . --quote "the human's words"     the moment a human states a rule
+  agtrack rules -p . / lessons -p .       what binds here; lessons --path FILE before editing an unfamiliar file
+  agtrack lesson add "title" --path GLOB --cmd PREFIX --body "…"   a gotcha learned the hard way
+  agtrack hooks print / pr sync           harness hook snippets; refresh PR states from the forge
 
 waiting for a human or another agent (pick by harness)
   background notifications (Claude Code): run in the background, react per line

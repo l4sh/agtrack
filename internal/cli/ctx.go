@@ -24,6 +24,7 @@ type Ctx struct {
 	Path  []string
 	Out   io.Writer
 	Err   io.Writer
+	In    io.Reader // stdin override for tests; nil = os.Stdin
 
 	DBPath   string
 	Context  string
@@ -34,9 +35,18 @@ type Ctx struct {
 	Color    *bool
 	Quiet    bool
 	Actor    string
-	MaxBytes int
-	Noun     string // for shared note/tag verbs: the noun in play
+	// ActorGiven is true when --actor or $AGTRACK_ACTOR named the actor.
+	ActorGiven bool
+	// Session is the harness session writes are stamped with (B1);
+	// SessionSource names where it came from, for `info`.
+	Session, SessionSource string
+	MaxBytes               int
+	Noun                   string // for shared note/tag verbs: the noun in play
+	hint                   string // next-action hint (E3)
 	idem
+	// expectTitle is the browse app's compare-and-set precondition for
+	// `task set` / `sub set --title`; there is no flag for it.
+	expectTitle *string
 }
 
 // --- value accessors -----------------------------------------------------------
@@ -196,22 +206,27 @@ func (c *Ctx) emitObject(obj any) error {
 	if !c.structured() {
 		f = "json"
 	}
+	c.applyHint(obj)
 	return render.EmitObject(c.Out, obj, f)
 }
 
 // fieldsFor are the default column sets; -x appends the second list.
 var fieldsFor = map[string][2][]string{
-	"context":  {{"name", "current", "projects", "open_tasks"}, {"title", "archived", "created_at"}},
-	"project":  {{"ref", "tasks", "open", "repos", "tags"}, {"title", "path", "archived", "created_at"}},
-	"task":     {{"id", "status", "project", "title", "subtasks", "tags"}, {"prs", "notes", "started", "closed", "updated", "context"}},
-	"subtask":  {{"ref", "mark", "status", "title", "tags"}, {"notes", "created", "updated"}},
-	"tag":      {{"name", "projects", "tasks", "subtasks", "notes"}, {"created_at"}},
-	"pr":       {{"id", "state", "repo", "number", "task_id", "task_title"}, {"url", "created"}},
-	"event":    {{"when", "actor", "target", "action", "detail"}, {"task", "target_type", "recorded"}},
-	"note":     {{"id", "created", "actor", "body"}, {"kind", "resolved_at"}},
-	"spec":     {{"slug", "revision", "status", "source_path", "title"}, {"project", "sha", "updated_at"}},
-	"dep":      {{"task_id", "depends_on_id", "kind", "status", "title"}, {"reason", "created_at"}},
-	"artifact": {{"id", "kind", "value", "label"}, {"actor", "created_at"}},
+	"context":   {{"name", "current", "projects", "open_tasks"}, {"title", "archived", "created_at"}},
+	"project":   {{"ref", "tasks", "open", "repos", "tags"}, {"title", "path", "archived", "created_at"}},
+	"task":      {{"id", "status", "project", "title", "subtasks", "tags"}, {"prs", "notes", "started", "closed", "updated", "context"}},
+	"subtask":   {{"ref", "mark", "status", "title", "tags"}, {"notes", "created", "updated"}},
+	"tag":       {{"name", "projects", "tasks", "subtasks", "notes"}, {"created_at"}},
+	"pr":        {{"id", "state", "repo", "number", "task_id", "task_title"}, {"url", "created"}},
+	"event":     {{"when", "actor", "target", "action", "detail"}, {"task", "target_type", "recorded"}},
+	"note":      {{"id", "created", "actor", "body"}, {"kind", "resolved_at", "acknowledged_at"}},
+	"finding":   {{"type", "task", "message", "suggested"}, {}},
+	"claim":     {{"id", "holder", "session", "age", "last_seen", "last_event", "title"}, {"project", "claimed_at", "claim_expires_at", "quiet"}},
+	"spec":      {{"slug", "revision", "status", "source_path", "title"}, {"project", "sha", "updated_at"}},
+	"dep":       {{"task_id", "depends_on_id", "kind", "status", "title"}, {"reason", "created_at"}},
+	"artifact":  {{"id", "kind", "value", "label"}, {"actor", "created_at"}},
+	"actor":     {{"slug", "kind", "aliases"}, {"note", "created_at"}},
+	"donecheck": {{"id", "stale_reason", "open_steps", "title", "command"}, {"last_event", "snooze"}},
 }
 
 // emit renders rows honouring --count/--ids/-q/--fields/-f/-x. total is the
@@ -244,7 +259,7 @@ func (c *Ctx) emit(rows []*row.Row, kind string, total int) error {
 			if kind == "tag" {
 				key = "id"
 			}
-		case "spec":
+		case "spec", "actor":
 			key = "slug"
 		}
 		for _, r := range rows {

@@ -88,6 +88,38 @@ func (s *Store) DetachTags(targetType string, targetID int64, names []string) (r
 	return removed, nil
 }
 
+// ChangeTags adds and removes tags in one transaction. Every tag to remove
+// is looked up before anything is written, so an unknown tag fails the whole
+// change. It records a `tagged` event when add is non-empty and an
+// `untagged` event when a tagging was removed.
+func (s *Store) ChangeTags(targetType string, targetID int64, add, remove []string, taskID, projectID int64) (applied, removed []string, err error) {
+	defer guard(&err)
+	s.tx(func() {
+		var drop []*row.Row
+		for _, name := range remove {
+			drop = append(drop, s.getTag(name, true))
+		}
+		for _, name := range add {
+			tag, _ := s.attachTag(targetType, targetID, name)
+			applied = append(applied, tag)
+		}
+		if len(applied) > 0 {
+			s.event(targetType, targetID, "tagged", strings.Join(applied, ","), taskID, projectID, "")
+		}
+		for _, tag := range drop {
+			res := s.exec("DELETE FROM taggings WHERE tag_id = ? AND target_type = ? AND target_id = ?",
+				tag.Int("id"), targetType, targetID)
+			if n, _ := res.RowsAffected(); n > 0 {
+				removed = append(removed, tag.Str("name"))
+			}
+		}
+		if len(removed) > 0 {
+			s.event(targetType, targetID, "untagged", strings.Join(removed, ","), taskID, projectID, "")
+		}
+	})
+	return applied, removed, nil
+}
+
 func (s *Store) tagsFor(targetType string, targetID int64) []string {
 	out := []string{}
 	for _, r := range s.q("SELECT g.name FROM taggings tg JOIN tags g ON g.id = tg.tag_id WHERE tg.target_type = ? AND tg.target_id = ? ORDER BY g.name",
@@ -213,12 +245,36 @@ func (s *Store) noteRow(r *row.Row) *row.Row {
 	if k := r.Str("kind"); k != "" && k != "note" {
 		out.Set("kind", k)
 	}
-	for _, k := range []string{"parent_id", "resolved_at", "resolved_by", "resolution", "quote", "quote_ok"} {
+	for _, k := range []string{"parent_id", "resolved_at", "resolved_by", "resolution", "acknowledged_at", "acknowledged_by", "quote", "quote_ok"} {
 		if r.Has(k) && !r.IsNull(k) {
 			out.Set(k, r.Get(k))
 		}
 	}
 	return out
+}
+
+// ActionKinds are the note kinds that wait for someone, so only they are
+// "open" until resolved. A plain note or a decision is a record: it can still
+// be resolved explicitly, but listings of open notes leave it out unless its
+// kind is asked for (agent-features spec I1).
+var ActionKinds = []string{"handoff", "blocker", "question"}
+
+// NeedsAction reports whether a note of this kind waits for someone.
+func NeedsAction(kind string) bool {
+	for _, k := range ActionKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func quotedKinds(ks []string) string {
+	q := make([]string, len(ks))
+	for i, k := range ks {
+		q[i] = "'" + k + "'"
+	}
+	return strings.Join(q, ",")
 }
 
 // NoteFilter narrows NotesFor.
@@ -237,6 +293,9 @@ func (s *Store) notesForF(targetType string, targetID int64, f NoteFilter) []*ro
 	args := []any{targetType, targetID}
 	if f.OpenOnly {
 		query += " AND resolved_at IS NULL"
+		if f.Kind == "" && targetType != "spec" && targetType != "spec_anchor" {
+			query += " AND kind IN (" + quotedKinds(ActionKinds) + ")"
+		}
 	}
 	if f.Kind != "" {
 		query += " AND kind = ?"
@@ -289,6 +348,17 @@ func (s *Store) DeleteNote(id int64) (err error) {
 // ResolveNote marks a note resolved (idempotent: resolving a resolved note
 // changes nothing). changed reports whether anything was written.
 func (s *Store) ResolveNote(id int64, rationale string, reopen bool) (r *row.Row, changed bool, err error) {
+	r, changed, _, err = s.ResolveNoteThread(id, rationale, reopen)
+	return r, changed, err
+}
+
+// ResolveNoteThread is ResolveNote that also reports how many replies were
+// resolved with the note. Resolving a spec note resolves every unresolved
+// descendant in the same transaction, each with its own note-resolved event
+// (web-browse spec §3); replies resolved earlier keep their own resolution.
+// It also sweeps the open replies of a spec note that is already resolved.
+// Reopening touches the note alone, and task/project notes never cascade.
+func (s *Store) ResolveNoteThread(id int64, rationale string, reopen bool) (r *row.Row, changed bool, cascaded int, err error) {
 	defer guard(&err)
 	s.tx(func() {
 		n := s.one("SELECT * FROM notes WHERE id = ?", id)
@@ -305,20 +375,34 @@ func (s *Store) ResolveNote(id int64, rationale string, reopen bool) (r *row.Row
 			changed = true
 			return
 		}
-		if !n.IsNull("resolved_at") {
+		now := refs.NowISO()
+		if n.IsNull("resolved_at") {
+			s.exec("UPDATE notes SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE id = ?",
+				now, nullable(s.Actor), nullable(rationale), id)
+			detail := firstLine(n.Str("body"))
+			if rationale != "" {
+				detail = firstLine(rationale)
+			}
+			s.event("note", id, "note-resolved", detail, taskID, projectID, "")
+			changed = true
+		}
+		if n.Str("target_type") != "spec_anchor" {
 			return
 		}
-		s.exec("UPDATE notes SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE id = ?",
-			refs.NowISO(), nullable(s.Actor), nullable(rationale), id)
-		detail := firstLine(n.Str("body"))
-		if rationale != "" {
-			detail = firstLine(rationale)
+		for _, c := range s.q(`WITH RECURSIVE thread(id) AS (
+  SELECT id FROM notes WHERE parent_id = ?
+  UNION ALL SELECT n.id FROM notes n JOIN thread t ON n.parent_id = t.id)
+SELECT id FROM notes WHERE id IN (SELECT id FROM thread) AND resolved_at IS NULL ORDER BY id`, id) {
+			s.exec("UPDATE notes SET resolved_at = ?, resolved_by = ? WHERE id = ?", now, nullable(s.Actor), c.Int("id"))
+			s.event("note", c.Int("id"), "note-resolved", fmt.Sprintf("resolved with #%d", id), taskID, projectID, "")
+			cascaded++
 		}
-		s.event("note", id, "note-resolved", detail, taskID, projectID, "")
-		changed = true
+		if cascaded > 0 {
+			changed = true
+		}
 	})
 	r = s.one("SELECT * FROM notes WHERE id = ?", id)
-	return r, changed, nil
+	return r, changed, cascaded, nil
 }
 
 // noteScope finds the task/project a note belongs to, for event scoping.
@@ -442,6 +526,7 @@ type PRFilter struct {
 	HasNumber        bool
 	Context          string
 	AllContexts      bool
+	Project          *row.Row // with its subprojects
 }
 
 // FindPRs searches PRs across tasks.
@@ -470,7 +555,11 @@ func (s *Store) FindPRs(f PRFilter) (out []*row.Row, err error) {
 		where = append(where, "r.state = ?")
 		args = append(args, f.State)
 	}
-	if !f.AllContexts || f.Context != "" {
+	if f.Project != nil {
+		ids := s.descendantIDs(f.Project.Int("id"))
+		where = append(where, "t.project_id IN ("+marks(len(ids))+")")
+		args = append(args, ids64(ids)...)
+	} else if !f.AllContexts || f.Context != "" {
 		ctx := s.contextOrDefault(f.Context)
 		where = append(where, "p.context_id = ?")
 		args = append(args, ctx.Int("id"))
@@ -521,6 +610,7 @@ type EventFilter struct {
 	Context       string
 	Actor         string
 	ActorNot      string
+	SessionNot    string // suppress events stamped with this session (B1)
 	Actions       []string
 	Limit         int // 0 = unlimited
 	AllContexts   bool
@@ -576,6 +666,10 @@ func (s *Store) listEventsT(f EventFilter) ([]*row.Row, int) {
 	if f.ActorNot != "" {
 		where = append(where, "(e.actor IS NULL OR e.actor <> ?)")
 		args = append(args, f.ActorNot)
+	}
+	if f.SessionNot != "" {
+		where = append(where, "(e.session IS NULL OR e.session <> ?)")
+		args = append(args, f.SessionNot)
 	}
 	if len(f.Actions) > 0 {
 		where = append(where, "e.action IN ("+marks(len(f.Actions))+")")
@@ -716,4 +810,97 @@ func (s *Store) GetPR(id int64) (r *row.Row, err error) {
 		fail(errs.NotFound("pr", fmt.Sprint(id), "no such pull request record: %d", id))
 	}
 	return pick(r, prCols...), nil
+}
+
+// NoteWhere says where a note lives, for listings that span targets (the
+// browse app's notes view): its context, context-qualified project, task,
+// and spec section, as far as each applies.
+func (s *Store) NoteWhere(n *row.Row) (r *row.Row, err error) {
+	defer guard(&err)
+	r = row.New()
+	id := n.Int("target_id")
+	var projectID, taskID int64
+	switch n.Str("target_type") {
+	case "context":
+		if c := s.one("SELECT name FROM contexts WHERE id = ?", id); c != nil {
+			r.Set("context", c.Str("name"))
+		}
+	case "project":
+		projectID = id
+	case "task":
+		taskID = id
+	case "subtask":
+		if st := s.one("SELECT task_id, position FROM subtasks WHERE id = ?", id); st != nil {
+			taskID = st.Int("task_id")
+			r.Set("step", fmt.Sprintf("%d.%d", taskID, st.Int("position")))
+		}
+	case "spec", "spec_anchor":
+		specID := id
+		if n.Str("target_type") == "spec_anchor" {
+			a := s.one("SELECT spec_id, key FROM spec_anchors WHERE id = ?", id)
+			if a == nil {
+				break
+			}
+			specID = a.Int("spec_id")
+			r.Set("anchor", a.Str("key"))
+		}
+		if sp := s.one("SELECT * FROM specs WHERE id = ?", specID); sp != nil {
+			projectID = sp.Int("project_id")
+			r.Set("spec_slug", sp.Str("slug"))
+		}
+	}
+	if taskID != 0 {
+		if t := s.one("SELECT id, title, project_id FROM tasks WHERE id = ?", taskID); t != nil {
+			r.Set("task_id", t.Int("id"))
+			r.Set("task_title", t.Str("title"))
+			projectID = t.Int("project_id")
+		}
+	}
+	if projectID != 0 {
+		if p := s.getProject(projectID); p != nil {
+			path := s.projectPath(p)
+			ctx, _, _ := strings.Cut(path, "/")
+			r.Set("context", ctx)
+			r.Set("project", path)
+			if slug := r.Str("spec_slug"); slug != "" {
+				r.Set("spec", path+"/"+slug)
+			}
+		}
+	}
+	return r, nil
+}
+
+// ProjectPinnedBy names the actors whose project pin points at a project
+// ("" is the global pin, shown as "(global)").
+func (s *Store) ProjectPinnedBy(projectID int64) (out []string, err error) {
+	defer guard(&err)
+	out = []string{}
+	for _, m := range s.q("SELECT key FROM meta WHERE (key = 'current_project' OR key LIKE 'current_project:%') AND value = ? ORDER BY key",
+		fmt.Sprint(projectID)) {
+		if actor, ok := strings.CutPrefix(m.Str("key"), "current_project:"); ok {
+			out = append(out, actor)
+		} else {
+			out = append(out, "(global)")
+		}
+	}
+	return out, nil
+}
+
+// LastEventByTask returns each task's most recent event (actor, at), keyed
+// by task id, in one query. Tasks with no events are absent.
+func (s *Store) LastEventByTask(taskIDs []int64) (out map[int64]*row.Row, err error) {
+	defer guard(&err)
+	out = map[int64]*row.Row{}
+	if len(taskIDs) == 0 {
+		return out, nil
+	}
+	for len(taskIDs) > 0 {
+		n := min(len(taskIDs), 500)
+		for _, r := range s.q("SELECT e.task_id, e.actor, e.at FROM events e WHERE e.id IN"+
+			" (SELECT MAX(id) FROM events WHERE task_id IN ("+marks(n)+") GROUP BY task_id)", ids64(taskIDs[:n])...) {
+			out[r.Int("task_id")] = r
+		}
+		taskIDs = taskIDs[n:]
+	}
+	return out, nil
 }

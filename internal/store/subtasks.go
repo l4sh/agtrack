@@ -134,11 +134,13 @@ func (s *Store) SetSubtaskStatus(subID int64, status string, cascade bool, at st
 	return res, nil
 }
 
-// UpdateSubtask retitles a step.
-func (s *Store) UpdateSubtask(sub *row.Row, fields []Field) (r *row.Row, err error) {
+// UpdateSubtask retitles a step. expectTitle is UpdateTask's
+// compare-and-set precondition.
+func (s *Store) UpdateSubtask(sub *row.Row, fields []Field, expectTitle *string) (r *row.Row, err error) {
 	defer guard(&err)
 	task := s.getTaskID(sub.Int("task_id"), "", true)
 	s.tx(func() {
+		s.expectTitle("subtasks", "step", sub.Int("id"), expectTitle, fields)
 		s.updateRow("subtasks", sub.Int("id"), fields)
 		s.event("subtask", sub.Int("id"), "updated", describeFields(fields), task.Int("id"), task.Int("project_id"), "")
 	})

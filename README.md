@@ -112,24 +112,116 @@ agtrack task add "title" -p . --step one --step two --idem "$KEY"
 agtrack sub start 12.1; agtrack sub done 12.1          # a step pulls a todo task into in-progress
 agtrack task note 12 --kind handoff "what the next agent needs"
 agtrack log add -t 12 "milestone or blocker, and why"
+agtrack task checkpoint 12 --next "next action" --file state.md   # versioned working state; resume shows it
 agtrack task done 12                                    # releases the claim
 ```
+
+- **Closure and hygiene**: `sub done 12.3 --close-parent` closes the task with its last
+  step (otherwise a hint says so); `sub next 12` closes the current step and starts the
+  next; `--evidence commit:SHA` on `task done`/`sub done`; `next` flags stale tasks with `!`
+  (`next --stale`, `task done-check [--apply --yes]`, `config set next.stale_days N`);
+  `task snooze 97 --until 3d` / `task unsnooze` / `next --parked`. Mutations may return a
+  `hint` (JSON) or a final `→ command` line.
+- **Batch**: `agtrack batch [--file ops.jsonl] [--continue]` runs JSON-line ops
+  (`{"argv":[...]}` or `{"op":"sub done","args":{...}}`) in one transaction, one result line
+  per op; the first failure rolls everything back unless `--continue`.
+- **Resume is stable and incremental.** `resume -f json` always carries the same top-level
+  keys (`agtrack describe resume` lists them) and a `cursor`; `resume --since <cursor>`
+  returns only what changed; `resume --section checkpoint,handoffs` returns just those
+  sections, uncapped. `resume` prints `MISMATCH:` when the cwd's branch or worktree is not the
+  task's; `task verify-context 12` exits 4 on the same check.
+- **Sessions.** Writes carry a session id (`AGTRACK_SESSION`, else `CLAUDE_CODE_SESSION_ID`,
+  `CODEX_SESSION_ID` / `CODEX_THREAD_ID`; `--session` overrides). `resume` and `next` prefer
+  this actor's claim from this session; `watch --session-not self` ignores your own session.
 
 - **Pins are per actor.** `project use` pins for the current `AGTRACK_ACTOR` only; `ctx use`
   drops a project pin that lies in another context; an unqualified write with no
   resolvable project fails instead of guessing. `-p .` resolves the project linked to the
   cwd's git remote.
+- **Moving things.** `task set 12 --move home/infra` moves a task to any project, in any
+  context. `project set work/app --move home` re-homes a project, with its subprojects, tasks,
+  specs, repo links, rules and lessons; `--move home/infra` makes it a subproject of `infra`
+  instead (projects nest one level, so a project that has subprojects cannot become one).
+  Pins on a moved project follow it. `project merge platform:tools --into platform` folds
+  one project into another instead — tasks, specs, repo links, notes, worklog, rules,
+  lessons and pins — and deletes the emptied source; it previews until you add `--yes`.
 - **Retries are safe** with `--idem KEY` on any create: a retry with the same key reprints
   the first result and writes nothing; the same key with a different request is refused
   (`request_key_reused`).
 - **Claims are advisory and expire** (`task claim 12 --ttl 45m`, `--steal`, `task release`,
   `task ls --unclaimed`). They never block a write; they tell `resume`, `next` and `task ls`
   who is on what. A claim cannot fence a git worktree: an expired holder may still be editing.
+  `claims [--stale 15m]` shows holders and who went quiet; `task transfer 12 --to X` hands a
+  task over with a handoff note; `watch --until stale` exits 14 when a claim goes quiet.
+- **Diagnostics**: `doctor [-p REF] [--strict]` is a read-only health check (stale tasks and
+  claims, unacked handoffs, actor drift, done tasks with a branch and no PR, stale lessons,
+  proposed rules); every finding carries a `suggested` command, `--strict` exits 4 on findings.
+  `info --usage [--since 30d]` counts events per actor and per command family, and events with
+  no actor.
+- **Acknowledge handoffs**: `note ack 7` takes on a handoff, blocker or question (resolving
+  stays separate); `notes --unacked` lists the ones nobody took. `task note 12 --kind
+  handoff --close 12.3 "..."` hands off and finishes the step in one transaction.
 - **Dependencies** (`task block 14 --on 12`) keep blocked tasks out of `next`; `task ls
   --ready` lists the doable ones. Blocked-ness is not a status.
-- **Typed notes**: `--kind note|decision|handoff|blocker|question`; `notes -p .` lists every
-  unresolved one; `note resolve 7 --note why`, `note reopen`, `note reply`, `note rm`.
+- **Typed notes**: `--kind note|decision|handoff|blocker|question`. Only handoffs, blockers
+  and questions wait for someone, so only they are open; a `note` or `decision` is a record
+  (list them with `notes --kind note`). `notes -p .` lists every open one; `note resolve 7 --note why`, `note reopen`, `note reply`, `note rm`.
+- **Actors**: optional registry (`actor add <slug> [--kind agent|human] [--alias A]`, `actor alias`,
+  `actor ls`, `actor rm`, `actor merge <alias> --into <slug> --yes`). Writes store the canonical
+  slug; an unregistered actor warns (`config set actor.strict true` makes it fail), and
+  `config set actor.required true` fails writes with no actor. `config set rules.approvers a,b`
+  (default `human`) names who may approve rules. Settings: `config get` lists them.
 - **Artifacts**: `task artifact 12 branch feat/x`, `... file auth/tokens.py --label "..."`.
+  Inside a git checkout, `task start`, `task claim`, `sub start` (when it pulls the task into
+  progress) and `next --claim` record the `branch` and `worktree` artifacts if the task has none
+  for this checkout, and warn when the branch is a base branch (`main`, `master`, `develop`,
+  `dev`, `stage`, `staging`, `trunk`, and the repo's `origin/HEAD`). `task done` records HEAD as a
+  `commit` artifact and as `commit:` evidence. `--no-git` turns it off per call, `config set
+  git.auto false` everywhere. git failures only warn. `task ls --missing-artifact branch|pr`.
+- **PR state**: `pr sync [-p REF]` runs `gh pr view <url> --json state,mergedAt` for each linked
+  PR (read only, never writes to GitHub), updates the stored state, and lists open tasks whose PR
+  merged with their `task done` command. PRs it cannot read are skipped with the reason.
+
+- **Standing rules**: `rule add deny|allow|require|remember ... [-g|-c CTX|-p REF|-t ID]
+  --quote "the human's words"` (an agent's `allow` and `--hard` rules are proposed until
+  `rule approve`), `rule propose`, `rule revoke 3 --note why`, `rule show`, `rules -p .`
+  (effective set, narrowest first; `--proposed`, `--all`). Verbs: commit, push, pr, merge,
+  release, write, install, migrate, delete, deploy, external-post, config; checks:
+  branch-not-base, browser-check, tests-pass, ask-first. Conditions: `--path GLOB`, `--repo`,
+  `--where branch=GLOB|base=true`; expiry: `--until 3d`, `--until-task-closed`,
+  `--for-session`.
+- **`check <verb>`** resolves the rules for the cwd (task → project → parent → context →
+  global) and exits 0 allow, 20 deny, 21 hard deny, 22 needs approval, with
+  `{"action","decision","hard","matched","allowed_by","hint"}` under `-f json`. A deny
+  accumulates; an approved allow at the same or a narrower scope cancels an `--overridable`
+  non-hard deny; `require branch-not-base` fails on main/master/develop/dev/stage/staging/trunk
+  and the repo's origin/HEAD. Fast enough for a pre-tool hook (a benchmark guards it).
+- **Lessons**: `lesson add "title" [--body|--body-file] [--kind gotcha|fix|decision|fact]
+  [--path GLOB] [--cmd PREFIX] [--topic T]`, `lessons [--path FILE] [--cmd CMD] [--topic T]
+  [--q TEXT] [--unverified 30d] [-x]`, `lesson show|verify|retire|amend`. Lessons not verified
+  for 90 days (`config set lessons.stale_days N`) read as `unverified since ...`. Adding a rule
+  or lesson similar to one at the same or a wider scope is refused (`--supersedes N` or
+  `--force`).
+
+### Installing the hooks by hand
+
+`agtrack hooks print claude|codex [--event session-start|session-end|pre-commit]` prints
+configuration and scripts; it installs nothing, because hooks live in user-level configuration.
+
+1. `agtrack hooks print claude` (or `codex`). Each event prints a JSON block and, for
+   `session-end` and `pre-commit`, a shell script with its target path.
+2. Save each script at the printed path (`~/.claude/hooks/agtrack-*.sh`, or `~/.codex/hooks/`)
+   and `chmod +x` it.
+3. Merge the JSON into `~/.claude/settings.json` (Codex: `~/.codex/hooks.json`, with
+   `hooks = true` under `[features]` in `~/.codex/config.toml`). If the file already has a
+   `SessionStart`, `Stop` or `PreToolUse` array, append the printed entry to it.
+4. Restart the harness. `session-start` runs `agtrack resume`; `session-end` blocks the stop once
+   to list `task done-check` candidates and unacknowledged handoffs; `pre-commit` runs `agtrack
+   check <verb>` before `git commit|push` and `gh pr|release` (exit 20/21 deny, 22 needs approval,
+   anything else lets the command through).
+
+The Codex output was checked against a local install for the file location and `SessionStart`;
+`Stop` and `PreToolUse` use the same schema but were not run.
 
 ## References
 
@@ -187,6 +279,34 @@ The viewer binds `127.0.0.1` only, requires the capability token in the link, va
 `securityLevel: 'strict'` from an embedded, pinned copy, and exits after 30 idle minutes.
 Every browser action goes through the same store, transactions and attribution as the CLI.
 
+### Browsing and editing everything: `agtrack serve`
+
+```sh
+agtrack serve                      # prints http://127.0.0.1:<port>/?t=<token>
+agtrack serve -c work --as alex --idle 0 --open
+agtrack serve --restart            # replace the running server (e.g. after rebuilding)
+```
+
+One server per database: a second `agtrack serve` (same `--as`) prints the running
+server's link instead of starting another, and `agtrack spec serve <spec>` links to the spec
+on it. The running server is recorded in `<db>.serve.json`, which is checked (process alive
+and answering with its token) before use and deleted when stale. `--new` opts out.
+
+A local web app over the whole store: contexts, the project tree, tasks with their steps,
+dependencies, claims, notes, artifacts and PRs, open notes across a scope, and the worklog.
+Every spec opens in the spec viewer above, with the full review flow. From the browser a
+human can create tasks, retitle and tag them, change task and step status, release a claim
+(after a confirm), add and remove dependencies, add steps, write notes of any kind, reply,
+resolve and reopen them, and add worklog entries. There are no deletes, and claims are never
+taken from the browser.
+
+Edits run the CLI's own verbs, so they are ordinary events attributed to `--as` (default
+`human`, which must differ from the serving actor). An agent sees them with
+`agtrack watch -p <project> --actor-not self`, and in `resume` the next time it starts;
+spec comments reach `spec watch|await` exactly as under `spec serve`. Agents never need the
+URL. The same security rules as `spec serve` apply; the idle timeout defaults to 2h
+(`--idle 0` = never).
+
 ### Waiting for a human (or another agent)
 
 | Harness | Use |
@@ -228,6 +348,8 @@ $ agtrack -f json task show 999
 | 4 | conflict (includes a live claim held by someone else, a reused `--idem` key) |
 | 5 | database unreachable or broken |
 | 10 / 11 / 12 / 13 | `spec await`/`watch`: comments / timeout / spec changed / channel lost |
+| 14 | `watch --until stale`: a watched claim went quiet |
+| 20 / 21 / 22 | `check`: deny / hard deny / needs approval |
 | 130 | interrupted |
 
 ## Changes from agtrack 1.x

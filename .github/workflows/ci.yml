@@ -28,3 +28,27 @@ jobs:
       - name: cross-compile
         if: matrix.os == 'ubuntu-latest'
         run: scripts/build-release.sh ci
+
+  # The diagram window's browser checks (-tags devui) in headless Chromium
+  # through Playwright. A separate job, so `test` stays fast.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: install playwright
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw"
+          cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: diagram window browser checks
+        env:
+          AGTRACK_PW_DIR: ${{ runner.temp }}/pw
+        run: go test -tags devui -run TestDiagramWindowBrowser -count=1 -v ./internal/web

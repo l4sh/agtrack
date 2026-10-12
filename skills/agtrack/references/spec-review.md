@@ -18,9 +18,13 @@ agtrack spec serve <spec> --as <human-name> --idle 2h
   idle timeout. Give the human the **whole** URL and also write it to a file - terminals
   wrap long lines and a truncated token gives `{"error":"forbidden","message":"missing or
   wrong token"}`. After the first load a session cookie keeps reloads working.
-- A new `serve` means a new port and token: always hand over the new link.
-- Rebuilt the binary or changed the UI? Stop the old server and start a new one; a running
-  server keeps serving the assets it was built with.
+- If the human already runs `agtrack serve` (same `--as`), `spec serve` prints a link to the
+  spec on that server and **exits at once** instead of blocking; hand over that link. A
+  new server means a new port and token: always hand over the new link.
+- Rebuilt the binary or changed the UI? A running server keeps serving the assets it was
+  built with: `agtrack serve --restart` replaces it (`spec serve --new` for a one-off).
+- The human may be reviewing in their own `agtrack serve` instead of a `spec serve` you
+  started; the watch below is the same either way, because the signal is the database row.
 
 ## 2. Receive
 

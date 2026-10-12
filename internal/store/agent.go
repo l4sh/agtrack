@@ -145,7 +145,8 @@ func (s *Store) claimTask(taskID int64, ttl time.Duration, steal, doable bool) (
 		if ttl > 0 {
 			expires = refs.ToUTCISO(now.Add(ttl))
 		}
-		s.exec("UPDATE tasks SET claimed_by = ?, claimed_at = ?, claim_expires_at = ? WHERE id = ?", s.Actor, nowISO, expires, taskID)
+		s.exec("UPDATE tasks SET claimed_by = ?, claimed_at = ?, claim_expires_at = ?, claim_session = ?, claim_last_seen = ? WHERE id = ?",
+			s.Actor, nowISO, expires, nullable(s.Session), nowISO, taskID)
 		detail := "claimed"
 		if expires != nil {
 			detail += " until " + expires.(string)
@@ -175,7 +176,7 @@ func (s *Store) ReleaseTask(taskID int64, force bool) (r *row.Row, changed bool,
 		if holder != s.Actor && !force {
 			fail(errs.Conflict("task #%d is claimed by %s, not you; pass --force to release it anyway", taskID, holder))
 		}
-		s.exec("UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, claim_expires_at = NULL WHERE id = ?", taskID)
+		s.exec("UPDATE tasks SET claimed_by = NULL, claimed_at = NULL, claim_expires_at = NULL, claim_session = NULL, claim_last_seen = NULL WHERE id = ?", taskID)
 		s.event("task", taskID, "release", holder, taskID, t.Int("project_id"), "")
 		changed = true
 		r = s.getTaskID(taskID, "", true)
@@ -323,6 +324,12 @@ func (s *Store) OpenNotes(projectIDs []int64, taskID int64, kinds []string) (out
 		}
 	}
 	where = append(where, "n.resolved_at IS NULL")
+	if len(kinds) == 0 {
+		// Unasked, "open" means waiting for someone: a plain note or a
+		// decision is a record and never open. Spec comments keep the review
+		// flow, where every released comment needs an answer.
+		where = append(where, "(n.target_type IN ('spec','spec_anchor') OR n.kind IN ("+quotedKinds(ActionKinds)+"))")
+	}
 	if len(kinds) > 0 {
 		where = append(where, "n.kind IN ("+marks(len(kinds))+")")
 		for _, k := range kinds {
